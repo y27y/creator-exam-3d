@@ -413,6 +413,7 @@ class CreatorExam3D {
     this.checkChainReactions();
     this.moveUnits();
     this.spreadHazards();
+    this.triggerRandomEvent();
     this.applyTileHazardsToUnits();
     this.decrementCreationDurations();
     this.checkEndCondition(true);
@@ -611,6 +612,90 @@ class CreatorExam3D {
     // Environmental narrative for hazard spread
     if (type) {
       this.addEnvironmentalNarrative('hazard', { hazardType: type });
+    }
+  }
+
+  // ========== 随机事件系统 ==========
+
+  triggerRandomEvent() {
+    const events = [
+      { name: '突发暴雨', effect: 'floodSpread', probability: 0.08, condition: () => this.level.hazard?.type === 'flood' || this.level.hazard?.type === 'mixed' },
+      { name: '地震', effect: 'terrainChange', probability: 0.05, condition: () => true },
+      { name: '村民顿悟', effect: 'guidance', probability: 0.12, condition: () => this.units.some(u => this.isCivilian(u) && u.status === 'active') },
+      { name: '巨兽犹豫', effect: 'beastStunned', probability: 0.1, condition: () => this.units.some(u => u.type === 'beast' && u.status === 'active') },
+      { name: '奇迹共鸣', effect: 'resonanceBoost', probability: 0.08, condition: () => this.creations.filter(c => c.placed && c.remaining > 0).length >= 2 },
+      { name: '裂隙波动', effect: 'entropyFluctuation', probability: 0.06, condition: () => this.entropy > 2 },
+      { name: '风向改变', effect: 'hazardRedirect', probability: 0.07, condition: () => this.level.hazard?.type === 'flood' || this.level.hazard?.type === 'mixed' }
+    ];
+
+    for (const event of events) {
+      if (event.condition() && Math.random() < event.probability) {
+        this.applyEvent(event);
+        return; // 每回合最多触发一个事件
+      }
+    }
+  }
+
+  applyEvent(event) {
+    switch (event.effect) {
+      case 'floodSpread': {
+        this.spreadTerrain(TILE.WATER, 1);
+        this.addLog(`【随机事件】${event.name}！洪水额外扩散了 1 格`, true);
+        break;
+      }
+      case 'terrainChange': {
+        const x = Math.floor(Math.random() * 7);
+        const y = Math.floor(Math.random() * 7);
+        const terrains = [TILE.LAND, TILE.WATER, TILE.DARK, TILE.FOG];
+        const newTerrain = terrains[Math.floor(Math.random() * terrains.length)];
+        const oldTerrain = this.getTerrain(x, y);
+        if (oldTerrain !== newTerrain && oldTerrain !== TILE.WALL && oldTerrain !== TILE.MOUNTAIN) {
+          this.setTerrain(x, y, newTerrain);
+          this.addLog(`【随机事件】${event.name}！${TERRAIN_LABELS[oldTerrain] || '未知'} 的地形发生了变化`, true);
+        }
+        break;
+      }
+      case 'guidance': {
+        const civilians = this.units.filter(u => this.isCivilian(u) && u.status === 'active');
+        if (civilians.length > 0) {
+          const target = civilians[Math.floor(Math.random() * civilians.length)];
+          target.guidedTurns = Math.max(target.guidedTurns, 2);
+          this.addLog(`【随机事件】${event.name}！${target.name} 突然想起了正确的方向`, true);
+        }
+        break;
+      }
+      case 'beastStunned': {
+        const beast = this.units.find(u => u.type === 'beast' && u.status === 'active');
+        if (beast) {
+          beast.stunned = true;
+          this.addLog(`【随机事件】${event.name}！${beast.name} 突然停下脚步，似乎在犹豫什么`, true);
+        }
+        break;
+      }
+      case 'resonanceBoost': {
+        const activeCreations = this.creations.filter(c => c.placed && c.remaining > 0);
+        if (activeCreations.length >= 2) {
+          const target = activeCreations[Math.floor(Math.random() * activeCreations.length)];
+          target.remaining += 1;
+          this.addLog(`【随机事件】${event.name}！「${target.card.name}」的持续时间意外延长了`, true);
+        }
+        break;
+      }
+      case 'entropyFluctuation': {
+        const change = Math.random() < 0.5 ? -1 : 1;
+        this.entropy = Math.max(0, this.entropy + change);
+        this.addLog(`【随机事件】${event.name}！世界裂隙 ${change > 0 ? '增加' : '减少'}了 1`, true);
+        break;
+      }
+      case 'hazardRedirect': {
+        const x = Math.floor(Math.random() * 7);
+        const y = Math.floor(Math.random() * 7);
+        if (this.getTerrain(x, y) === TILE.LAND) {
+          this.setTerrain(x, y, TILE.WATER);
+          this.addLog(`【随机事件】${event.name}！洪水流向了 ${TERRAIN_LABELS[TILE.LAND]}`, true);
+        }
+        break;
+      }
     }
   }
 

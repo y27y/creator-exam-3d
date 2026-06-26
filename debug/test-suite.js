@@ -1119,6 +1119,41 @@ runner.test('SocialGraph - 应构建关系网并传播情绪', async () => {
   runner.assert(stats.totalEdges >= 2, '应有至少2条边');
 });
 
+// 测试 PersistentWorld 系统
+runner.test('PersistentWorld - 应记录关卡并更新遗产轨迹', async () => {
+  const { PersistentWorld, LEGACY_TRACKS } = await import('../public/js/persistentWorld.js');
+  const world = new PersistentWorld();
+
+  // 记录完美通关
+  const record1 = world.recordLevelCompletion('flood-village', 'won', {
+    rescued: 5, lost: 0, entropy: 2, creations: 3, perfect: true
+  });
+
+  runner.assert(record1.result === 'won', '应记录胜利');
+  runner.assert(record1.legaciesProgressed.length > 0, '应推进遗产轨迹');
+
+  // 记录有损失的通关
+  const record2 = world.recordLevelCompletion('night-mine', 'won', {
+    rescued: 3, lost: 1, entropy: 4, creations: 2, perfect: false
+  });
+
+  runner.assert(record2.transformations.length >= 0, '应检查变形');
+
+  // 检查遗产轨迹进度
+  const humanitarian = world.dynastyLegacies.get('humanitarian');
+  runner.assert(humanitarian !== undefined, '应创建人道主义轨迹');
+  runner.assert(humanitarian.progress >= 5, '应累计救援进度');
+
+  // 检查世界状态摘要
+  const summary = world.getWorldSummary();
+  runner.assert(summary.levelsCompleted === 2, '应完成2个关卡');
+  runner.assert(summary.worldRenown > 0, '应获得声望');
+
+  // 检查活跃效果
+  const effects = world.getActiveLegacyEffects();
+  runner.assert(Array.isArray(effects), '应返回活跃效果数组');
+});
+
 // 运行测试
 runner.run().then(success => {
   process.exit(success ? 0 : 1);

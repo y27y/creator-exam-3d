@@ -3,6 +3,7 @@ import { localCompile } from './aiClient.js';
 import { RESONANCE_CODEX, executeChainReaction } from './chainReactionCodex.js';
 import { legacySystem } from './legacySystem.js';
 import { worldLegendSystem } from './worldLegend.js';
+import { persistentWorld } from './persistentWorld.js';
 
 const BOARD_SIZE = 7;
 const MAX_LOGS = 100;
@@ -1079,6 +1080,19 @@ class GameEngine {
     this.gameState = 'won';
     this.log(`通过：${message}`, true);
     this.hooks.onWin(message);
+
+    // Record in persistent world
+    const stats = {
+      turns: this.turn,
+      maxTurns: this.level.maxTurns,
+      rescued: this.rescued,
+      lost: this.lost,
+      entropy: this.entropy,
+      perfect: this.lost === 0,
+      creations: this.creations.length,
+      legacyUnits: this.units.filter(u => u.isLegacy).length
+    };
+    persistentWorld.recordLevelCompletion(this.level.id, 'won', stats);
   }
 
   failLevel(message) {
@@ -1086,6 +1100,19 @@ class GameEngine {
     this.gameState = 'lost';
     this.log(`失败：${message}`, true);
     this.hooks.onLose(message);
+
+    // Record in persistent world
+    const stats = {
+      turns: this.turn,
+      maxTurns: this.level.maxTurns,
+      rescued: this.rescued,
+      lost: this.lost,
+      entropy: this.entropy,
+      perfect: false,
+      creations: this.creations.length,
+      legacyUnits: this.units.filter(u => u.isLegacy).length
+    };
+    persistentWorld.recordLevelCompletion(this.level.id, 'lost', stats);
   }
 
   // ========== Chain Reactions ==========

@@ -96,6 +96,8 @@ class GameEngine {
     this.worldState = this.initWorldState();
     this.resonanceCodex = RESONANCE_CODEX;
     this.resonanceCodex.reset();
+    this.npcManager = null;
+    this.legacyUnits = [];
   }
 
   loadLevel(index) {
@@ -103,6 +105,17 @@ class GameEngine {
     this.reset();
     this.log(`考核开始：${this.level.shortTitle}。`, true);
     for (const tip of this.level.tips || []) this.log(`提示：${tip}`);
+
+    // 加载传承NPC
+    const legacyNPCs = legacySystem.getNPCsForNextLevel(this.level.id);
+    if (legacyNPCs && legacyNPCs.length > 0) {
+      this.log(`【传承】${legacyNPCs.length} 位故人出现在此关卡`, true);
+      for (const npc of legacyNPCs) {
+        this.log(`  ${npc.name} - ${npc.lore}`);
+      }
+    }
+    this.legacyUnits = legacyNPCs;
+
     this.hooks.onStateChange();
   }
 

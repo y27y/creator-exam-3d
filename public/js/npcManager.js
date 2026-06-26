@@ -460,6 +460,36 @@ export class NPCManager {
     }
   }
 
+  // ========== 传承NPC集成 ==========
+
+  addLegacyNPCs(legacyNPCs) {
+    if (!legacyNPCs || legacyNPCs.length === 0) return;
+    for (const npc of legacyNPCs) {
+      // 避免重复添加同一传承NPC
+      const exists = this.npcs.some(n => n.legacyId === npc.legacyId);
+      if (exists) continue;
+
+      // 为传承NPC添加动态情绪映射
+      if (!this.moodTransitions[npc.name]) {
+        this.moodTransitions[npc.name] = {
+          default: '感激',
+          onRescue: '欣慰',
+          onLoss: '悲伤',
+          onCreation: '惊讶',
+          onHazard: '坚定',
+          onWin: '欢庆',
+          onLose: '绝望'
+        };
+      }
+
+      this.npcs.push(npc);
+    }
+  }
+
+  getLegacyNPCs() {
+    return this.npcs.filter(n => n.isLegacy);
+  }
+
   // ========== 原有方法 ==========
 
   getNPC(npcId) {

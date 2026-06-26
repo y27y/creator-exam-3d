@@ -13,6 +13,12 @@ class DebugGame extends GameEngine {
   reset() {
     super.reset();
     this.npcManager = new NPCManager(this);
+    // Add legacy NPCs from previous rescues
+    if (this.legacyUnits && this.legacyUnits.length > 0) {
+      for (const npc of this.legacyUnits) {
+        this.npcManager.npcs.push(npc);
+      }
+    }
   }
 
   // Override rescueUnit to add NPC reactions
@@ -286,6 +292,19 @@ class NPCManager {
 
   getNPCsAt(x, y) {
     return this.npcs.filter(n => n.location.x === x && n.location.y === y);
+  }
+
+  addLegacyNPCs(legacyNPCs) {
+    if (!legacyNPCs || legacyNPCs.length === 0) return;
+    for (const npc of legacyNPCs) {
+      const exists = this.npcs.some(n => n.legacyId === npc.legacyId);
+      if (exists) continue;
+      this.npcs.push(npc);
+    }
+  }
+
+  getLegacyNPCs() {
+    return this.npcs.filter(n => n.isLegacy);
   }
 
   updateNPCMemory(npcId, memory) {

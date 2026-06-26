@@ -193,6 +193,113 @@ export class LegacySystem {
     this.globalTraits.add(trait.id);
   }
 
+  // 获取可用于下一关卡的传承NPC
+  getNPCsForNextLevel(nextLevelId) {
+    const npcs = [];
+
+    for (const legacy of this.legacyUnits.values()) {
+      const tier = LEGACY_TIERS[legacy.tier];
+      if (!tier) continue;
+
+      // 检查概率
+      if (Math.random() < tier.probability) {
+        // 检查是否已经在该关卡出现过
+        if (!legacy.levels.includes(nextLevelId)) {
+          npcs.push(this.createLegacyNPC(legacy, nextLevelId));
+        }
+      }
+    }
+
+    return npcs;
+  }
+
+  // 创建传承NPC实例
+  createLegacyNPC(legacy, levelId) {
+    const traitDescriptions = legacy.traits.map(t => t.description).join('；');
+    const rescueStories = this.rescueHistory
+      .filter(r => r.unitId === legacy.id)
+      .map(r => {
+        const levelNames = {
+          'flood-village': '洪水村庄',
+          'night-mine': '永夜矿井',
+          'giant-city': '巨兽困城',
+          'wordless-war': '失语战争',
+          'memory-plague': '记忆瘟疫',
+          'final-exam': '创世终考'
+        };
+        return `在${levelNames[r.levelId] || r.levelId}被救援（第${r.turn}/${r.maxTurns}回合）`;
+      });
+
+    return {
+      id: `legacy-npc-${legacy.id}`,
+      name: legacy.name,
+      type: 'legacy',
+      personality: '感恩、坚韧',
+      speechStyle: '温暖而坚定，常提到过去的经历和未来的希望',
+      memories: rescueStories,
+      attitude: '友好',
+      mood: '感激',
+      location: this.generateNPCLocation(levelId),
+      lore: `${legacy.name}曾被你在危难中救下，如今以${LEGACY_TIERS[legacy.tier].name}的身份再次出现。${traitDescriptions ? '特质：' + traitDescriptions : ''}`,
+      traits: legacy.traits.map(t => t.id),
+      isLegacy: true,
+      legacyId: legacy.id,
+      rescueCount: legacy.rescueCount,
+      tier: legacy.tier,
+      // NPC增益效果
+      buffs: this.generateNPCBuffs(legacy.traits)
+    };
+  }
+
+  // 生成NPC位置（根据关卡类型）
+  generateNPCLocation(levelId) {
+    const levelPositions = {
+      'flood-village': [{ x: 2, y: 2 }, { x: 4, y: 4 }],
+      'night-mine': [{ x: 1, y: 1 }, { x: 5, y: 5 }],
+      'giant-city': [{ x: 3, y: 3 }, { x: 2, y: 4 }],
+      'wordless-war': [{ x: 3, y: 2 }, { x: 4, y: 3 }],
+      'memory-plague': [{ x: 3, y: 0 }, { x: 2, y: 2 }],
+      'final-exam': [{ x: 3, y: 3 }, { x: 4, y: 4 }]
+    };
+
+    const positions = levelPositions[levelId] || [{ x: 3, y: 3 }];
+    return positions[Math.floor(Math.random() * positions.length)];
+  }
+
+  // 生成NPC增益效果
+  generateNPCBuffs(traits) {
+    const buffs = [];
+    for (const trait of traits) {
+      switch (trait.effect) {
+        case 'immune_to_water_loss':
+          buffs.push({ type: 'water_protection', description: '水域保护' });
+          break;
+        case 'immune_to_dark_chaos':
+          buffs.push({ type: 'dark_immunity', description: '黑暗免疫' });
+          break;
+        case 'beast_anger_slow':
+          buffs.push({ type: 'beast_calm', description: '安抚巨兽' });
+          break;
+        case 'extra_war_reduction':
+          buffs.push({ type: 'peace_boost', description: '和平加成' });
+          break;
+        case 'chaos_resistance':
+          buffs.push({ type: 'chaos_resist', description: '混乱抵抗' });
+          break;
+        case 'move_speed_plus':
+          buffs.push({ type: 'speed_boost', description: '移动加速' });
+          break;
+        case 'guide_others':
+          buffs.push({ type: 'guidance', description: '引导他人' });
+          break;
+        case 'emergency_boost':
+          buffs.push({ type: 'emergency', description: '危急加成' });
+          break;
+      }
+    }
+    return buffs;
+  }
+
   // 获取可用于下一关卡的传承单位
   getUnitsForNextLevel(nextLevelId) {
     const candidates = [];

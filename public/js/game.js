@@ -6,8 +6,8 @@ import { getMemorySystem } from './aiMemory.js';
 import { ParticleSystem, ScreenEffects } from './particles.js';
 import { NPCManager } from './npcManager.js';
 import { AbilityHandlers, applyAbility } from './abilityHandlers.js';
-
 import { Storyteller, defaultStoryteller } from './storyteller.js';
+import { GameEngine, TERRAIN_LABELS } from './gameEngine.js';
 
 const TILE_SIZE = 1.55;
 const BOARD_SIZE = 7;
@@ -16,26 +16,6 @@ const MAX_LOGS = 18;
 // AI Narrative endpoint configuration
 const NARRATIVE_ENDPOINT = '/api/narrative';
 const NARRATIVE_TIMEOUT = 5000; // 5s timeout to avoid blocking gameplay
-
-const TERRAIN_LABELS = {
-  [TILE.LAND]: '平地',
-  [TILE.WATER]: '水域',
-  [TILE.HIGH]: '高地',
-  [TILE.VILLAGE]: '村庄',
-  [TILE.EXIT]: '出口',
-  [TILE.CITY]: '城市',
-  [TILE.BORDER]: '边境',
-  [TILE.FOREST]: '森林',
-  [TILE.MOUNTAIN]: '山体',
-  [TILE.DARK]: '黑暗',
-  [TILE.FOG]: '迷雾',
-  [TILE.SACRED]: '圣树',
-  [TILE.SWAMP]: '沼泽',
-  [TILE.BRIDGE]: '桥梁',
-  [TILE.WALL]: '屏障',
-  [TILE.FIELD]: '结界',
-  [TILE.POISON]: '污染'
-};
 
 const MATERIAL_COLORS = {
   [TILE.LAND]: 0x52634c,
@@ -71,8 +51,40 @@ const ABILITY_COLORS = {
   transform_land: 0xb4e66e
 };
 
-class CreatorExam3D {
+class CreatorExam3D extends GameEngine {
   constructor() {
+    super({
+      onLog: (text, important) => {
+        if (this.ui?.logList) this.updateLogs();
+      },
+      onWin: (message) => {
+        this.handleWin(message);
+      },
+      onLose: (message) => {
+        this.handleLose(message);
+      },
+      onRescue: (unit) => {
+        this.handleRescue(unit);
+      },
+      onPlacement: (creation, x, y) => {
+        this.handlePlacement(creation, x, y);
+      },
+      onTurnEnd: () => {
+        this.renderWorld();
+        this.updateUi();
+      },
+      onStateChange: () => {
+        this.renderWorld();
+        this.updateUi();
+      },
+      onHazardSpread: (type) => {
+        this.addEnvironmentalNarrative('hazard', { hazardType: type });
+      },
+      onCreationExpire: (creation) => {
+        // No-op: rendering handled in renderWorld
+      }
+    });
+
     this.canvas = document.getElementById('game-canvas');
     this.root = document.getElementById('game-root');
     this.raycaster = new THREE.Raycaster();
@@ -81,9 +93,6 @@ class CreatorExam3D {
     this.worldGroup = new THREE.Group();
     this.activeCard = null;
     this.placementMode = false;
-    this.levelIndex = 0;
-    this.logs = [];
-    this.gameState = 'playing';
     this.materials = new Map();
     this.geometryCache = new Map();
     this.labelCache = new Map();
@@ -105,6 +114,30 @@ class CreatorExam3D {
     this.bindEvents();
     this.loadLevel(0);
     this.animate();
+  }
+
+  // Override loadLevel to add browser-specific initialization
+  loadLevel(index) {
+    super.loadLevel(index);
+    this.activeCard = null;
+    this.placementMode = false;
+    this.ui.modal.classList.add('hidden');
+    this.ui.nextBtn.classList.add('hidden');
+    this.ui.cardPanel.classList.add('hidden');
+
+    // Initialize NPC manager for this level
+    this.npcManager = new NPCManager(this.level);
+
+    // Add legacy NPCs from previous rescues
+    if (this.legacyUnits && this.legacyUnits.length > 0) {
+      this.npcManager.addLegacyNPCs(this.legacyUnits);
+    }
+
+    // Update memory system
+    this.memorySystem.worldState.currentLevel = this.level.id;
+
+    this.renderWorld();
+    this.updateUi();
   }
 
   collectUi() {
@@ -239,49 +272,6 @@ class CreatorExam3D {
     this.camera.aspect = window.innerWidth / window.innerHeight;
     this.camera.updateProjectionMatrix();
     this.renderer.setSize(window.innerWidth, window.innerHeight);
-  }
-
-  loadLevel(index) {
-    this.levelIndex = Math.max(0, Math.min(index, LEVELS.length - 1));
-    this.level = cloneLevel(LEVELS[this.levelIndex]);
-    this.terrain = this.level.map.map((row) => row.split('').map((char) => SYMBOL_TO_TILE[char] || TILE.LAND));
-    this.units = this.level.units.map((unit, unitIndex) => ({
-      id: `${this.level.id}-${unitIndex}`,
-      status: 'active',
-      rescued: false,
-      lost: false,
-      stunned: false,
-      guidedTurns: 0,
-      met: false,
-      ...unit
-    }));
-    this.creations = [];
-    this.turn = 1;
-    this.rescued = 0;
-    this.lost = 0;
-    this.entropy = 0;
-    this.creationCharges = this.level.creationCharges;
-    this.miraclePoints = this.level.miraclePoints;
-    this.warMeter = Number(this.level.hazard?.warMeter || 0);
-    this.peaceTalks = 0;
-    this.gameState = 'playing';
-    this.activeCard = null;
-    this.placementMode = false;
-    this.logs = [];
-    this.ui.modal.classList.add('hidden');
-    this.ui.nextBtn.classList.add('hidden');
-    this.ui.cardPanel.classList.add('hidden');
-
-    // Initialize NPC manager for this level
-    this.npcManager = new NPCManager(this.level);
-
-    // Update memory system
-    this.memorySystem.worldState.currentLevel = this.level.id;
-
-    this.addLog(`考核开始：${this.level.shortTitle}。`, true);
-    for (const tip of this.level.tips || []) this.addLog(`提示：${tip}`);
-    this.renderWorld();
-    this.updateUi();
   }
 
   async handleCompile() {
@@ -421,6 +411,7 @@ class CreatorExam3D {
     applyAbility(this, creation, 'immediate');
   }
 
+  // Override endTurn to add browser-specific features (storyteller, applyAbility)
   endTurn() {
     if (this.gameState !== 'playing') {
       this.showToast('本关已经结束。');
@@ -603,333 +594,17 @@ class CreatorExam3D {
     }
   }
 
-  moveUnits() {
-    for (const unit of this.units) {
-      if (unit.status !== 'active') continue;
-      if (this.isCivilian(unit)) this.moveCivilian(unit);
-      else if (this.isMessenger(unit)) this.moveMessenger(unit);
-      else if (unit.type === 'beast') this.moveBeast(unit);
-    }
+  // Override rescueUnit for browser-specific effects
+  rescueUnit(unit) {
+    super.rescueUnit(unit);
+    // Environmental narrative for rescue
+    this.addEnvironmentalNarrative('rescue', { unit, levelId: this.level.id });
+    // Spawn rescue particle effect
+    const pos = this.tileToWorld(unit.x, unit.y);
+    this.particleSystem.spawnRescueEffect(pos.x, 0.5, pos.z);
   }
 
-  moveCivilian(unit) {
-    if (this.isGoalReached(unit)) {
-      this.rescueUnit(unit);
-      return;
-    }
-
-    const guided = unit.guidedTurns > 0 || this.nearActiveAbility(unit.x, unit.y, ['guide', 'memory_beacon', 'illuminate']);
-    let next = null;
-    if (this.level.memoryChaos && !guided && Math.random() < 0.45) {
-      next = this.randomPassableNeighbor(unit);
-      if (next) this.addLog(`${unit.name} 被记忆瘟疫影响，偏离了道路。`);
-    }
-    if (!next) next = this.nextStepToward(unit, unit.goal);
-
-    if (next) {
-      unit.x = next.x;
-      unit.y = next.y;
-    }
-
-    if (unit.guidedTurns > 0) unit.guidedTurns -= 1;
-
-    if (this.isGoalReached(unit)) {
-      this.rescueUnit(unit);
-    }
-  }
-
-  moveMessenger(unit) {
-    if (this.isGoalReached(unit)) {
-      unit.met = true;
-      return;
-    }
-
-    const terrain = this.getTerrain(unit.x, unit.y);
-    const guided = unit.guidedTurns > 0 || this.nearActiveAbility(unit.x, unit.y, ['calm', 'guide', 'memory_beacon']);
-    if ((terrain === TILE.FOG || terrain === TILE.DARK) && !guided) {
-      this.warMeter = Math.min(this.level.hazard?.warLimit || 9, this.warMeter + 1);
-      this.addLog(`${unit.name} 在迷雾中误判形势，战争值 +1。`);
-      return;
-    }
-
-    const next = this.nextStepToward(unit, unit.goal);
-    if (next) {
-      unit.x = next.x;
-      unit.y = next.y;
-    }
-    if (unit.guidedTurns > 0) unit.guidedTurns -= 1;
-    if (this.isGoalReached(unit)) {
-      unit.met = true;
-      this.addLog(`${unit.name} 抵达边境会谈点。`, true);
-    }
-  }
-
-  moveBeast(unit) {
-    if (unit.stunned) {
-      unit.stunned = false;
-      unit.anger = Math.min(this.level.beastAngerLimit || 5, (unit.anger || 0) + 0);
-      this.addLog(`${unit.name} 本回合被牵制，没有前进。`);
-      return;
-    }
-
-    const next = this.nextStepToward(unit, unit.goal);
-    if (!next) {
-      unit.anger = Math.min(this.level.beastAngerLimit || 5, (unit.anger || 0) + 1);
-      this.addLog(`${unit.name} 被完全堵住，怒气上升到 ${unit.anger}。`);
-      return;
-    }
-    unit.x = next.x;
-    unit.y = next.y;
-    if (this.isGoalReached(unit)) {
-      this.failLevel(`${unit.name} 抵达了城市，考核失败。`);
-    }
-  }
-
-  spreadHazards() {
-    const type = this.level.hazard?.type;
-    if (type === 'flood') this.spreadTerrain(TILE.WATER, this.level.hazard.spreadPerTurn || 2);
-    if (type === 'darkness') this.spreadTerrain(TILE.DARK, this.level.hazard.spreadPerTurn || 2);
-    if (type === 'fog') this.spreadTerrain(TILE.FOG, this.level.hazard.spreadPerTurn || 2);
-
-    if (type === 'war') this.advanceWar();
-
-    if (type === 'mixed') {
-      this.spreadTerrain(TILE.WATER, 1);
-      this.spreadTerrain(TILE.DARK, 1);
-      this.spreadTerrain(TILE.FOG, 1);
-      this.advanceWar();
-    }
-
-    // Environmental narrative for hazard spread
-    if (type) {
-      this.addEnvironmentalNarrative('hazard', { hazardType: type });
-    }
-  }
-
-  // ========== 随机事件系统 ==========
-
-  triggerRandomEvent() {
-    const events = [
-      { name: '突发暴雨', effect: 'floodSpread', probability: 0.08, condition: () => this.level.hazard?.type === 'flood' || this.level.hazard?.type === 'mixed' },
-      { name: '地震', effect: 'terrainChange', probability: 0.05, condition: () => true },
-      { name: '村民顿悟', effect: 'guidance', probability: 0.12, condition: () => this.units.some(u => this.isCivilian(u) && u.status === 'active') },
-      { name: '巨兽犹豫', effect: 'beastStunned', probability: 0.1, condition: () => this.units.some(u => u.type === 'beast' && u.status === 'active') },
-      { name: '奇迹共鸣', effect: 'resonanceBoost', probability: 0.08, condition: () => this.creations.filter(c => c.placed && c.remaining > 0).length >= 2 },
-      { name: '裂隙波动', effect: 'entropyFluctuation', probability: 0.06, condition: () => this.entropy > 2 },
-      { name: '风向改变', effect: 'hazardRedirect', probability: 0.07, condition: () => this.level.hazard?.type === 'flood' || this.level.hazard?.type === 'mixed' }
-    ];
-
-    for (const event of events) {
-      if (event.condition() && Math.random() < event.probability) {
-        this.applyEvent(event);
-        return; // 每回合最多触发一个事件
-      }
-    }
-  }
-
-  applyEvent(event) {
-    switch (event.effect) {
-      case 'floodSpread': {
-        this.spreadTerrain(TILE.WATER, 1);
-        this.addLog(`【随机事件】${event.name}！洪水额外扩散了 1 格`, true);
-        break;
-      }
-      case 'terrainChange': {
-        const x = Math.floor(Math.random() * 7);
-        const y = Math.floor(Math.random() * 7);
-        const terrains = [TILE.LAND, TILE.WATER, TILE.DARK, TILE.FOG];
-        const newTerrain = terrains[Math.floor(Math.random() * terrains.length)];
-        const oldTerrain = this.getTerrain(x, y);
-        if (oldTerrain !== newTerrain && oldTerrain !== TILE.WALL && oldTerrain !== TILE.MOUNTAIN) {
-          this.setTerrain(x, y, newTerrain);
-          this.addLog(`【随机事件】${event.name}！${TERRAIN_LABELS[oldTerrain] || '未知'} 的地形发生了变化`, true);
-        }
-        break;
-      }
-      case 'guidance': {
-        const civilians = this.units.filter(u => this.isCivilian(u) && u.status === 'active');
-        if (civilians.length > 0) {
-          const target = civilians[Math.floor(Math.random() * civilians.length)];
-          target.guidedTurns = Math.max(target.guidedTurns, 2);
-          this.addLog(`【随机事件】${event.name}！${target.name} 突然想起了正确的方向`, true);
-        }
-        break;
-      }
-      case 'beastStunned': {
-        const beast = this.units.find(u => u.type === 'beast' && u.status === 'active');
-        if (beast) {
-          beast.stunned = true;
-          this.addLog(`【随机事件】${event.name}！${beast.name} 突然停下脚步，似乎在犹豫什么`, true);
-        }
-        break;
-      }
-      case 'resonanceBoost': {
-        const activeCreations = this.creations.filter(c => c.placed && c.remaining > 0);
-        if (activeCreations.length >= 2) {
-          const target = activeCreations[Math.floor(Math.random() * activeCreations.length)];
-          target.remaining += 1;
-          this.addLog(`【随机事件】${event.name}！「${target.card.name}」的持续时间意外延长了`, true);
-        }
-        break;
-      }
-      case 'entropyFluctuation': {
-        const change = Math.random() < 0.5 ? -1 : 1;
-        this.entropy = Math.max(0, this.entropy + change);
-        this.addLog(`【随机事件】${event.name}！世界裂隙 ${change > 0 ? '增加' : '减少'}了 1`, true);
-        break;
-      }
-      case 'hazardRedirect': {
-        const x = Math.floor(Math.random() * 7);
-        const y = Math.floor(Math.random() * 7);
-        if (this.getTerrain(x, y) === TILE.LAND) {
-          this.setTerrain(x, y, TILE.WATER);
-          this.addLog(`【随机事件】${event.name}！洪水流向了 ${TERRAIN_LABELS[TILE.LAND]}`, true);
-        }
-        break;
-      }
-    }
-  }
-
-  spreadTerrain(sourceTerrain, amount) {
-    const candidates = [];
-    for (let y = 0; y < BOARD_SIZE; y += 1) {
-      for (let x = 0; x < BOARD_SIZE; x += 1) {
-        if (this.getTerrain(x, y) !== sourceTerrain) continue;
-        for (const nb of this.neighbors(x, y)) {
-          const terrain = this.getTerrain(nb.x, nb.y);
-          if (this.canHazardEnter(nb.x, nb.y, sourceTerrain, terrain)) {
-            candidates.push({ ...nb, score: this.hazardScore(nb.x, nb.y, sourceTerrain) });
-          }
-        }
-      }
-    }
-    const unique = uniqueCells(candidates).sort((a, b) => b.score - a.score);
-    const picked = unique.slice(0, amount);
-    for (const cell of picked) this.setTerrain(cell.x, cell.y, sourceTerrain);
-    if (picked.length) {
-      const label = sourceTerrain === TILE.WATER ? '洪水' : sourceTerrain === TILE.DARK ? '黑暗' : '迷雾';
-      this.addLog(`${label} 扩散了 ${picked.length} 格。`);
-    }
-  }
-
-  canHazardEnter(x, y, sourceTerrain, terrain) {
-    if (this.isProtected(x, y)) return false;
-    if ([TILE.HIGH, TILE.EXIT, TILE.CITY, TILE.MOUNTAIN, TILE.WALL, TILE.FIELD, TILE.SACRED].includes(terrain)) return false;
-    if (terrain === sourceTerrain) return false;
-    if (terrain === TILE.BRIDGE && sourceTerrain !== TILE.DARK) return false;
-    return [TILE.LAND, TILE.VILLAGE, TILE.FOREST, TILE.BORDER, TILE.SWAMP, TILE.FOG, TILE.DARK].includes(terrain);
-  }
-
-  hazardScore(x, y, sourceTerrain) {
-    let score = 10;
-    for (const unit of this.units.filter((u) => u.status === 'active')) {
-      score += Math.max(0, 5 - this.distance(x, y, unit.x, unit.y));
-    }
-    if (sourceTerrain === TILE.WATER) score += Math.max(0, 5 - x);
-    return score;
-  }
-
-  advanceWar() {
-    const messengers = this.units.filter((unit) => this.isMessenger(unit));
-    const allMet = messengers.length > 0 && messengers.every((unit) => this.isGoalReached(unit));
-    const calmNearBorder = this.creations.some((creation) =>
-      creation.remaining > 0 && ['calm', 'memory_beacon'].includes(creation.card.ability) && this.getTerrain(creation.x, creation.y) === TILE.BORDER
-    );
-    if (allMet) {
-      this.peaceTalks += 1;
-      this.warMeter = Math.max(0, this.warMeter - 2);
-      this.addLog('两名使者在边境交换证词，战争值下降。', true);
-    } else if (calmNearBorder) {
-      this.warMeter = Math.max(0, this.warMeter - 1);
-      this.addLog('边境附近的和平造物压住了冲突。');
-    } else {
-      this.warMeter += 1;
-      this.addLog(`误会继续发酵，战争值升至 ${this.warMeter}。`);
-    }
-  }
-
-  applyTileHazardsToUnits() {
-    for (const unit of this.units) {
-      if (unit.status !== 'active') continue;
-      const terrain = this.getTerrain(unit.x, unit.y);
-      if (this.isCivilian(unit) && [TILE.WATER, TILE.DARK, TILE.POISON].includes(terrain)) {
-        unit.status = 'lost';
-        unit.lost = true;
-        this.lost += 1;
-        this.addLog(`${unit.name} 被${TERRAIN_LABELS[terrain]}吞没。`);
-
-        // Environmental narrative for loss
-        this.addEnvironmentalNarrative('loss', { levelId: this.level.id });
-
-        // Spawn loss particle effect
-        const pos = this.tileToWorld(unit.x, unit.y);
-        this.particleSystem.spawnLossEffect(pos.x, 0.5, pos.z);
-      }
-    }
-  }
-
-  decrementCreationDurations() {
-    for (const creation of this.creations) {
-      if (creation.remaining <= 0) continue;
-      creation.remaining -= 1;
-      if (creation.remaining <= 0) {
-        this.expireCreation(creation);
-        this.addLog(`「${creation.card.name}」的持续时间结束。`);
-      }
-    }
-    this.creations = this.creations.filter((creation) => creation.remaining > 0);
-  }
-
-  checkEndCondition(afterTurn, forcedEnd = false) {
-    if (this.gameState !== 'playing') return;
-    if (this.entropy > this.level.entropyLimit) {
-      this.failLevel('世界裂隙超过承受极限，造物失控。');
-      return;
-    }
-
-    const beast = this.units.find((unit) => unit.type === 'beast' && unit.status === 'active');
-    if (beast && this.level.beastAngerLimit && (beast.anger || 0) >= this.level.beastAngerLimit) {
-      this.failLevel(`${beast.name} 的怒气达到上限，城市陷入灾厄。`);
-      return;
-    }
-
-    if (this.isWarLevel() && this.level.hazard?.warLimit && this.warMeter >= this.level.hazard.warLimit) {
-      this.failLevel('战争值达到上限，边境爆发冲突。');
-      return;
-    }
-
-    if (this.level.win === 'requiredRescue' && this.rescued >= this.level.requiredRescue) {
-      this.winLevel(`你救下了 ${this.rescued} 名居民，完成考核。`);
-      return;
-    }
-
-    if (this.level.win === 'peace') {
-      const messengers = this.units.filter((unit) => this.isMessenger(unit));
-      const allMet = messengers.length > 0 && messengers.every((unit) => this.isGoalReached(unit));
-      if (allMet && this.warMeter < 5) {
-        this.winLevel('使者完成会谈，战争被阻止。');
-        return;
-      }
-    }
-
-    if (this.level.win === 'survive' && (forcedEnd || (afterTurn && this.turn >= this.level.maxTurns))) {
-      this.winLevel('城市仍然完整，巨兽没有被杀死，考核通过。');
-      return;
-    }
-
-    if (this.level.win === 'final') {
-      const citySafe = !beast || !this.isGoalReached(beast);
-      if ((forcedEnd || (afterTurn && this.turn >= this.level.maxTurns)) && this.rescued >= this.level.requiredRescue && this.warMeter < 6 && citySafe) {
-        this.winLevel('第七天到来时，世界仍然站立。终考通过。');
-        return;
-      }
-    }
-
-    if (afterTurn && (forcedEnd || this.turn >= this.level.maxTurns)) {
-      this.failLevel('回合耗尽，目标没有达成。');
-    }
-  }
-
+  // Override winLevel for browser-specific effects
   winLevel(message) {
     if (this.gameState !== 'playing') return;
     this.gameState = 'won';
@@ -957,6 +632,7 @@ class CreatorExam3D {
     this.showModal('考核通过', message + (isFinal ? ' 你完成了完整原型的全部关卡。' : ' 可以进入下一关。'), '继续', '重试');
   }
 
+  // Override failLevel for browser-specific effects
   failLevel(message) {
     if (this.gameState !== 'playing') return;
     this.gameState = 'lost';
@@ -992,6 +668,290 @@ class CreatorExam3D {
       return;
     }
     this.loadLevel(this.levelIndex + 1);
+  }
+
+  // Override applyTileHazardsToUnits for browser-specific effects
+  applyTileHazardsToUnits() {
+    for (const unit of this.units) {
+      if (unit.status !== 'active') continue;
+      const terrain = this.getTerrain(unit.x, unit.y);
+      if (this.isCivilian(unit) && [TILE.WATER, TILE.DARK, TILE.POISON].includes(terrain)) {
+        unit.status = 'lost';
+        unit.lost = true;
+        this.lost += 1;
+        this.addLog(`${unit.name} 被${TERRAIN_LABELS[terrain]}吞没。`);
+
+        // Environmental narrative for loss
+        this.addEnvironmentalNarrative('loss', { levelId: this.level.id });
+
+        // Spawn loss particle effect
+        const pos = this.tileToWorld(unit.x, unit.y);
+        this.particleSystem.spawnLossEffect(pos.x, 0.5, pos.z);
+      }
+    }
+  }
+
+  // Override spreadHazards for browser-specific effects
+  spreadHazards() {
+    const type = this.level.hazard?.type;
+    if (type === 'flood') this.spreadTerrain(TILE.WATER, this.level.hazard.spreadPerTurn || 2);
+    if (type === 'darkness') this.spreadTerrain(TILE.DARK, this.level.hazard.spreadPerTurn || 2);
+    if (type === 'fog') this.spreadTerrain(TILE.FOG, this.level.hazard.spreadPerTurn || 2);
+    if (type === 'war') this.advanceWar();
+    if (type === 'mixed') {
+      this.spreadTerrain(TILE.WATER, 1);
+      this.spreadTerrain(TILE.DARK, 1);
+      this.spreadTerrain(TILE.FOG, 1);
+      this.advanceWar();
+    }
+    // Environmental narrative for hazard spread
+    if (type) {
+      this.addEnvironmentalNarrative('hazard', { hazardType: type });
+    }
+  }
+
+  // Override moveCivilian for simpler browser version (no NPC interactions, no revealedPath/dreamLink)
+  moveCivilian(unit) {
+    if (this.isGoalReached(unit)) {
+      this.rescueUnit(unit);
+      return;
+    }
+    const guided = unit.guidedTurns > 0 || this.nearActiveAbility(unit.x, unit.y, ['guide', 'memory_beacon', 'illuminate']);
+    let next = null;
+    if (this.level.memoryChaos && !guided && Math.random() < 0.45) {
+      next = this.randomPassableNeighbor(unit);
+      if (next) this.addLog(`${unit.name} 被记忆瘟疫影响，偏离了道路。`);
+    }
+    if (!next) next = this.nextStepToward(unit, unit.goal);
+    if (next) {
+      unit.x = next.x;
+      unit.y = next.y;
+    }
+    if (unit.guidedTurns > 0) unit.guidedTurns -= 1;
+    if (this.isGoalReached(unit)) {
+      this.rescueUnit(unit);
+    }
+  }
+
+  // Override moveMessenger for simpler browser version (no revealedPath)
+  moveMessenger(unit) {
+    if (this.isGoalReached(unit)) {
+      unit.met = true;
+      return;
+    }
+    const terrain = this.getTerrain(unit.x, unit.y);
+    const guided = unit.guidedTurns > 0 || this.nearActiveAbility(unit.x, unit.y, ['calm', 'guide', 'memory_beacon']);
+    if ((terrain === TILE.FOG || terrain === TILE.DARK) && !guided) {
+      this.warMeter = Math.min(this.level.hazard?.warLimit || 9, this.warMeter + 1);
+      this.addLog(`${unit.name} 在迷雾中误判形势，战争值 +1。`);
+      return;
+    }
+    const next = this.nextStepToward(unit, unit.goal);
+    if (next) {
+      unit.x = next.x;
+      unit.y = next.y;
+    }
+    if (unit.guidedTurns > 0) unit.guidedTurns -= 1;
+    if (this.isGoalReached(unit)) {
+      unit.met = true;
+      this.addLog(`${unit.name} 抵达边境会谈点。`, true);
+    }
+  }
+
+  // Override moveBeast for simpler browser version (no trap check)
+  moveBeast(unit) {
+    if (unit.stunned) {
+      unit.stunned = false;
+      unit.anger = Math.min(this.level.beastAngerLimit || 5, (unit.anger || 0) + 0);
+      this.addLog(`${unit.name} 本回合被牵制，没有前进。`);
+      return;
+    }
+    const next = this.nextStepToward(unit, unit.goal);
+    if (!next) {
+      unit.anger = Math.min(this.level.beastAngerLimit || 5, (unit.anger || 0) + 1);
+      this.addLog(`${unit.name} 被完全堵住，怒气上升到 ${unit.anger}。`);
+      return;
+    }
+    unit.x = next.x;
+    unit.y = next.y;
+    if (this.isGoalReached(unit)) {
+      this.failLevel(`${unit.name} 抵达了城市，考核失败。`);
+    }
+  }
+
+  // Override nextStepToward for simpler browser version (no getMoveCost)
+  nextStepToward(unit, goal) {
+    if (!goal) return null;
+    const startKey = `${unit.x},${unit.y}`;
+    const goalKey = `${goal.x},${goal.y}`;
+    if (startKey === goalKey) return null;
+
+    const openSet = [{ x: unit.x, y: unit.y, g: 0, f: this.distance(unit.x, unit.y, goal.x, goal.y) }];
+    const closedSet = new Set([startKey]);
+    const cameFrom = new Map([[startKey, null]]);
+    const gScore = new Map([[startKey, 0]]);
+
+    while (openSet.length) {
+      openSet.sort((a, b) => a.f - b.f);
+      const current = openSet.shift();
+      const currentKey = `${current.x},${current.y}`;
+      if (currentKey === goalKey) break;
+
+      for (const nb of this.neighbors(current.x, current.y)) {
+        const key = `${nb.x},${nb.y}`;
+        if (closedSet.has(key)) continue;
+        if (!this.isPassable(nb.x, nb.y, unit)) continue;
+
+        const terrain = this.getTerrain(nb.x, nb.y);
+        let moveCost = 1;
+        if (terrain === TILE.FOREST) moveCost = 2;
+        else if (terrain === TILE.HIGH) moveCost = 1.5;
+        else if (terrain === TILE.BRIDGE) moveCost = 1.2;
+
+        const tentativeG = current.g + moveCost;
+        const existingG = gScore.get(key);
+
+        if (existingG === undefined || tentativeG < existingG) {
+          cameFrom.set(key, { x: current.x, y: current.y });
+          gScore.set(key, tentativeG);
+          const f = tentativeG + this.distance(nb.x, nb.y, goal.x, goal.y);
+          if (existingG === undefined) {
+            openSet.push({ x: nb.x, y: nb.y, g: tentativeG, f });
+          } else {
+            const node = openSet.find((n) => `${n.x},${n.y}` === key);
+            if (node) { node.g = tentativeG; node.f = f; }
+          }
+          closedSet.add(key);
+        }
+      }
+    }
+
+    if (!cameFrom.has(goalKey)) return null;
+
+    let current = goal;
+    let previous = cameFrom.get(goalKey);
+    while (previous && !(previous.x === unit.x && previous.y === unit.y)) {
+      current = previous;
+      previous = cameFrom.get(`${current.x},${current.y}`);
+    }
+    return current.x === unit.x && current.y === unit.y ? null : current;
+  }
+
+  // Override isPassable for simpler browser version (no trap avoidance)
+  isPassable(x, y, unit) {
+    const terrain = this.getTerrain(x, y);
+    if (terrain === TILE.MOUNTAIN || terrain === TILE.WALL) return false;
+    if (unit.type === 'beast') {
+      return ![TILE.WATER, TILE.FIELD].includes(terrain);
+    }
+    if (this.isMessenger(unit)) {
+      return ![TILE.WATER, TILE.MOUNTAIN, TILE.WALL, TILE.DARK, TILE.POISON].includes(terrain);
+    }
+    return ![TILE.WATER, TILE.MOUNTAIN, TILE.WALL, TILE.DARK, TILE.POISON].includes(terrain);
+  }
+
+  // Override isProtected for simpler browser version (no placed flag)
+  isProtected(x, y) {
+    return this.creations.some((creation) => {
+      if (creation.remaining <= 0) return false;
+      if (creation.card.ability === 'force_field' && this.distance(x, y, creation.x, creation.y) <= creation.card.range) return true;
+      if (creation.card.ability === 'absorb_water' && this.distance(x, y, creation.x, creation.y) <= 1) return true;
+      return false;
+    });
+  }
+
+  // Override nearActiveAbility for simpler browser version (no placed flag)
+  nearActiveAbility(x, y, abilities) {
+    return this.creations.some((creation) => creation.remaining > 0 && abilities.includes(creation.card.ability) && this.distance(x, y, creation.x, creation.y) <= creation.card.range + 1);
+  }
+
+  // Override canHazardEnter for simpler browser version (no forest block)
+  canHazardEnter(x, y, sourceTerrain, terrain) {
+    if (this.isProtected(x, y)) return false;
+    if ([TILE.HIGH, TILE.EXIT, TILE.CITY, TILE.MOUNTAIN, TILE.WALL, TILE.FIELD, TILE.SACRED].includes(terrain)) return false;
+    if (terrain === sourceTerrain) return false;
+    if (terrain === TILE.BRIDGE && sourceTerrain !== TILE.DARK) return false;
+    return [TILE.LAND, TILE.VILLAGE, TILE.FOREST, TILE.BORDER, TILE.SWAMP, TILE.FOG, TILE.DARK].includes(terrain);
+  }
+
+  // Override getEffectiveRange for simpler browser version (no resonance)
+  getEffectiveRange(creation) {
+    let range = creation.card.range || 1;
+    if (creation.card.specialEffect?.type === 'environmental') {
+      const terrain = this.getTerrain(creation.x, creation.y);
+      if (terrain === TILE.WATER || terrain === TILE.SWAMP) {
+        range += 1;
+      }
+    }
+    return Math.min(range, 3);
+  }
+
+  // Override applyChainReactions for simpler browser version (inline, not codex)
+  applyChainReactions() {
+    const resonancePairs = [
+      { a: 'illuminate', b: 'absorb_water', result: 'steam', text: '照明与吸水共鸣，产生蒸汽驱散更多迷雾' },
+      { a: 'calm', b: 'memory_beacon', result: 'peace', text: '安抚与记忆共鸣，使者心中的疑虑消散' },
+      { a: 'force_field', b: 'transform_land', result: 'sanctuary', text: '结界与地形改造共鸣，形成神圣庇护所' },
+      { a: 'freeze_water', b: 'illuminate', result: 'prism', text: '冰与光共鸣，折射出指引道路的光棱' },
+      { a: 'guide', b: 'reveal_path', result: 'clarity', text: '引导与显路共鸣，所有单位获得清晰视野' },
+      { a: 'sun_blessing', b: 'cleanse', result: 'renewal', text: '日华与净化共鸣，大地焕发生机' }
+    ];
+
+    for (const pair of resonancePairs) {
+      const creationA = this.creations.find(c => c.remaining > 0 && c.card.ability === pair.a);
+      const creationB = this.creations.find(c => c.remaining > 0 && c.card.ability === pair.b);
+      if (creationA && creationB && this.distance(creationA.x, creationA.y, creationB.x, creationB.y) <= 3) {
+        this.applyResonanceEffect(pair.result, creationA, creationB);
+        this.addLog(`共鸣！${pair.text}。`, true);
+        // Spawn resonance particles
+        const posA = this.tileToWorld(creationA.x, creationA.y);
+        const posB = this.tileToWorld(creationB.x, creationB.y);
+        this.particleSystem.spawnResonanceEffect(
+          (posA.x + posB.x) / 2, 0.5, (posA.z + posB.z) / 2,
+          this.particleSystem.getAbilityColor(creationA.card.ability)
+        );
+      }
+    }
+  }
+
+  handleWin(message) {
+    const isFinal = this.levelIndex === LEVELS.length - 1;
+    this.ui.nextBtn.classList.toggle('hidden', isFinal);
+    this.showModal('考核通过', message + (isFinal ? ' 你完成了完整原型的全部关卡。' : ' 可以进入下一关。'), '继续', '重试');
+  }
+
+  handleLose(message) {
+    this.showModal('考核失败', message, '重试', '重试');
+  }
+
+  handleRescue(unit) {
+    // Environmental narrative for rescue
+    this.addEnvironmentalNarrative('rescue', { unit, levelId: this.level.id });
+    // Spawn rescue particle effect
+    const pos = this.tileToWorld(unit.x, unit.y);
+    this.particleSystem.spawnRescueEffect(pos.x, 0.5, pos.z);
+  }
+
+  handlePlacement(creation, x, y) {
+    // Environmental narrative for placement
+    this.addEnvironmentalNarrative('placement', { card: creation.card, x, y, terrain: this.getTerrain(x, y) });
+
+    // Record creation in memory system
+    this.memorySystem.recordCreation(creation.card, this.level.id, this.turn, {
+      x, y,
+      remainingUnits: this.units.filter(u => u.status === 'active').length,
+      currentEntropy: this.entropy
+    });
+
+    // Spawn particle effects
+    const pos = this.tileToWorld(x, y);
+    this.particleSystem.spawnAbilityParticles(pos.x, 0.5, pos.z, creation.card.ability, creation.card.range);
+    this.particleSystem.spawnFloatingText(pos.x, 1.5, pos.z, creation.card.name, this.particleSystem.getAbilityColor(creation.card.ability));
+
+    // Screen flash for high-cost creations
+    if (creation.card.cost >= 3) {
+      this.screenEffects.flash('#' + this.particleSystem.getAbilityColor(creation.card.ability).toString(16).padStart(6, '0'), 400);
+    }
   }
 
   renderWorld() {
@@ -1342,26 +1302,6 @@ class CreatorExam3D {
     return halo;
   }
 
-  createLabel(text) {
-    const canvas = document.createElement('canvas');
-    const ctx = canvas.getContext('2d');
-    canvas.width = 256;
-    canvas.height = 64;
-    ctx.fillStyle = 'rgba(5, 9, 20, 0.72)';
-    roundRect(ctx, 8, 10, 240, 44, 18);
-    ctx.fill();
-    ctx.font = 'bold 24px Microsoft YaHei, sans-serif';
-    ctx.fillStyle = '#f4f7ff';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(text.slice(0, 10), 128, 32);
-    const texture = new THREE.CanvasTexture(canvas);
-    const material = new THREE.SpriteMaterial({ map: texture, transparent: true, depthWrite: false });
-    const sprite = new THREE.Sprite(material);
-    sprite.scale.set(1.2, 0.3, 1);
-    return sprite;
-  }
-
   updateUi() {
     this.ui.levelChip.textContent = `第 ${this.levelIndex + 1} / ${LEVELS.length} 关`;
     this.ui.title.textContent = this.level.title;
@@ -1513,98 +1453,6 @@ class CreatorExam3D {
     };
   }
 
-  getTerrain(x, y) {
-    if (!this.inBounds(x, y)) return TILE.MOUNTAIN;
-    return this.terrain[y][x];
-  }
-
-  setTerrain(x, y, terrain) {
-    if (this.inBounds(x, y)) this.terrain[y][x] = terrain;
-  }
-
-  setTempTerrain(creation, x, y, terrain) {
-    if (!this.inBounds(x, y)) return;
-    const prev = this.getTerrain(x, y);
-    if (prev === terrain) return;
-    creation.restores.push({ x, y, prev });
-    this.setTerrain(x, y, terrain);
-  }
-
-  expireCreation(creation) {
-    for (const item of creation.restores || []) {
-      if (!this.inBounds(item.x, item.y)) continue;
-      const current = this.getTerrain(item.x, item.y);
-      if ([TILE.BRIDGE, TILE.WALL, TILE.FIELD].includes(current)) {
-        this.setTerrain(item.x, item.y, item.prev);
-      }
-    }
-  }
-
-  inBounds(x, y) {
-    return x >= 0 && y >= 0 && x < BOARD_SIZE && y < BOARD_SIZE;
-  }
-
-  neighbors(x, y) {
-    return [
-      { x: x + 1, y },
-      { x: x - 1, y },
-      { x, y: y + 1 },
-      { x, y: y - 1 }
-    ].filter((cell) => this.inBounds(cell.x, cell.y));
-  }
-
-  tilesWithin(cx, cy, range) {
-    const cells = [];
-    for (let y = 0; y < BOARD_SIZE; y += 1) {
-      for (let x = 0; x < BOARD_SIZE; x += 1) {
-        if (this.distance(cx, cy, x, y) <= range) cells.push({ x, y });
-      }
-    }
-    return cells;
-  }
-
-  distance(ax, ay, bx, by) {
-    return Math.abs(ax - bx) + Math.abs(ay - by);
-  }
-
-  tileName(x, y) {
-    return `${TERRAIN_LABELS[this.getTerrain(x, y)] || '未知'} (${x + 1}, ${y + 1})`;
-  }
-
-  unitAt(x, y) {
-    return this.units.find((unit) => unit.status === 'active' && unit.x === x && unit.y === y);
-  }
-
-  isCivilian(unit) {
-    return unit.type === 'villager' || unit.type === 'miner';
-  }
-
-  isMessenger(unit) {
-    return unit.type === 'tribeA' || unit.type === 'tribeB';
-  }
-
-  isWarLevel() {
-    return ['war', 'mixed'].includes(this.level.hazard?.type);
-  }
-
-  isGoalReached(unit) {
-    return unit.goal && unit.x === unit.goal.x && unit.y === unit.goal.y;
-  }
-
-  rescueUnit(unit) {
-    unit.status = 'rescued';
-    unit.rescued = true;
-    this.rescued += 1;
-    this.addLog(`${unit.name} 抵达安全点。`, true);
-
-    // Environmental narrative for rescue
-    this.addEnvironmentalNarrative('rescue', { unit, levelId: this.level.id });
-
-    // Spawn rescue particle effect
-    const pos = this.tileToWorld(unit.x, unit.y);
-    this.particleSystem.spawnRescueEffect(pos.x, 0.5, pos.z);
-  }
-
   addEnvironmentalNarrative(eventType, context) {
     // Try AI narrative first, fallback to local
     this.fetchNarrative(eventType, context).then((text) => {
@@ -1715,67 +1563,6 @@ class CreatorExam3D {
     }
   }
 
-  nextStepToward(unit, goal) {
-    if (!goal) return null;
-    const startKey = `${unit.x},${unit.y}`;
-    const goalKey = `${goal.x},${goal.y}`;
-    if (startKey === goalKey) return null;
-
-    // A* algorithm with terrain cost
-    const openSet = [{ x: unit.x, y: unit.y, g: 0, f: this.distance(unit.x, unit.y, goal.x, goal.y) }];
-    const closedSet = new Set([startKey]);
-    const cameFrom = new Map([[startKey, null]]);
-    const gScore = new Map([[startKey, 0]]);
-
-    while (openSet.length) {
-      // Get node with lowest f score
-      openSet.sort((a, b) => a.f - b.f);
-      const current = openSet.shift();
-      const currentKey = `${current.x},${current.y}`;
-
-      if (currentKey === goalKey) break;
-
-      for (const nb of this.neighbors(current.x, current.y)) {
-        const key = `${nb.x},${nb.y}`;
-        if (closedSet.has(key)) continue;
-        if (!this.isPassable(nb.x, nb.y, unit)) continue;
-
-        const terrain = this.getTerrain(nb.x, nb.y);
-        let moveCost = 1;
-        if (terrain === TILE.FOREST) moveCost = 2;
-        else if (terrain === TILE.HIGH) moveCost = 1.5;
-        else if (terrain === TILE.BRIDGE) moveCost = 1.2;
-
-        const tentativeG = current.g + moveCost;
-        const existingG = gScore.get(key);
-
-        if (existingG === undefined || tentativeG < existingG) {
-          cameFrom.set(key, { x: current.x, y: current.y });
-          gScore.set(key, tentativeG);
-          const f = tentativeG + this.distance(nb.x, nb.y, goal.x, goal.y);
-          if (existingG === undefined) {
-            openSet.push({ x: nb.x, y: nb.y, g: tentativeG, f });
-          } else {
-            const node = openSet.find((n) => `${n.x},${n.y}` === key);
-            if (node) { node.g = tentativeG; node.f = f; }
-          }
-          closedSet.add(key);
-        }
-      }
-    }
-
-    if (!cameFrom.has(goalKey)) return null;
-
-    // Reconstruct path
-    let current = goal;
-    let previous = cameFrom.get(goalKey);
-    while (previous && !(previous.x === unit.x && previous.y === unit.y)) {
-      current = previous;
-      previous = cameFrom.get(`${current.x},${current.y}`);
-    }
-    return current.x === unit.x && current.y === unit.y ? null : current;
-  }
-
   // Calculate full path for visualization
   calculateFullPath(unit) {
     if (!unit.goal || unit.status !== 'active') return null;
@@ -1838,37 +1625,6 @@ class CreatorExam3D {
     return path.length > 1 ? path : null;
   }
 
-  randomPassableNeighbor(unit) {
-    const options = this.neighbors(unit.x, unit.y).filter((cell) => this.isPassable(cell.x, cell.y, unit));
-    if (!options.length) return null;
-    return options[Math.floor(Math.random() * options.length)];
-  }
-
-  isPassable(x, y, unit) {
-    const terrain = this.getTerrain(x, y);
-    if (terrain === TILE.MOUNTAIN || terrain === TILE.WALL) return false;
-    if (unit.type === 'beast') {
-      return ![TILE.WATER, TILE.FIELD].includes(terrain);
-    }
-    if (this.isMessenger(unit)) {
-      return ![TILE.WATER, TILE.MOUNTAIN, TILE.WALL, TILE.DARK, TILE.POISON].includes(terrain);
-    }
-    return ![TILE.WATER, TILE.MOUNTAIN, TILE.WALL, TILE.DARK, TILE.POISON].includes(terrain);
-  }
-
-  isProtected(x, y) {
-    return this.creations.some((creation) => {
-      if (creation.remaining <= 0) return false;
-      if (creation.card.ability === 'force_field' && this.distance(x, y, creation.x, creation.y) <= creation.card.range) return true;
-      if (creation.card.ability === 'absorb_water' && this.distance(x, y, creation.x, creation.y) <= 1) return true;
-      return false;
-    });
-  }
-
-  nearActiveAbility(x, y, abilities) {
-    return this.creations.some((creation) => creation.remaining > 0 && abilities.includes(creation.card.ability) && this.distance(x, y, creation.x, creation.y) <= creation.card.range + 1);
-  }
-
   animate(now) {
     requestAnimationFrame((t) => this.animate(t));
     const deltaTime = Math.min((now - this.lastFrameTime) / 1000 || 0.016, 0.1); // Limit max delta
@@ -1890,18 +1646,6 @@ class CreatorExam3D {
     this.controls.update();
     this.renderer.render(this.scene, this.camera);
   }
-}
-
-function uniqueCells(cells) {
-  const seen = new Set();
-  const result = [];
-  for (const cell of cells) {
-    const key = `${cell.x},${cell.y}`;
-    if (seen.has(key)) continue;
-    seen.add(key);
-    result.push(cell);
-  }
-  return result;
 }
 
 function roundRect(ctx, x, y, width, height, radius) {

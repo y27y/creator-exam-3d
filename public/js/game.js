@@ -369,6 +369,9 @@ class CreatorExam3D {
       this.addLog(`副作用触发：${card.side_effect} 世界裂隙 +${card.stabilityCost}。`);
     }
 
+    // Environmental narrative for placement
+    this.addEnvironmentalNarrative('placement', { card, x, y, terrain: this.getTerrain(x, y) });
+
     // Record creation in memory system
     this.memorySystem.recordCreation(card, this.level.id, this.turn, {
       x, y,
@@ -893,6 +896,11 @@ class CreatorExam3D {
       this.spreadTerrain(TILE.FOG, 1);
       this.advanceWar();
     }
+
+    // Environmental narrative for hazard spread
+    if (type) {
+      this.addEnvironmentalNarrative('hazard', { hazardType: type });
+    }
   }
 
   spreadTerrain(sourceTerrain, amount) {
@@ -962,6 +970,13 @@ class CreatorExam3D {
         unit.lost = true;
         this.lost += 1;
         this.addLog(`${unit.name} 被${TERRAIN_LABELS[terrain]}吞没。`);
+
+        // Environmental narrative for loss
+        this.addEnvironmentalNarrative('loss', { levelId: this.level.id });
+
+        // Spawn loss particle effect
+        const pos = this.tileToWorld(unit.x, unit.y);
+        this.particleSystem.spawnLossEffect(pos.x, 0.5, pos.z);
       }
     }
   }
@@ -1652,9 +1667,78 @@ class CreatorExam3D {
     this.rescued += 1;
     this.addLog(`${unit.name} 抵达安全点。`, true);
 
+    // Environmental narrative for rescue
+    this.addEnvironmentalNarrative('rescue', { unit, levelId: this.level.id });
+
     // Spawn rescue particle effect
     const pos = this.tileToWorld(unit.x, unit.y);
     this.particleSystem.spawnRescueEffect(pos.x, 0.5, pos.z);
+  }
+
+  addEnvironmentalNarrative(eventType, context) {
+    const narratives = {
+      placement: {
+        absorb_water: '水面上泛起涟漪，仿佛大地在深呼吸。',
+        create_bridge: '一道光芒连接了两岸，断裂的世界重新找到了通路。',
+        illuminate: '光芒刺破黑暗，连空气都变得清澈起来。',
+        block: '屏障升起的那一刻，周围的风都静止了。',
+        calm: '一种难以言喻的宁静蔓延开来，连巨兽的呼吸都变得缓慢。',
+        guide: '微风中传来低语，为迷失者指引方向。',
+        cleanse: '污浊被净化，大地仿佛松了一口气。',
+        slow_beast: '时间在这一刻变慢，巨兽的步伐变得沉重。',
+        memory_beacon: '记忆的光芒亮起，遗忘的名字重新被想起。',
+        force_field: '结界展开时，空间本身都发出了轻微的共鸣。',
+        transform_land: '大地在你的意志下改变形态，仿佛在做一个漫长的梦。',
+        freeze_water: '冰霜蔓延，水面凝固成镜，倒映着天空。',
+        raise_earth: '地面隆隆作响，新的高地从大地深处升起。',
+        grow_forest: '种子在瞬间发芽，树木以肉眼可见的速度生长。',
+        dig_channel: '水流找到了新的方向，大地被重新雕刻。',
+        trap: '藤蔓悄然生长，编织出等待的网。',
+        dream_link: '两个梦境开始交织，现实与幻象的边界变得模糊。',
+        time_dilation: '周围的一切都变得缓慢，唯有你的心跳如常。',
+        reveal_path: '隐藏的道路显现，仿佛世界揭开了面纱。',
+        sun_blessing: '阳光穿透云层，温暖如母亲的怀抱。'
+      },
+      rescue: {
+        'flood-village': '终于，洪水无法触及的高地上，一个新的故事开始了。',
+        'night-mine': '矿工走出黑暗时，第一缕阳光照在了脸上。',
+        'giant-city': '城市依然完整，巨兽的背上承载着整条河流的未来。',
+        'wordless-war': '使者的脚步跨越了边境，语言的桥梁正在重建。',
+        'memory-plague': '圣树的光芒下，遗忘的名字重新被唤醒。',
+        'final-exam': '在世界的尽头，希望依然站立。'
+      },
+      loss: {
+        'flood-village': '洪水吞没了一切，只留下水面上的涟漪。',
+        'night-mine': '黑暗永远记住那些迷失其中的灵魂。',
+        'giant-city': '巨兽的脚步无法阻挡，城市在颤抖。',
+        'wordless-war': '误会继续发酵，和平的曙光尚未到来。',
+        'memory-plague': '又一个名字被迷雾抹去，圣树在无声地哭泣。',
+        'final-exam': '世界裂隙扩大，造物者的力量在衰退。'
+      },
+      hazard: {
+        flood: '水位在上涨，大地逐渐被淹没。',
+        darkness: '黑暗像活物一样蔓延，吞噬着每一丝光芒。',
+        fog: '迷雾从深处涌来，模糊了边界与记忆。',
+        war: '边境的紧张气氛越来越浓，战争的阴影在逼近。',
+        beast: '巨兽的呼吸变得沉重，大地随之震颤。',
+        mixed: '多重灾难同时降临，世界在考验你的极限。'
+      }
+    };
+
+    let text = null;
+    if (eventType === 'placement' && context.card) {
+      text = narratives.placement[context.card.ability];
+    } else if (eventType === 'rescue' && context.levelId) {
+      text = narratives.rescue[context.levelId];
+    } else if (eventType === 'loss' && context.levelId) {
+      text = narratives.loss[context.levelId];
+    } else if (eventType === 'hazard' && context.hazardType) {
+      text = narratives.hazard[context.hazardType];
+    }
+
+    if (text) {
+      this.addLog(text, false);
+    }
   }
 
   nextStepToward(unit, goal) {

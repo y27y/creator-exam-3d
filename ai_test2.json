@@ -1,0 +1,1 @@
+{"name":"发光水母","type":"生物","ability":"illuminate","tags":["发光","水母","驱散"],"range":2,"duration":3,"cost":1,"stabilityCost":0,"description":"照亮周围2格区域，驱散黑暗，使己方单位在该区域移动速度提升1格。","side_effect":"水母脆弱，每回合结束时若未受到保护则亮度减半。","source":"ai"}

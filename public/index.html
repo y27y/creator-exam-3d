@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>创世计划：造物者考核 3D</title>
+    <link rel="stylesheet" href="./styles.css" />
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+          "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+        }
+      }
+    </script>
+  </head>
+  <body>
+    <div id="game-root">
+      <canvas id="game-canvas"></canvas>
+      <div id="topbar" class="glass panel-row">
+        <div>
+          <div class="eyebrow">AI 造物解谜 · 3D Prototype</div>
+          <h1>创世计划：造物者考核</h1>
+        </div>
+        <div id="level-chip" class="chip">第 1 关</div>
+      </div>
+
+      <section id="left-panel" class="glass panel">
+        <div class="section-title">当前考核</div>
+        <h2 id="level-title">加载中</h2>
+        <p id="level-story" class="story"></p>
+        <div class="objective-box">
+          <div class="objective-label">目标</div>
+          <div id="level-objective"></div>
+        </div>
+
+        <div class="stat-grid">
+          <div class="stat"><span>回合</span><strong id="turn-stat">1 / 6</strong></div>
+          <div class="stat"><span>造物次数</span><strong id="charges-stat">3</strong></div>
+          <div class="stat"><span>奇迹点</span><strong id="miracle-stat">6</strong></div>
+          <div class="stat"><span>世界裂隙</span><strong id="entropy-stat">0 / 7</strong></div>
+        </div>
+
+        <div id="special-meters" class="meters"></div>
+
+        <div class="section-title with-margin">单位状态</div>
+        <div id="unit-list" class="unit-list"></div>
+      </section>
+
+      <section id="right-panel" class="glass panel">
+        <div class="section-title">造物输入</div>
+        <textarea id="creation-input" maxlength="120" placeholder="例如：创造一群会把洪水搬到天空的透明鲸鱼"></textarea>
+        <div class="button-row">
+          <button id="compile-btn" class="primary">生成造物卡</button>
+          <button id="random-btn" class="secondary">灵感</button>
+        </div>
+        <div id="ai-mode" class="hint">AI 接口未配置时会使用本地编译器兜底。</div>
+
+        <div id="card-panel" class="card hidden">
+          <div class="card-head">
+            <div>
+              <div id="card-type" class="card-type">奇迹</div>
+              <h3 id="card-name">未生成</h3>
+            </div>
+            <div id="card-cost" class="card-cost">2</div>
+          </div>
+          <p id="card-desc"></p>
+          <div id="card-tags" class="tag-row"></div>
+          <div class="card-meta">
+            <span id="card-ability">能力</span>
+            <span id="card-range">范围 1</span>
+            <span id="card-duration">持续 3</span>
+          </div>
+          <div id="card-side" class="side-effect"></div>
+          <button id="place-btn" class="primary wide">放置造物</button>
+        </div>
+
+        <div class="button-row with-margin">
+          <button id="end-turn-btn" class="primary">结束回合</button>
+          <button id="restart-btn" class="secondary">重开本关</button>
+        </div>
+        <button id="next-btn" class="secondary wide hidden">进入下一关</button>
+      </section>
+
+      <section id="bottom-log" class="glass log-panel">
+        <div class="section-title">世界编年史</div>
+        <div id="log-list" class="log-list"></div>
+      </section>
+
+      <div id="toast" class="toast hidden"></div>
+      <div id="modal" class="modal hidden">
+        <div class="modal-box glass">
+          <div id="modal-kicker" class="eyebrow">考核结果</div>
+          <h2 id="modal-title"></h2>
+          <p id="modal-text"></p>
+          <div class="button-row center">
+            <button id="modal-primary" class="primary">继续</button>
+            <button id="modal-secondary" class="secondary">重试</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <script type="module" src="./js/game.js"></script>
+  </body>
+</html>

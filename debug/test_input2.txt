@@ -1,0 +1,20 @@
+info
+path 阿粟
+path 小烛
+path 木匠
+path 邮差
+end
+end
+end
+end
+end
+end
+reset
+cp 造一座桥 4 4
+end
+end
+end
+end
+end
+end
+quit

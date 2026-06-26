@@ -1,0 +1,1 @@
+{"name":"荧光冰母","type":"生物","ability":"illuminate","tags":["发光","冰","水母","驱暗"],"range":1,"duration":3,"cost":1,"stabilityCost":0,"description":"生成一只发光的冰水母，照亮周围1格区域，驱散黑暗并显露道路，持续3回合。","side_effect":"冰水母会缓慢融化，不受攻击时每回合失去1点生命周期。","source":"ai"}

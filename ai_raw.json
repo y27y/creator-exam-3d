@@ -1,0 +1,1 @@
+{"name":"发光水母","type":"生物","ability":"illuminate","tags":["照明","驱散","水生"],"range":1,"duration":3,"cost":1,"stabilityCost":0,"description":"照亮自身周围一格区域，驱散所有黑暗效果，使友方单位在光明中可正常行动。","side_effect":"水母自身无防护，被攻击或被巨兽碰撞会立即消散。","source":"ai"}

@@ -1,0 +1,1 @@
+{"name":"发光水母","type":"生物","ability":"illuminate","tags":["水生","发光","驱散"],"range":1,"duration":3,"cost":1,"stabilityCost":0,"description":"召唤一只发光水母，照亮周围1格区域，驱散黑暗，使途经矿工不会因视野受阻而延误。","side_effect":"水母光芒随潮汐衰减，3回合后自动消散。","source":"ai"}

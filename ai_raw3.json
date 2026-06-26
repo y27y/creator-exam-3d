@@ -1,0 +1,1 @@
+{"name":"荧光水母","type":"生物","ability":"illuminate","tags":["发光","水母","驱散黑暗"],"range":2,"duration":3,"cost":2,"stabilityCost":1,"description":"生成一只发光的蓝色水母，照亮周围2格范围，驱散黑暗，使友方单位在光照区域内移动不受黑暗惩罚。","side_effect":"水母的光亮每回合衰减1格范围，直至消失。","source":"ai"}

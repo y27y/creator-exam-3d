@@ -1,0 +1,17 @@
+{
+  "name": "creator-exam-3d",
+  "version": "1.0.0",
+  "description": "《创世计划：造物者考核》3D AI造物解谜游戏原型",
+  "main": "server.js",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js",
+    "debug": "node debug/cli.js",
+    "check": "node --check server.js && node --check public/js/aiClient.js && node --check public/js/levels.js && node --check public/js/game.js"
+  },
+  "dependencies": {},
+  "engines": {
+    "node": ">=18"
+  }
+}

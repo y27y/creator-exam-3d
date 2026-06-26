@@ -70,6 +70,23 @@
 4. 需要优化寻路算法（时间感知寻路、动态重算）
 5. 需要增加更多边界测试（多单位碰撞、裂隙/战争值边界、所有specialEffect）
 
+### 2026-06-27 第四轮迭代
+**已完成：**
+- ✅ 统一TILE常量类型（修复chainReactionCodex.js数字魔法值）
+- ✅ 集成AI Storyteller系统（4种人格：卡珊德拉/菲比/兰迪/说书人）
+- ✅ 新增6个边界测试（Storyteller/多单位碰撞/裂隙边界/specialEffect/边界放置/无目标寻路）
+- ✅ 提取GameEngine基类（消除game.js与debugGame.js的70%代码重复）
+- ✅ 多结局分支系统（6种分支：完美/牺牲/救赎/悲剧/隐藏/标准）
+- ✅ CLI工具增强（storyteller命令、事件处理）
+- ✅ 测试通过率：45/45 (100%)
+
+**当前问题：**
+1. 需要增强角色关系网演化（NPC之间互动）
+2. 需要实现跨关卡NPC重现（被救援单位在未来关卡出现）
+3. 需要AI Storyteller与aiMemory深度联动
+4. 需要涌现式叙事生成（Dwarf Fortress风格世界传说）
+5. 需要性能优化（InstancedMesh、LRU缓存）
+
 ## 迭代优化方向
 
 ### Phase 1: 核心体验优化（高优先级）

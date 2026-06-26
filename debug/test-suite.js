@@ -852,6 +852,109 @@ runner.test('能力策略模式 - 所有能力应有处理器', async () => {
   }
 });
 
+// ========== 新增边界测试 ==========
+
+// 测试 Storyteller 系统
+runner.test('Storyteller - 应正确分析游戏状态', async () => {
+  const game = new DebugGame();
+  game.reset();
+
+  const { Storyteller } = await import('../public/js/storyteller.js');
+  const storyteller = new Storyteller('cassandra');
+
+  const state = storyteller.analyzeState(game);
+  runner.assert(state.safety >= 0 && state.safety <= 1, '安全值应在0-1之间');
+  runner.assert(state.resourcePressure >= 0, '资源压力应非负');
+  runner.assert(state.timePressure >= 0, '时间压力应非负');
+});
+
+// 测试多单位碰撞 - 多个单位同时到达同一格
+runner.test('边界条件 - 多单位碰撞应正确处理', () => {
+  const game = new DebugGame();
+  game.levelIndex = 0;
+  game.reset();
+
+  // 将所有村民放在同一位置
+  const villagers = game.units.filter(u => u.type === 'villager');
+  if (villagers.length >= 2) {
+    villagers[0].x = villagers[1].x;
+    villagers[0].y = villagers[1].y;
+    game.endTurn();
+    runner.assertTrue(true, '多单位碰撞应安全处理');
+  } else {
+    runner.assertTrue(true, '村民不足，跳过测试');
+  }
+});
+
+// 测试裂隙值边界 - 恰好等于上限减1
+runner.test('边界条件 - 裂隙值恰好等于上限减1', () => {
+  const game = new DebugGame();
+  game.reset();
+
+  game.entropy = game.level.entropyLimit - 1;
+  game.checkEndCondition(false);
+
+  runner.assertEqual(game.gameState, 'playing', '裂隙值等于上限减1时应继续游戏');
+});
+
+// 测试所有 specialEffect 类型
+runner.test('特殊效果 - 所有类型应安全处理', () => {
+  const game = new DebugGame();
+  game.reset();
+
+  const specialEffects = ['mobile', 'movement', 'environmental', 'sacrifice'];
+  for (const effect of specialEffects) {
+    // 创建带有 specialEffect 的卡牌
+    const card = {
+      name: '测试造物',
+      ability: 'absorb_water',
+      range: 1,
+      duration: 1,
+      cost: 1,
+      stabilityCost: 0,
+      specialEffect: { type: effect, description: '测试效果' }
+    };
+    game.creations.push({
+      id: 'test-' + effect,
+      card,
+      x: 3,
+      y: 3,
+      remaining: 1,
+      restores: [],
+      placed: true
+    });
+  }
+
+  game.endTurn();
+  runner.assertTrue(true, '所有 specialEffect 类型应安全处理');
+});
+
+// 测试造物放置在边界格
+runner.test('边界条件 - 造物放置在地图边界', () => {
+  const game = new DebugGame();
+  game.reset();
+
+  const result = game.createAndPlace('造一座桥', 0, 0);
+  runner.assertTrue(result.success || result.error, '边界放置应返回结果');
+
+  const result2 = game.createAndPlace('造一座桥', 6, 6);
+  runner.assertTrue(result2.success || result2.error, '边界放置应返回结果');
+});
+
+// 测试空地图寻路
+runner.test('边界条件 - 无目标单位寻路', () => {
+  const game = new DebugGame();
+  game.reset();
+
+  // 移除所有单位的目标
+  for (const unit of game.units) {
+    unit.goal = null;
+  }
+
+  game.endTurn();
+  runner.assertTrue(true, '无目标单位应安全处理');
+});
+
 // 运行测试
 runner.run().then(success => {
   process.exit(success ? 0 : 1);

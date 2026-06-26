@@ -215,6 +215,21 @@ class CreatorExam3D {
       else this.loadLevel(this.levelIndex);
     });
     this.ui.modalSecondary.addEventListener('click', () => this.loadLevel(this.levelIndex));
+
+    // Path visualization toggle with Shift key
+    this.showPaths = false;
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'Shift') {
+        this.showPaths = true;
+        this.updatePathLines();
+      }
+    });
+    window.addEventListener('keyup', (e) => {
+      if (e.key === 'Shift') {
+        this.showPaths = false;
+        this.updatePathLines();
+      }
+    });
   }
 
   onResize() {
@@ -1018,6 +1033,49 @@ class CreatorExam3D {
         this.rescuedMarkerPool.delete(id);
       }
     }
+
+    // Update path lines for active units
+    this.updatePathLines();
+  }
+
+  updatePathLines() {
+    // Clean up old path lines
+    if (this.pathLineGroup) {
+      this.worldGroup.remove(this.pathLineGroup);
+      this.pathLineGroup = null;
+    }
+
+    // Only show paths when Shift is held or a unit is hovered
+    if (!this.showPaths) return;
+
+    this.pathLineGroup = new THREE.Group();
+    for (const unit of this.units) {
+      if (unit.status !== 'active') continue;
+      const path = this.calculateFullPath(unit);
+      if (!path || path.length < 2) continue;
+
+      const points = path.map(p => {
+        const pos = this.tileToWorld(p.x, p.y);
+        return new THREE.Vector3(pos.x, 0.5, pos.z);
+      });
+
+      const geometry = new THREE.BufferGeometry().setFromPoints(points);
+      const color = unit.type === 'beast' ? 0xff6b6b : unit.type === 'tribeA' || unit.type === 'tribeB' ? 0xc792ea : 0x9dffb3;
+      const material = new THREE.LineDashedMaterial({
+        color,
+        dashSize: 0.3,
+        gapSize: 0.2,
+        transparent: true,
+        opacity: 0.6
+      });
+      const line = new THREE.Line(geometry, material);
+      line.computeLineDistances();
+      this.pathLineGroup.add(line);
+    }
+
+    if (this.pathLineGroup.children.length > 0) {
+      this.worldGroup.add(this.pathLineGroup);
+    }
   }
 
   createTileMesh(terrain, x, y) {
@@ -1585,24 +1643,54 @@ class CreatorExam3D {
     if (!goal) return null;
     const startKey = `${unit.x},${unit.y}`;
     const goalKey = `${goal.x},${goal.y}`;
-    const queue = [{ x: unit.x, y: unit.y }];
-    const cameFrom = new Map([[startKey, null]]);
+    if (startKey === goalKey) return null;
 
-    while (queue.length) {
-      const current = queue.shift();
+    // A* algorithm with terrain cost
+    const openSet = [{ x: unit.x, y: unit.y, g: 0, f: this.distance(unit.x, unit.y, goal.x, goal.y) }];
+    const closedSet = new Set([startKey]);
+    const cameFrom = new Map([[startKey, null]]);
+    const gScore = new Map([[startKey, 0]]);
+
+    while (openSet.length) {
+      // Get node with lowest f score
+      openSet.sort((a, b) => a.f - b.f);
+      const current = openSet.shift();
       const currentKey = `${current.x},${current.y}`;
+
       if (currentKey === goalKey) break;
-      const nbs = this.neighbors(current.x, current.y).sort((a, b) => this.distance(a.x, a.y, goal.x, goal.y) - this.distance(b.x, b.y, goal.x, goal.y));
-      for (const nb of nbs) {
+
+      for (const nb of this.neighbors(current.x, current.y)) {
         const key = `${nb.x},${nb.y}`;
-        if (cameFrom.has(key)) continue;
+        if (closedSet.has(key)) continue;
         if (!this.isPassable(nb.x, nb.y, unit)) continue;
-        cameFrom.set(key, current);
-        queue.push(nb);
+
+        const terrain = this.getTerrain(nb.x, nb.y);
+        let moveCost = 1;
+        if (terrain === TILE.FOREST) moveCost = 2;
+        else if (terrain === TILE.HIGH) moveCost = 1.5;
+        else if (terrain === TILE.BRIDGE) moveCost = 1.2;
+
+        const tentativeG = current.g + moveCost;
+        const existingG = gScore.get(key);
+
+        if (existingG === undefined || tentativeG < existingG) {
+          cameFrom.set(key, { x: current.x, y: current.y });
+          gScore.set(key, tentativeG);
+          const f = tentativeG + this.distance(nb.x, nb.y, goal.x, goal.y);
+          if (existingG === undefined) {
+            openSet.push({ x: nb.x, y: nb.y, g: tentativeG, f });
+          } else {
+            const node = openSet.find((n) => `${n.x},${n.y}` === key);
+            if (node) { node.g = tentativeG; node.f = f; }
+          }
+          closedSet.add(key);
+        }
       }
     }
 
     if (!cameFrom.has(goalKey)) return null;
+
+    // Reconstruct path
     let current = goal;
     let previous = cameFrom.get(goalKey);
     while (previous && !(previous.x === unit.x && previous.y === unit.y)) {
@@ -1610,6 +1698,68 @@ class CreatorExam3D {
       previous = cameFrom.get(`${current.x},${current.y}`);
     }
     return current.x === unit.x && current.y === unit.y ? null : current;
+  }
+
+  // Calculate full path for visualization
+  calculateFullPath(unit) {
+    if (!unit.goal || unit.status !== 'active') return null;
+    const path = [];
+    const startKey = `${unit.x},${unit.y}`;
+    const goalKey = `${unit.goal.x},${unit.goal.y}`;
+    if (startKey === goalKey) return null;
+
+    // Use A* to get full path
+    const openSet = [{ x: unit.x, y: unit.y, g: 0, f: this.distance(unit.x, unit.y, unit.goal.x, unit.goal.y) }];
+    const closedSet = new Set([startKey]);
+    const cameFrom = new Map([[startKey, null]]);
+    const gScore = new Map([[startKey, 0]]);
+
+    while (openSet.length) {
+      openSet.sort((a, b) => a.f - b.f);
+      const current = openSet.shift();
+      const currentKey = `${current.x},${current.y}`;
+      if (currentKey === goalKey) break;
+
+      for (const nb of this.neighbors(current.x, current.y)) {
+        const key = `${nb.x},${nb.y}`;
+        if (closedSet.has(key)) continue;
+        if (!this.isPassable(nb.x, nb.y, unit)) continue;
+
+        const terrain = this.getTerrain(nb.x, nb.y);
+        let moveCost = 1;
+        if (terrain === TILE.FOREST) moveCost = 2;
+        else if (terrain === TILE.HIGH) moveCost = 1.5;
+        else if (terrain === TILE.BRIDGE) moveCost = 1.2;
+
+        const tentativeG = current.g + moveCost;
+        const existingG = gScore.get(key);
+
+        if (existingG === undefined || tentativeG < existingG) {
+          cameFrom.set(key, { x: current.x, y: current.y });
+          gScore.set(key, tentativeG);
+          const f = tentativeG + this.distance(nb.x, nb.y, unit.goal.x, unit.goal.y);
+          if (existingG === undefined) {
+            openSet.push({ x: nb.x, y: nb.y, g: tentativeG, f });
+          } else {
+            const node = openSet.find((n) => `${n.x},${n.y}` === key);
+            if (node) { node.g = tentativeG; node.f = f; }
+          }
+          closedSet.add(key);
+        }
+      }
+    }
+
+    if (!cameFrom.has(goalKey)) return null;
+
+    // Reconstruct full path
+    let current = { x: unit.goal.x, y: unit.goal.y };
+    while (current) {
+      path.unshift(current);
+      const prev = cameFrom.get(`${current.x},${current.y}`);
+      if (prev && prev.x === unit.x && prev.y === unit.y) break;
+      current = prev;
+    }
+    return path.length > 1 ? path : null;
   }
 
   randomPassableNeighbor(unit) {

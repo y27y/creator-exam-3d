@@ -199,7 +199,7 @@ export class AIMemorySystem {
     return `${style}风格，创意均分${profile.averageCreativity}，胜率${Math.round(profile.winRate * 100)}%`;
   }
 
-  // Generate world epic ending
+  // Generate world epic ending with branching
   generateEpicEnding() {
     const profile = this.getPlayerProfile();
     const creations = this.creationHistory;
@@ -218,22 +218,66 @@ export class AIMemorySystem {
       endingType = `${primaryStyle}-${secondaryStyle}`;
     }
 
+    // Determine ending branch based on player choices
+    const endingBranch = this.determineEndingBranch(profile, levels);
+
     // Generate ending text with specific references
-    const ending = this.generateEndingText(endingType, profile, creations, levels);
+    const ending = this.generateEndingText(endingType, endingBranch, profile, creations, levels);
 
     // Add to narrative memory
     this.addNarrativeMemory('milestone', {
       type: 'epic_ending',
       endingType,
+      endingBranch,
       text: ending
     });
 
     return {
       endingType,
+      endingBranch,
       text: ending,
       stats: profile,
       isMixed
     };
+  }
+
+  // Determine ending branch based on player behavior
+  determineEndingBranch(profile, levels) {
+    const winRate = profile.winRate;
+    const totalLost = profile.totalLost;
+    const totalRescued = profile.totalRescued;
+    const riskTolerance = profile.riskTolerance;
+    const empathyScore = profile.empathyScore;
+
+    // Perfect ending: no losses, high win rate
+    if (totalLost === 0 && winRate >= 0.8) {
+      return 'perfect';
+    }
+
+    // Sacrifice ending: saved many but lost some, high empathy
+    if (totalRescued >= 10 && totalLost > 0 && empathyScore > 0.6) {
+      return 'sacrifice';
+    }
+
+    // Redemption ending: lost many early but recovered
+    const earlyLosses = levels.slice(0, 3).filter(l => l.lost > 0).length;
+    const lateWins = levels.slice(-3).filter(l => l.result === 'won').length;
+    if (earlyLosses >= 2 && lateWins >= 2) {
+      return 'redemption';
+    }
+
+    // Tragic ending: high losses, low win rate
+    if (winRate < 0.5 && totalLost > 5) {
+      return 'tragic';
+    }
+
+    // Hidden ending: high risk tolerance, unique creations
+    if (riskTolerance > 0.7 && profile.totalCreations >= 15) {
+      return 'hidden';
+    }
+
+    // Standard ending
+    return 'standard';
   }
 
   calculateStyleScores(profile, creations, levels) {
@@ -271,7 +315,7 @@ export class AIMemorySystem {
     return scores;
   }
 
-  generateEndingText(endingType, profile, creations, levels) {
+  generateEndingText(endingType, endingBranch, profile, creations, levels) {
     // Get specific references from player history
     const creationNames = creations.slice(-3).map(c => c.card.name);
     const favoriteCreation = this.getFavoriteCreation(creations);
@@ -279,6 +323,45 @@ export class AIMemorySystem {
     const lostNames = this.getLostUnitNames(levels);
     const rescuedNames = this.getRescuedUnitNames(levels);
 
+    // Generate branch-specific prologue
+    const prologue = this.generateBranchPrologue(endingBranch, profile, levels, lostNames, rescuedNames);
+
+    // Generate style-specific main text
+    const mainText = this.generateStyleEnding(endingType, profile, creations, levels, creationNames, favoriteCreation, mostMemorableLevel, lostNames, rescuedNames);
+
+    // Generate branch-specific epilogue
+    const epilogue = this.generateBranchEpilogue(endingBranch, profile, creations, levels);
+
+    return `${prologue}\n\n${mainText}\n\n${epilogue}`;
+  }
+
+  generateBranchPrologue(branch, profile, levels, lostNames, rescuedNames) {
+    const prologues = {
+      perfect: `当第七天的晨曦穿透裂隙，世界完好如初。\n\n你没有让任何一个人失去。在${rescuedNames.join('、') || '所有经过的地方'}，每一个生命都找到了归宿。这是造物者最完美的答卷——不是因为没有失败，而是因为你从未放弃任何一个灵魂。`,
+      sacrifice: `第七天到来时，世界依然在哭泣，但也在微笑。\n\n你拯救了${profile.totalRescued}个生命，但失去了${profile.totalLost}个。在${lostNames.join('、') || '那些地方'}，风会记住他们的名字。你证明了：即使无法拯救所有人，每一次努力都值得。`,
+      redemption: `第七天到来时，世界见证了奇迹。\n\n你的开始并不顺利——早期的失败几乎让你放弃。但你在黑暗中找到了光，在绝望中创造了希望。从失败到胜利，你走过了最长的路。`,
+      tragic: `第七天到来时，世界依然站立，但伤痕累累。\n\n你失去了太多。${profile.totalLost}个生命，${levels.filter(l => l.result === 'lost').length}次失败。但裂隙之地记住了你的坚持——即使每一次尝试都以泪水结束，你依然站了起来。`,
+      hidden: `第七天到来时，世界发生了不可思议的变化。\n\n你的大胆创造唤醒了沉睡的力量。那些被认为是疯狂的造物，最终成为了改变世界的钥匙。裂隙之地不仅学会了你的风格——它学会了你的灵魂。`,
+      standard: `第七天到来时，世界找到了新的平衡。\n\n你走过了${levels.length}个区域，创造了${profile.totalCreations}个造物，拯救了${profile.totalRescued}个生命。你的旅程有欢笑也有泪水，但最重要的是——你从未停止创造。`
+    };
+
+    return prologues[branch] || prologues.standard;
+  }
+
+  generateBranchEpilogue(branch, profile, creations, levels) {
+    const epilogues = {
+      perfect: `\n\n【完美结局】\n裂隙完全愈合。世界不再需要造物者，但它会永远记住你。\n在完美之后，你选择了离开——去下一个需要奇迹的地方。`,
+      sacrifice: `\n\n【牺牲结局】\n裂隙缩小了，但没有完全消失。它成为了世界的一部分——一个提醒人们珍惜的伤疤。\n你选择了留下，继续守护那些还在危险中的生命。`,
+      redemption: `\n\n【救赎结局】\n裂隙变成了桥梁，连接了过去与未来。\n你成为了裂隙之地的守护者，用自己的经历告诉每一个新来的造物者：失败不是终点。`,
+      tragic: `\n\n【悲剧结局】\n裂隙依然存在，但世界学会了与它共存。\n你离开了裂隙之地，但你的故事成为了传说——一个关于坚持与遗憾的永恒诗篇。`,
+      hidden: `\n\n【隐藏结局】\n裂隙不仅没有愈合，反而成为了新的创造之源。\n你发现了造物者最大的秘密：裂隙不是错误，而是世界进化的方式。你成为了新世界的引路人。`,
+      standard: `\n\n【标准结局】\n裂隙逐渐愈合，世界慢慢恢复。\n你的故事被传唱，你的造物被纪念。在裂隙之地的每一个角落，都有你留下的痕迹。`
+    };
+
+    return epilogues[branch] || epilogues.standard;
+  }
+
+  generateStyleEnding(endingType, profile, creations, levels, creationNames, favoriteCreation, mostMemorableLevel, lostNames, rescuedNames) {
     // Generate based on ending type
     const generators = {
       'poetic': () => this.generatePoeticEnding(profile, creations, levels, creationNames, favoriteCreation),

@@ -1238,6 +1238,113 @@ runner.test('AIMemory - 应使用语义记忆检索相关记忆', async () => {
   runner.assert(summary !== null, '应生成叙事摘要');
 });
 
+// 测试叙事因果引擎
+runner.test('因果引擎 - 应记录事件并追踪因果链', async () => {
+  const { CausalGraph } = await import('../public/js/worldLegend.js');
+  const graph = new CausalGraph();
+
+  // 记录初始事件
+  const event1 = graph.recordEvent({
+    type: 'creation',
+    description: '造物者创造了光之桥照亮黑暗',
+    level: 'night-mine',
+    turn: 1,
+    impact: 'major',
+    tags: ['creation', 'light']
+  });
+
+  runner.assert(event1.id !== undefined, '应生成事件ID');
+  runner.assert(graph.nodes.has(event1.id), '事件应被记录');
+
+  // 记录后果事件，链接到原因
+  const event2 = graph.recordEvent({
+    type: 'rescue',
+    description: '村民借助光之桥安全撤离',
+    level: 'night-mine',
+    turn: 2,
+    impact: 'minor',
+    tags: ['rescue', 'bridge']
+  }, event1.id);
+
+  runner.assert(event2.causalChain.includes(event1.id), '后果事件应包含原因链');
+
+  // 测试因果链接
+  const edge = graph.linkCauseEffect(event1.id, event2.id, 'enabled');
+  runner.assert(edge !== null, '应创建因果边');
+  runner.assert(edge.relation === 'enabled', '关系类型应正确');
+
+  // 测试查找后果
+  const consequences = graph.findConsequences(event1.id, 3);
+  runner.assert(consequences.length > 0, '应找到后果事件');
+
+  // 测试查找原因
+  const causes = graph.findCauses(event2.id, 3);
+  runner.assert(causes.length > 0, '应找到原因事件');
+  runner.assert(causes.some(c => c.eventId === event1.id), '原因链应包含初始事件');
+});
+
+runner.test('因果引擎 - 应检测跨关卡蝴蝶效应', async () => {
+  const { CausalGraph } = await import('../public/js/worldLegend.js');
+  const graph = new CausalGraph();
+
+  // 第一关的事件
+  const event1 = graph.recordEvent({
+    type: 'creation',
+    description: '造物者创造了永恒之光驱散黑暗',
+    level: 'night-mine',
+    turn: 1,
+    impact: 'major',
+    tags: ['creation', 'light']
+  });
+
+  // 第三关的类似事件（语义相似）
+  const event2 = graph.recordEvent({
+    type: 'miracle',
+    description: '永恒之光在洪水村庄再次闪耀',
+    level: 'flood-village',
+    turn: 5,
+    impact: 'major',
+    tags: ['miracle', 'light']
+  });
+
+  // 检查蝴蝶效应
+  const butterflyEffects = graph.getButterflyEffectsForLevel('flood-village');
+  runner.assert(butterflyEffects.length > 0, '应检测到跨关卡蝴蝶效应');
+
+  // 测试叙事生成
+  const narrative = graph.generateCausalNarrative(event2.id);
+  runner.assert(narrative.includes('night-mine') || narrative.includes('洪水'), '叙事应包含跨关卡关联');
+});
+
+runner.test('因果引擎 - 序列化与统计', async () => {
+  const { CausalGraph } = await import('../public/js/worldLegend.js');
+  const graph = new CausalGraph();
+
+  graph.recordEvent({
+    type: 'creation',
+    description: '测试事件1',
+    level: 'test',
+    impact: 'minor'
+  });
+
+  graph.recordEvent({
+    type: 'rescue',
+    description: '测试事件2',
+    level: 'test',
+    impact: 'minor'
+  });
+
+  const stats = graph.getStats();
+  runner.assert(stats.totalEvents === 2, '应记录2个事件');
+
+  const serialized = graph.serialize();
+  runner.assert(serialized.nodes.length === 2, '序列化应包含2个节点');
+
+  const graph2 = new CausalGraph();
+  graph2.deserialize(serialized);
+  runner.assert(graph2.nodes.size === 2, '反序列化后应有2个节点');
+});
+
 // 运行测试
 runner.run().then(success => {
   process.exit(success ? 0 : 1);

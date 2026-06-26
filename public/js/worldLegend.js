@@ -2,6 +2,302 @@
 // Dwarf Fortress-style procedural world legends
 // Generates persistent world history, myths, and cultural artifacts
 
+import { VectorMemory } from './vectorMemory.js';
+
+// ========== Narrative Causality Engine ==========
+// Tracks cause-effect chains across levels for butterfly effect narrative
+
+export class CausalGraph {
+  constructor() {
+    this.nodes = new Map(); // eventId -> CausalNode
+    this.edges = new Map(); // eventId -> [CausalEdge]
+    this.vectorMemory = new VectorMemory();
+    this.butterflyEffects = new Map(); // levelId -> [consequence]
+  }
+
+  // Record an event with optional cause
+  recordEvent(event, causeId = null) {
+    const node = {
+      id: event.id || `event-${Date.now()}-${Math.random()}`,
+      type: event.type,
+      description: event.description,
+      level: event.level,
+      turn: event.turn || 1,
+      timestamp: Date.now(),
+      causeId,
+      consequences: [],
+      causalChain: [],
+      impact: event.impact || 'minor',
+      tags: event.tags || []
+    };
+
+    // Build causal chain from cause
+    if (causeId && this.nodes.has(causeId)) {
+      const cause = this.nodes.get(causeId);
+      node.causalChain = [...cause.causalChain, causeId];
+      cause.consequences.push(node.id);
+    }
+
+    // Encode in vector memory for semantic retrieval
+    this.vectorMemory.addMemory(event.description, {
+      type: event.type,
+      level: event.level,
+      impact: event.impact,
+      tags: event.tags
+    });
+
+    this.nodes.set(node.id, node);
+
+    // Check for butterfly effects across levels
+    this.checkButterflyEffect(node);
+
+    return node;
+  }
+
+  // Create a causal edge between two events
+  linkCauseEffect(causeId, effectId, relationType = 'caused') {
+    if (!this.nodes.has(causeId) || !this.nodes.has(effectId)) return null;
+
+    const edge = {
+      from: causeId,
+      to: effectId,
+      relation: relationType, // 'caused', 'prevented', 'enabled', 'accompanied'
+      strength: this.calculateCausalStrength(causeId, effectId),
+      timestamp: Date.now()
+    };
+
+    if (!this.edges.has(causeId)) {
+      this.edges.set(causeId, []);
+    }
+    this.edges.get(causeId).push(edge);
+
+    // Update node consequences
+    const cause = this.nodes.get(causeId);
+    cause.consequences.push(effectId);
+
+    const effect = this.nodes.get(effectId);
+    effect.causeId = causeId;
+    effect.causalChain = [...cause.causalChain, causeId];
+
+    return edge;
+  }
+
+  // Calculate causal strength based on semantic similarity and temporal proximity
+  calculateCausalStrength(causeId, effectId) {
+    const cause = this.nodes.get(causeId);
+    const effect = this.nodes.get(effectId);
+    if (!cause || !effect) return 0;
+
+    // Semantic similarity using vector memory
+    const semanticResults = this.vectorMemory.query(cause.description, 5);
+    const semanticMatch = semanticResults.find(r => r.text === effect.description);
+    const semanticScore = semanticMatch ? semanticMatch.similarity : 0;
+
+    // Temporal proximity (closer in time = stronger causation)
+    const timeDiff = Math.abs(effect.timestamp - cause.timestamp);
+    const temporalScore = Math.max(0, 1 - timeDiff / (1000 * 60 * 60 * 24)); // Decay over 24 hours
+
+    // Chain length penalty (longer chains = weaker direct causation)
+    const chainPenalty = Math.max(0.3, 1 - effect.causalChain.length * 0.1);
+
+    return (semanticScore * 0.5 + temporalScore * 0.3 + chainPenalty * 0.2);
+  }
+
+  // Check if an event triggers cross-level butterfly effects
+  checkButterflyEffect(node) {
+    // Only major+ impacts can create butterfly effects
+    if (node.impact !== 'major' && node.impact !== 'world-shaking') return;
+
+    // Query related past events
+    const related = this.vectorMemory.query(node.description, 3);
+
+    for (const past of related) {
+      if (past.metadata && past.metadata.level && past.metadata.level !== node.level) {
+        // Cross-level connection found
+        const consequence = {
+          sourceLevel: past.metadata.level,
+          sourceEvent: past.id,
+          targetLevel: node.level,
+          targetEvent: node.id,
+          description: this.generateButterflyDescription(past, node),
+          strength: past.similarity
+        };
+
+        if (!this.butterflyEffects.has(node.level)) {
+          this.butterflyEffects.set(node.level, []);
+        }
+        this.butterflyEffects.get(node.level).push(consequence);
+      }
+    }
+  }
+
+  generateButterflyDescription(past, current) {
+    const templates = [
+      `在${past.metadata.level}的${past.metadata.type}，竟然在${current.level}引发了回响。`,
+      `谁能想到，${past.metadata.level}的往事会成为${current.level}的伏笔？`,
+      `命运的丝线从${past.metadata.level}延伸到${current.level}，编织出意想不到的故事。`,
+      `${past.metadata.level}的余波，在${current.level}化作了新的浪潮。`
+    ];
+    return templates[Math.floor(Math.random() * templates.length)];
+  }
+
+  // Find all consequences of a given event (direct and indirect)
+  findConsequences(eventId, depth = 5) {
+    const consequences = [];
+    const visited = new Set();
+    const queue = [{ id: eventId, depth: 0 }];
+
+    while (queue.length > 0) {
+      const { id, depth: currentDepth } = queue.shift();
+      if (visited.has(id) || currentDepth > depth) continue;
+      visited.add(id);
+
+      const node = this.nodes.get(id);
+      if (!node) continue;
+
+      for (const consequenceId of node.consequences) {
+        const edge = this.getEdge(id, consequenceId);
+        consequences.push({
+          eventId: consequenceId,
+          relation: edge ? edge.relation : 'caused',
+          strength: edge ? edge.strength : 0.5,
+          depth: currentDepth + 1
+        });
+        queue.push({ id: consequenceId, depth: currentDepth + 1 });
+      }
+    }
+
+    return consequences;
+  }
+
+  // Find all causes of a given event (tracing back)
+  findCauses(eventId, depth = 5) {
+    const causes = [];
+    const visited = new Set();
+    const queue = [{ id: eventId, depth: 0 }];
+
+    while (queue.length > 0) {
+      const { id, depth: currentDepth } = queue.shift();
+      if (visited.has(id) || currentDepth > depth) continue;
+      visited.add(id);
+
+      const node = this.nodes.get(id);
+      if (!node || !node.causeId) continue;
+
+      const edge = this.getEdge(node.causeId, id);
+      causes.push({
+        eventId: node.causeId,
+        relation: edge ? edge.relation : 'caused',
+        strength: edge ? edge.strength : 0.5,
+        depth: currentDepth + 1
+      });
+
+      queue.push({ id: node.causeId, depth: currentDepth + 1 });
+    }
+
+    return causes;
+  }
+
+  // Get a specific edge
+  getEdge(fromId, toId) {
+    const edges = this.edges.get(fromId);
+    if (!edges) return null;
+    return edges.find(e => e.to === toId);
+  }
+
+  // Generate narrative summary of a causal chain
+  generateCausalNarrative(eventId) {
+    const node = this.nodes.get(eventId);
+    if (!node) return '故事刚刚开始...';
+
+    const causes = this.findCauses(eventId, 3);
+    const consequences = this.findConsequences(eventId, 3);
+
+    const parts = [];
+
+    // Prologue: causes
+    if (causes.length > 0) {
+      const rootCause = causes[causes.length - 1];
+      const rootNode = this.nodes.get(rootCause.eventId);
+      parts.push(`这一切始于${rootNode.level}的${rootNode.description}...`);
+    }
+
+    // Main event
+    parts.push(`而在${node.level}，${node.description}`);
+
+    // Epilogue: consequences
+    if (consequences.length > 0) {
+      const directEffects = consequences.filter(c => c.depth === 1);
+      parts.push(`这一事件的涟漪扩散开来，影响了${directEffects.length}个后续事件。`);
+    }
+
+    // Butterfly effects
+    const butterflyEffects = this.butterflyEffects.get(node.level);
+    if (butterflyEffects && butterflyEffects.length > 0) {
+      const strongest = butterflyEffects.sort((a, b) => b.strength - a.strength)[0];
+      parts.push(`最令人惊讶的是，${strongest.description}`);
+    }
+
+    return parts.join('\n');
+  }
+
+  // Query events by semantic similarity with causal context
+  queryWithCausality(queryText, topK = 5) {
+    const semanticResults = this.vectorMemory.query(queryText, topK * 2);
+    const enriched = semanticResults.map(result => {
+      const node = this.nodes.get(result.id);
+      if (!node) return result;
+
+      return {
+        ...result,
+        causalChain: node.causalChain,
+        consequences: node.consequences.length,
+        hasButterflyEffect: this.butterflyEffects.has(node.level) &&
+          this.butterflyEffects.get(node.level).some(b => b.sourceEvent === node.id || b.targetEvent === node.id)
+      };
+    });
+
+    return enriched.slice(0, topK);
+  }
+
+  // Get all butterfly effects for a level
+  getButterflyEffectsForLevel(levelId) {
+    return this.butterflyEffects.get(levelId) || [];
+  }
+
+  // Get stats
+  getStats() {
+    return {
+      totalEvents: this.nodes.size,
+      totalCausalLinks: Array.from(this.edges.values()).reduce((sum, arr) => sum + arr.length, 0),
+      butterflyEffects: Array.from(this.butterflyEffects.values()).reduce((sum, arr) => sum + arr.length, 0),
+      avgChainLength: Array.from(this.nodes.values()).reduce((sum, n) => sum + n.causalChain.length, 0) / (this.nodes.size || 1)
+    };
+  }
+
+  // Serialize
+  serialize() {
+    return {
+      nodes: Array.from(this.nodes.entries()),
+      edges: Array.from(this.edges.entries()),
+      butterflyEffects: Array.from(this.butterflyEffects.entries()),
+      vectorMemory: this.vectorMemory.serialize()
+    };
+  }
+
+  deserialize(data) {
+    if (!data) return;
+    this.nodes = new Map(data.nodes || []);
+    this.edges = new Map(data.edges || []);
+    this.butterflyEffects = new Map(data.butterflyEffects || []);
+    if (data.vectorMemory) {
+      this.vectorMemory.deserialize(data.vectorMemory);
+    }
+  }
+}
+
+// ========== World Legend System ==========
+
 export class WorldLegendSystem {
   constructor() {
     this.legends = []; // World-level historical events
@@ -11,6 +307,7 @@ export class WorldLegendSystem {
     this.worldAges = []; // Ages of the world
     this.currentAge = 1;
     this.worldSeed = this.generateWorldSeed();
+    this.causalGraph = new CausalGraph(); // Narrative causality engine
   }
 
   generateWorldSeed() {
@@ -33,6 +330,17 @@ export class WorldLegendSystem {
     };
 
     this.legends.push(legend);
+
+    // Record in causal graph for narrative causality tracking
+    this.causalGraph.recordEvent({
+      id: legend.id,
+      type: legend.type,
+      description: legend.description,
+      level: legend.level,
+      turn: legend.turn,
+      impact: legend.impact,
+      tags: [legend.type, legend.actor, legend.level]
+    }, event.causeId);
 
     // Major events create myths
     if (legend.impact === 'major' || legend.impact === 'world-shaking') {
@@ -334,7 +642,8 @@ export class WorldLegendSystem {
       historicalFigures: Array.from(this.historicalFigures.entries()),
       worldAges: this.worldAges,
       currentAge: this.currentAge,
-      worldSeed: this.worldSeed
+      worldSeed: this.worldSeed,
+      causalGraph: this.causalGraph.serialize()
     };
   }
 
@@ -347,6 +656,9 @@ export class WorldLegendSystem {
     this.worldAges = data.worldAges || [];
     this.currentAge = data.currentAge || 1;
     this.worldSeed = data.worldSeed || this.generateWorldSeed();
+    if (data.causalGraph) {
+      this.causalGraph.deserialize(data.causalGraph);
+    }
   }
 }
 

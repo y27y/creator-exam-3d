@@ -1819,6 +1819,110 @@ runner.test('仪式熔炉 - 序列化与统计', async () => {
   runner.assert(forge2.discoveredRecipes.size >= 1, '反序列化后应恢复配方');
 });
 
+// 测试认知深渊系统
+runner.test('认知深渊 - 应在高熵时激活并生成谜题', async () => {
+  const { CognitiveAbyss } = await import('../public/js/cognitiveAbyss.js');
+  const abyss = new CognitiveAbyss();
+
+  // 低熵时不应激活
+  abyss.update(2, 7);
+  runner.assert(abyss.active === false, '低熵时不应激活深渊');
+
+  // 高熵时激活
+  abyss.update(6.5, 7);
+  runner.assert(abyss.active === true, '高熵时应激活深渊');
+
+  // 生成谜题
+  const riddle = abyss.generateRiddle('instruction');
+  runner.assert(riddle !== null, '应生成谜题');
+  runner.assert(riddle.displayed !== undefined, '谜题应有扭曲文本');
+  runner.assert(riddle.decoded !== undefined, '谜题应有解码文本');
+
+  // 成功解码
+  const result = abyss.attemptDecode(riddle.decoded);
+  runner.assert(result.success === true, '正确输入应解码成功');
+  runner.assert(result.reward !== undefined, '解码成功应有奖励');
+
+  // 检查统计
+  const stats = abyss.getStats();
+  runner.assert(stats.solved === 1, '应记录1个已解谜题');
+  runner.assert(stats.timesEntered === 1, '应记录进入深渊1次');
+});
+
+runner.test('认知深渊 - 解码失败应记录惩罚', async () => {
+  const { CognitiveAbyss } = await import('../public/js/cognitiveAbyss.js');
+  const abyss = new CognitiveAbyss();
+
+  abyss.update(6.5, 7);
+
+  const riddle = abyss.generateRiddle('instruction');
+  runner.assert(riddle !== null, '应生成谜题');
+
+  // 错误解码3次
+  abyss.attemptDecode('错误答案1');
+  abyss.attemptDecode('错误答案2');
+  const result = abyss.attemptDecode('错误答案3');
+
+  runner.assert(result.success === false, '3次错误后应失败');
+  runner.assert(result.penalty !== undefined, '失败应有惩罚');
+
+  const stats = abyss.getStats();
+  runner.assert(stats.failed === 1, '应记录1个失败谜题');
+});
+
+runner.test('认知深渊 - NPC对话应反转', async () => {
+  const { CognitiveAbyss } = await import('../public/js/cognitiveAbyss.js');
+  const abyss = new CognitiveAbyss();
+
+  // 低熵时正常对话
+  abyss.update(2, 7);
+  const normal = abyss.getNPCDialogue('npc1', '老渔夫', '你好');
+  runner.assert(normal.isReversed === false, '低熵时不应反转');
+
+  // 高熵时可能反转
+  abyss.update(6.5, 7);
+  const reversed = abyss.getNPCDialogue('npc1', '老渔夫', '你好');
+  runner.assert(reversed.text !== undefined, '应有对话文本');
+});
+
+runner.test('认知深渊 - 应生成神话碎片', async () => {
+  const { CognitiveAbyss } = await import('../public/js/cognitiveAbyss.js');
+  const abyss = new CognitiveAbyss();
+
+  abyss.update(6.5, 7);
+
+  const fragment = abyss.generateMythFragment();
+  runner.assert(fragment !== null, '应生成神话碎片');
+  runner.assert(fragment.displayed !== undefined, '碎片应有扭曲文本');
+  runner.assert(fragment.archetype !== undefined, '碎片应有原型类型');
+
+  const stats = abyss.getStats();
+  runner.assert(stats.mythFragments === 1, '应记录1个神话碎片');
+});
+
+runner.test('认知深渊 - 序列化与状态描述', async () => {
+  const { CognitiveAbyss } = await import('../public/js/cognitiveAbyss.js');
+  const abyss = new CognitiveAbyss();
+
+  abyss.update(6.5, 7);
+  const riddle = abyss.generateRiddle('instruction');
+  runner.assert(riddle !== null, '应生成谜题');
+  abyss.attemptDecode(riddle.decoded);
+
+  const state = abyss.getStateDescription();
+  runner.assert(state.level !== undefined, '应有状态等级');
+  runner.assert(state.effects.length > 0, '高熵时应有效果列表');
+
+  const serialized = abyss.serialize();
+  runner.assert(serialized.active === true, '序列化应记录激活状态');
+  runner.assert(serialized.decodedMessages.length > 0, '序列化应包含已解码信息');
+
+  const abyss2 = new CognitiveAbyss();
+  abyss2.deserialize(serialized);
+  runner.assert(abyss2.active === true, '反序列化后应恢复激活状态');
+  runner.assert(abyss2.riddlesSolved === 1, '反序列化后应恢复解谜统计');
+});
+
 // 运行测试
 runner.run().then(success => {
   process.exit(success ? 0 : 1);

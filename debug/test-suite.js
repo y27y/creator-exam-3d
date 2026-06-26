@@ -1414,6 +1414,78 @@ runner.test('VectorMemory - 认知偏差应影响检索结果', async () => {
   runner.assert(hasBias, '应至少有一个结果应用了偏差');
 });
 
+// 测试生成式神话语法
+runner.test('生成式神话 - 应使用CFG生成神话并支持神话成真', async () => {
+  const { WorldLegendSystem } = await import('../public/js/worldLegend.js');
+  const world = new WorldLegendSystem();
+
+  const playerData = {
+    heroName: '测试造物者',
+    favoriteLevel: '洪水村庄',
+    hardestLevel: '永夜矿井',
+    favoriteCreation: '光之桥',
+    dominantTrait: '慈悲',
+    mostRescuedNPC: '小烛',
+    greatestLoss: '老渔夫',
+    totalCreations: 15,
+    totalRescued: 25,
+    winRate: 0.8,
+    riskTolerance: 0.7
+  };
+
+  const narrativeArcs = [{
+    memories: [
+      { text: '在洪水村庄创造了光之桥' },
+      { text: '救下了小烛和其他村民' },
+      { text: '但失去了老渔夫' }
+    ],
+    theme: 'sacrifice',
+    coherence: 0.8
+  }];
+
+  // 生成神话
+  const myth = world.generateMythFromArcs(narrativeArcs, playerData);
+  runner.assert(myth.text.length > 20, '生成的神话应有合理长度');
+  runner.assert(myth.archetype !== undefined, '神话应有原型类型');
+  runner.assert(myth.power > 30, '神话应有力量值');
+
+  // 测试神话成真
+  myth.popularity = 60; // 超过阈值
+  const realityEvent = world.checkMythReality(myth, 'flood-village');
+  runner.assert(realityEvent !== null, '流行度超过阈值应触发神话成真');
+  runner.assert(realityEvent.type === 'myth_manifestation', '应生成神话显化事件');
+  runner.assert(myth.isActive === true, '神话应标记为激活');
+
+  // 测试不同原型
+  const heroMyth = world.generateMythWithGrammar(playerData, [{ theme: 'hope', coherence: 0.7 }]);
+  runner.assert(heroMyth.archetype === 'HeroJourney', '希望主题应生成英雄之旅');
+
+  const creationMyth = world.generateMythWithGrammar(playerData, [{ theme: 'creation', coherence: 0.7 }]);
+  runner.assert(creationMyth.archetype === 'CreationMyth', '创造主题应生成创世神话');
+});
+
+runner.test('生成式神话 - 序列化与统计', async () => {
+  const { WorldLegendSystem } = await import('../public/js/worldLegend.js');
+  const world = new WorldLegendSystem();
+
+  const playerData = {
+    heroName: '测试者',
+    favoriteLevel: '测试关',
+    favoriteCreation: '测试造物',
+    dominantTrait: '智慧'
+  };
+
+  const myth = world.generateMythWithGrammar(playerData, null);
+  runner.assert(myth.id !== undefined, '应生成神话ID');
+
+  const serialized = world.serialize();
+  runner.assert(serialized.causalGraph !== undefined, '序列化应包含因果图');
+
+  const world2 = new WorldLegendSystem();
+  world2.deserialize(serialized);
+  runner.assert(world2.currentAge === world.currentAge, '反序列化后纪元应一致');
+});
+
 // 运行测试
 runner.run().then(success => {
   process.exit(success ? 0 : 1);

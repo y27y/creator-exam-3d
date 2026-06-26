@@ -633,6 +633,266 @@ export class WorldLegendSystem {
     }
   }
 
+  // ========== Generative Myth Grammar ==========
+  // Context-Free Grammar for myth generation inspired by Dwarf Fortress
+
+  generateMythWithGrammar(playerData, narrativeArcs) {
+    // Select myth archetype based on narrative arcs
+    const archetype = this.selectMythArchetype(narrativeArcs);
+
+    // Build grammar rules for this archetype
+    const grammar = this.buildMythGrammar(archetype, playerData);
+
+    // Generate myth text using CFG
+    const mythText = this.expandGrammar(grammar, 'Myth');
+
+    // Extract myth power from player data
+    const mythPower = this.calculateMythPower(playerData);
+
+    const myth = {
+      id: `myth-cfg-${Date.now()}`,
+      archetype: archetype.name,
+      text: mythText,
+      grammar: grammar,
+      power: mythPower,
+      popularity: 0,
+      variations: [],
+      realityEvents: [], // Events that make this myth "real"
+      isActive: false // Whether "Myth Becomes Reality" is triggered
+    };
+
+    return myth;
+  }
+
+  selectMythArchetype(narrativeArcs) {
+    const archetypes = {
+      HeroJourney: {
+        name: 'HeroJourney',
+        rules: {
+          'Myth': ['{Departure} {Initiation} {Return} {Sacrifice}'],
+          'Departure': [
+            '在{Origin}的平凡日子里，{Hero}从未想过自己会成为传说。',
+            '当裂隙第一次出现在{Origin}的天空时，{Hero}知道世界需要改变。'
+          ],
+          'Initiation': [
+            '面对{Challenge}，{Hero}用{Artifact}证明了{Virtue}的力量。',
+            '在{Challenge}的试炼中，{Hero}发现了自己内心深处的{Virtue}。'
+          ],
+          'Return': [
+            '当{Hero}回到{Origin}时，一切都变了——但{Hero}也变了。',
+            '{Hero}带着{Artifact}和新的智慧回到了{Origin}。'
+          ],
+          'Sacrifice': [
+            '为了拯救{Target}，{Hero}付出了{Cost}——但传说永远不会忘记。',
+            '有人说{Hero}还在守护着{Origin}，只是换了一种方式。'
+          ]
+        }
+      },
+      Tragedy: {
+        name: 'Tragedy',
+        rules: {
+          'Myth': ['{Hubris} {Fall} {Aftermath} {Legacy}'],
+          'Hubris': [
+            '{Hero}曾相信{Virtue}可以征服一切，包括{Challenge}。',
+            '在{Origin}的辉煌时刻，{Hero}忘记了谦卑。'
+          ],
+          'Fall': [
+            '但{Challenge}太强大了，{Hero}的{Artifact}碎裂在黑暗中。',
+            '当{Cost}降临时，{Hero}才明白有些代价无法承受。'
+          ],
+          'Aftermath': [
+            '{Origin}沉默了很长时间，风中有{Target}的哭泣。',
+            '世界记住了{Hero}的失败，但比失败更深刻的是{Hero}的勇气。'
+          ],
+          'Legacy': [
+            '如今，每当{Challenge}重现，人们会想起{Hero}的教训。',
+            '悲剧不是终点——{Hero}的故事成为了{Origin}的守护。'
+          ]
+        }
+      },
+      CreationMyth: {
+        name: 'CreationMyth',
+        rules: {
+          'Myth': ['{Void} {Spark} {Shaping} {Legacy}'],
+          'Void': [
+            '在{Origin}还是一片虚无时，{Hero}听到了创造的召唤。',
+            '世界尚未成形，{Hero}手中握着{Artifact}的雏形。'
+          ],
+          'Spark': [
+            '第一道光芒来自{Hero}的{Virtue}，照亮了{Challenge}的黑暗。',
+            '当{Hero}举起{Artifact}，{Origin}第一次有了颜色。'
+          ],
+          'Shaping': [
+            '{Hero}用{Artifact}塑造了{Target}，每一个细节都倾注了心血。',
+            '从{Challenge}中，{Hero}提炼出了{Target}——不完美，但真实。'
+          ],
+          'Legacy': [
+            '如今{Target}依然在{Origin}守护着，提醒着创造的代价与荣耀。',
+            '每一个来到{Origin}的造物者，都会感受到{Hero}留下的{Virtue}。'
+          ]
+        }
+      },
+      CycleMyth: {
+        name: 'CycleMyth',
+        rules: {
+          'Myth': ['{Beginning} {Rise} {Turning} {Renewal}'],
+          'Beginning': [
+            '传说{Origin}经历过无数次{Challenge}，每一次都有一位{Hero}。',
+            '在时间的轮回中，{Hero}不是第一个，也不会是最后一个。'
+          ],
+          'Rise': [
+            '但这一次，{Hero}带着{Artifact}和前所未有的{Virtue}。',
+            '{Hero}在{Origin}的崛起，让古老的预言开始应验。'
+          ],
+          'Turning': [
+            '当{Cost}降临时，轮回似乎要重演——但{Hero}做出了不同的选择。',
+            '在{Challenge}的最高潮，{Hero}打破了循环。'
+          ],
+          'Renewal': [
+            '新的轮回开始了，但这一次{Origin}学会了{Hero}的{Virtue}。',
+            '{Hero}成为了轮回的一部分，{Artifact}在等待着下一个守护者。'
+          ]
+        }
+      }
+    };
+
+    // Select based on narrative arc themes
+    if (narrativeArcs && narrativeArcs.length > 0) {
+      const topArc = narrativeArcs[0];
+      const themeMap = {
+        'sacrifice': 'Tragedy',
+        'hope': 'HeroJourney',
+        'despair': 'Tragedy',
+        'creation': 'CreationMyth',
+        'war': 'CycleMyth'
+      };
+      const selected = themeMap[topArc.theme] || 'HeroJourney';
+      return archetypes[selected];
+    }
+
+    // Default random selection
+    const keys = Object.keys(archetypes);
+    return archetypes[keys[Math.floor(Math.random() * keys.length)]];
+  }
+
+  buildMythGrammar(archetype, playerData) {
+    const grammar = { ...archetype.rules };
+
+    // Fill slots from player data
+    const slots = {
+      Hero: playerData.heroName || '造物者',
+      Origin: playerData.favoriteLevel || '裂隙之地',
+      Challenge: playerData.hardestLevel || '未知的试炼',
+      Artifact: playerData.favoriteCreation || '传说中的造物',
+      Virtue: playerData.dominantTrait || '勇气',
+      Target: playerData.mostRescuedNPC || '世界',
+      Cost: playerData.greatestLoss || '无法衡量的代价'
+    };
+
+    // Expand all rules with slots
+    for (const [key, rules] of Object.entries(grammar)) {
+      grammar[key] = rules.map(rule => {
+        let expanded = rule;
+        for (const [slot, value] of Object.entries(slots)) {
+          expanded = expanded.replace(new RegExp(`{${slot}}`, 'g'), value);
+        }
+        return expanded;
+      });
+    }
+
+    return grammar;
+  }
+
+  expandGrammar(grammar, symbol) {
+    const rules = grammar[symbol];
+    if (!rules) return symbol;
+
+    // Check if this is a terminal (no matching rules in grammar)
+    const isTerminal = !Object.keys(grammar).some(key => rules.some(r => r.includes(`{${key}}`)));
+    if (isTerminal) {
+      return rules[Math.floor(Math.random() * rules.length)];
+    }
+
+    // Expand recursively
+    let result = rules[Math.floor(Math.random() * rules.length)];
+    for (const key of Object.keys(grammar)) {
+      const pattern = new RegExp(`{${key}}`, 'g');
+      if (result.match(pattern)) {
+        result = result.replace(pattern, this.expandGrammar(grammar, key));
+      }
+    }
+
+    return result;
+  }
+
+  calculateMythPower(playerData) {
+    let power = 30; // Base power
+    if (playerData.totalCreations > 10) power += 20;
+    if (playerData.totalRescued > 20) power += 20;
+    if (playerData.winRate > 0.7) power += 15;
+    if (playerData.riskTolerance > 0.6) power += 10;
+    return Math.min(100, power);
+  }
+
+  // "Myth Becomes Reality" - when myth popularity exceeds threshold, spawn in-game events
+  checkMythReality(myth, currentLevel) {
+    if (myth.popularity < 50 || myth.isActive) return null;
+
+    myth.isActive = true;
+
+    // Generate reality event based on myth archetype
+    const realityEvent = {
+      type: 'myth_manifestation',
+      mythId: myth.id,
+      level: currentLevel,
+      description: this.generateRealityManifestation(myth),
+      effect: this.generateMythEffect(myth)
+    };
+
+    myth.realityEvents.push(realityEvent);
+    return realityEvent;
+  }
+
+  generateRealityManifestation(myth) {
+    const manifestations = {
+      HeroJourney: '传说中的英雄气息弥漫在空气中，单位的移动速度略微提升。',
+      Tragedy: '空气中弥漫着古老的悲伤，裂隙的扩散速度减缓但更加深沉。',
+      CreationMyth: '创造之力在周围涌动，造物的效果持续时间延长。',
+      CycleMyth: '时间的轮回在此刻显现，某些地形发生了周期性变化。'
+    };
+    return manifestations[myth.archetype] || '神话的力量在此显现。';
+  }
+
+  generateMythEffect(myth) {
+    const effects = {
+      HeroJourney: { type: 'movement_boost', value: 1 },
+      Tragedy: { type: 'entropy_slow', value: 0.5 },
+      CreationMyth: { type: 'duration_extend', value: 1 },
+      CycleMyth: { type: 'terrain_cycle', value: 1 }
+    };
+    return effects[myth.archetype] || { type: 'generic_boost', value: 1 };
+  }
+
+  // Generate myth from narrative arcs using vector memory
+  generateMythFromArcs(narrativeArcs, playerData) {
+    if (!narrativeArcs || narrativeArcs.length === 0) {
+      return this.generateMythWithGrammar(playerData, null);
+    }
+
+    // Use the most coherent arc as the foundation
+    const topArc = narrativeArcs.sort((a, b) => b.coherence - a.coherence)[0];
+
+    // Extract key elements from arc memories
+    const arcMemories = topArc.memories.map(m => m.text).join(' ');
+    const extractedData = {
+      ...playerData,
+      heroName: '造物者',
+      dominantTrait: topArc.theme || '勇气'
+    };
+
+    return this.generateMythWithGrammar(extractedData, [topArc]);
+  }
+
   // Serialize for save/load
   serialize() {
     return {

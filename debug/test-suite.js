@@ -955,6 +955,55 @@ runner.test('边界条件 - 无目标单位寻路', () => {
   runner.assertTrue(true, '无目标单位应安全处理');
 });
 
+// 测试 Storyteller 与 aiMemory 深度联动
+runner.test('Storyteller - 应与aiMemory联动生成自适应事件', async () => {
+  const game = new DebugGame();
+  game.reset();
+
+  const { Storyteller } = await import('../public/js/storyteller.js');
+  const storyteller = new Storyteller('narrator');
+
+  // 创建模拟的aiMemory
+  const mockAIMemory = {
+    getPlayerProfile: () => ({
+      playStyle: 'creative',
+      winRate: 0.3,
+      empathyScore: 0.9,
+      riskTolerance: 0.2,
+      averageCreativity: 80,
+      totalLost: 5,
+      totalRescued: 8,
+      favoriteAbilities: { guide: 6, calm: 2 }
+    }),
+    levelHistory: [
+      { result: 'lost', rescued: 1, lost: 2, entropy: 5 },
+      { result: 'lost', rescued: 2, lost: 2, entropy: 6 },
+      { result: 'won', rescued: 5, lost: 1, entropy: 3 }
+    ],
+    creationHistory: [
+      { card: { name: '引导之光', ability: 'guide' } },
+      { card: { name: '安抚之歌', ability: 'calm' } }
+    ]
+  };
+
+  // 测试analyzePlayerHistory
+  const history = storyteller.analyzePlayerHistory(mockAIMemory);
+  runner.assert(history !== null, '应能分析玩家历史');
+  runner.assert(history.patterns.highEmpathy === true, '应检测到高共情');
+  runner.assert(history.improving === true, '应检测到进步趋势');
+
+  // 测试generateAdaptiveEvent - 高共情玩家失去单位时应触发逝者之声
+  game.lost = 1;
+  const event = storyteller.generateAdaptiveEvent(game, mockAIMemory);
+  runner.assert(event !== null, '应生成自适应事件');
+  runner.assert(event.name !== undefined, '事件应有名称');
+
+  // 测试getNarrativeContext
+  const context = storyteller.getNarrativeContext(game, mockAIMemory);
+  runner.assert(context.playerProfile !== undefined, '应包含玩家画像');
+  runner.assert(context.narrativeArc !== undefined, '应包含叙事弧线');
+});
+
 // 运行测试
 runner.run().then(success => {
   process.exit(success ? 0 : 1);

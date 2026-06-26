@@ -355,9 +355,9 @@ async function main() {
 
           if (watchMode || game.gameState !== 'playing') game.printMap();
 
-          // Storyteller 叙事触发
+          // Storyteller 叙事触发 (传入aiMemory实现深度联动)
           if (game.gameState === 'playing') {
-            const storyResult = storyteller.tellStory(game);
+            const storyResult = storyteller.tellStory(game, game.memorySystem);
             if (storyResult) {
               console.log(`\n【叙事】${storyResult.narrative}`);
               // 应用事件效果

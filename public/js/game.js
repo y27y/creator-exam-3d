@@ -428,8 +428,8 @@ class CreatorExam3D extends GameEngine {
     this.checkEndCondition(true);
     if (this.gameState === 'playing') {
       this.turn += 1;
-      // Storyteller 叙事触发
-      const storyResult = this.storyteller.tellStory(this);
+      // Storyteller 叙事触发 (传入aiMemory实现深度联动)
+      const storyResult = this.storyteller.tellStory(this, this.memorySystem);
       if (storyResult) {
         this.addLog(`【叙事】${storyResult.narrative}`, true);
         this.applyStorytellerEvent(storyResult.event);

@@ -284,7 +284,275 @@ export class Storyteller {
   }
 
   // Main method: trigger storytelling event
-  tellStory(game) {
+  tellStory(game, aiMemory = null) {
+    if (!this.shouldTriggerEvent(game)) return null;
+
+    // Use adaptive event selection if aiMemory is available
+    const event = aiMemory ? this.generateAdaptiveEvent(game, aiMemory) : this.selectEvent(game);
+    if (!event) return null;
+
+    const narrative = this.generateNarrative(event, game);
+
+    // Apply adaptive effects if aiMemory is available
+    if (aiMemory && event.severity) {
+      this.applyAdaptiveEvent(game, event, aiMemory);
+    }
+
+    this.lastEventTurn = game.turn;
+    this.eventHistory.push({
+      turn: game.turn,
+      event: event.name,
+      effect: event.effect,
+      narrative,
+      tension: this.tension
+    });
+
+    return {
+      event,
+      narrative,
+      tension: this.tension
+    };
+  }
+
+  // Deep integration with AIMemory - analyze player history for adaptive storytelling
+  analyzePlayerHistory(aiMemory) {
+    if (!aiMemory) return null;
+    const profile = aiMemory.getPlayerProfile ? aiMemory.getPlayerProfile() : null;
+    if (!profile) return null;
+
+    const levels = aiMemory.levelHistory || [];
+    const creations = aiMemory.creationHistory || [];
+
+    // Calculate player skill trajectory
+    const recentLevels = levels.slice(-3);
+    const improving = recentLevels.length >= 2 &&
+      recentLevels[recentLevels.length - 1].rescued > recentLevels[0].rescued;
+    const struggling = recentLevels.length >= 2 &&
+      recentLevels[recentLevels.length - 1].lost > recentLevels[0].lost;
+
+    // Detect patterns
+    const patterns = {
+      overusesSameAbility: Object.values(profile.favoriteAbilities || {}).some(c => c > 5),
+      avoidsRisk: profile.riskTolerance < 0.3,
+      highEmpathy: profile.empathyScore > 0.8,
+      creativePlayer: profile.averageCreativity > 70,
+      perfectionist: profile.winRate > 0.8 && profile.totalLost === 0,
+      struggling: profile.winRate < 0.4
+    };
+
+    return {
+      profile,
+      improving,
+      struggling,
+      patterns,
+      recentLevels,
+      totalCreations: creations.length
+    };
+  }
+
+  // Generate adaptive event based on player history
+  generateAdaptiveEvent(game, aiMemory) {
+    const history = this.analyzePlayerHistory(aiMemory);
+    if (!history) return this.selectEvent(game);
+
+    const state = this.analyzeState(game);
+    const p = this.personality;
+
+    // Override based on player patterns
+    if (history.patterns.perfectionist && p.style === 'dramatic') {
+      // Perfectionists get subtle challenges to break their comfort zone
+      if (state.safety > 0.9 && Math.random() < 0.3) {
+        return {
+          name: '意外变数',
+          description: '世界似乎想测试你是否能应对不完美',
+          effect: 'minorSetback',
+          severity: 'low',
+          weight: 2
+        };
+      }
+    }
+
+    if (history.patterns.struggling && state.safety < 0.5) {
+      // Struggling players get help when things are dire
+      return {
+        name: '一线希望',
+        description: '在最黑暗的时刻，奇迹出现了',
+        effect: 'miracleHelp',
+        severity: 'helpful',
+        weight: 3
+      };
+    }
+
+    if (history.patterns.highEmpathy && state.lost > 0) {
+      // Empathetic players get narrative events when they lose units
+      return {
+        name: '逝者之声',
+        description: '失去的生命在记忆中低语，给予你力量',
+        effect: 'memorialBoost',
+        severity: 'narrative',
+        weight: 2
+      };
+    }
+
+    if (history.patterns.creativePlayer && state.creationDiversity < 0.5) {
+      // Creative players get encouraged to diversify
+      return {
+        name: '灵感闪现',
+        description: '你的创造力在呼唤新的可能性',
+        effect: 'creativityBoost',
+        severity: 'helpful',
+        weight: 2
+      };
+    }
+
+    if (history.improving && state.timePressure > 0.7) {
+      // Improving players get confidence-building events
+      return {
+        name: '成长之证',
+        description: '你的进步被世界看在眼里',
+        effect: 'confidenceBoost',
+        severity: 'helpful',
+        weight: 2
+      };
+    }
+
+    return this.selectEvent(game);
+  }
+
+  // Apply adaptive event effects
+  applyAdaptiveEvent(game, event, aiMemory) {
+    const history = this.analyzePlayerHistory(aiMemory);
+
+    switch (event.effect) {
+      case 'minorSetback': {
+        // Small challenge that doesn't break perfection but tests adaptability
+        if (game.entropy > 0) {
+          game.entropy += 1;
+          game.log(`【叙事事件】${event.name}：世界裂隙轻微波动 (+1)`);
+        }
+        break;
+      }
+      case 'miracleHelp': {
+        // Give a small boost to struggling players
+        const civilians = game.units.filter(u => game.isCivilian(u) && u.status === 'active');
+        if (civilians.length > 0) {
+          const target = civilians[Math.floor(Math.random() * civilians.length)];
+          target.guidedTurns = Math.max(target.guidedTurns, 2);
+          game.log(`【叙事事件】${event.name}：${target.name} 突然看到了希望的光芒`);
+        }
+        break;
+      }
+      case 'memorialBoost': {
+        // Narrative boost for empathetic players
+        game.miraclePoints = Math.min(game.miraclePoints + 1, game.level.miraclePoints || 10);
+        game.log(`【叙事事件】${event.name}：记忆化为力量，奇迹点 +1`);
+        break;
+      }
+      case 'creativityBoost': {
+        // Encourage creative players
+        game.creationCharges = Math.min(game.creationCharges + 1, game.level.creationCharges + 2);
+        game.log(`【叙事事件】${event.name}：新的造物灵感涌现，造物次数 +1`);
+        break;
+      }
+      case 'confidenceBoost': {
+        // Boost for improving players
+        game.level.maxTurns += 1;
+        game.log(`【叙事事件】${event.name}：世界为你的成长让出更多时间 (+1回合)`);
+        break;
+      }
+      default:
+        return false;
+    }
+    return true;
+  }
+
+  // Generate personalized narrative based on player history
+  tellPersonalizedStory(game, aiMemory) {
+    const history = this.analyzePlayerHistory(aiMemory);
+    const state = this.analyzeState(game);
+
+    if (!history) return this.tellStory(game);
+
+    const p = this.personality;
+    let narrative = '';
+
+    // Opening based on player style
+    if (history.patterns.creativePlayer) {
+      narrative += `你的造物风格独特，世界正在学习你的语言。`;
+    } else if (history.patterns.highEmpathy) {
+      narrative += `你对生命的珍视，让裂隙之地感受到了温暖。`;
+    } else if (history.patterns.avoidsRisk) {
+      narrative += `你的谨慎让每一步都踏实，但世界也在等待你大胆的瞬间。`;
+    }
+
+    // Middle based on current state
+    if (state.safety < 0.3) {
+      narrative += `危险正在逼近，但${history.improving ? '你已经证明过自己' : '希望依然存在'}。`;
+    } else if (state.safety > 0.8) {
+      narrative += `一切似乎顺利，但${p.style === 'dramatic' ? '平静往往预示着风暴' : '不要掉以轻心'}。`;
+    }
+
+    // Closing based on personality
+    if (p.style === 'dramatic') {
+      narrative += `故事的下一章，由你书写。`;
+    } else if (p.style === 'gentle') {
+      narrative += `无论发生什么，世界相信你的选择。`;
+    } else if (p.style === 'chaotic') {
+      narrative += `谁知道接下来会发生什么？`;
+    } else {
+      narrative += `你的故事，正在被记住。`;
+    }
+
+    return narrative;
+  }
+
+  // Get narrative context for AI prompts
+  getNarrativeContext(game, aiMemory) {
+    const history = this.analyzePlayerHistory(aiMemory);
+    const state = this.analyzeState(game);
+
+    if (!history) {
+      return {
+        tension: this.tension,
+        safety: state.safety,
+        turn: game.turn,
+        style: this.personality.style
+      };
+    }
+
+    return {
+      tension: this.tension,
+      safety: state.safety,
+      turn: game.turn,
+      style: this.personality.style,
+      playerProfile: {
+        playStyle: history.profile.playStyle,
+        winRate: history.profile.winRate,
+        empathyScore: history.profile.empathyScore,
+        riskTolerance: history.profile.riskTolerance,
+        improving: history.improving,
+        struggling: history.struggling
+      },
+      recentEvents: this.eventHistory.slice(-3),
+      narrativeArc: this.calculateNarrativeArc(history)
+    };
+  }
+
+  calculateNarrativeArc(history) {
+    const levels = history.recentLevels;
+    if (levels.length < 2) return 'beginning';
+
+    const wins = levels.filter(l => l.result === 'won').length;
+    const losses = levels.filter(l => l.result === 'lost').length;
+
+    if (losses === 0) return 'ascending';
+    if (wins === 0) return 'descending';
+    if (wins > losses) return 'recovering';
+    return 'struggling';
+  }
+
+  // Original tellStory method (kept for backward compatibility)
+  tellStoryLegacy(game) {
     if (!this.shouldTriggerEvent(game)) return null;
 
     const event = this.selectEvent(game);

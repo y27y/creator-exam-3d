@@ -1,5 +1,6 @@
 import { cloneLevel, LEVELS, SYMBOL_TO_TILE, TILE } from '../public/js/levels.js';
 import { localCompile } from '../public/js/aiClient.js';
+import { RESONANCE_CODEX, executeChainReaction } from '../public/js/chainReactionCodex.js';
 
 const TERRAIN_LABELS = {
   [TILE.LAND]: '平地',
@@ -73,6 +74,8 @@ class DebugGame {
     this.logs = [];
     this.worldState = this.initWorldState();
     this.npcManager = new NPCManager(this);
+    this.resonanceCodex = RESONANCE_CODEX;
+    this.resonanceCodex.reset();
   }
 
   initWorldState() {
@@ -1249,31 +1252,19 @@ class DebugGame {
   // ========== 连锁反应（Chain Reaction） ==========
 
   applyChainReactions() {
-    const abilities = new Set(this.creations.filter(c => c.placed && c.remaining > 0).map(c => c.card.ability));
-
-    // 照明 + 吸水 = 蒸汽迷雾（临时阻挡视野但可通行）
-    if (abilities.has('illuminate') && abilities.has('absorb_water')) {
-      this.applySteamFog();
+    // 使用新的图鉴系统检查并触发连锁反应
+    const discoveries = this.resonanceCodex.checkReactions(this);
+    for (const reaction of discoveries) {
+      this.log(`【新发现】连锁反应：${reaction.name}！${reaction.description}`, true);
+      executeChainReaction(this, reaction.id);
     }
 
-    // 森林 + 屏障 = 不可破坏屏障
-    if (abilities.has('grow_forest') && abilities.has('block')) {
-      this.applyIndestructibleBarrier();
-    }
-
-    // 引导 + 记忆信标 = 被引导单位免疫记忆混乱
-    if (abilities.has('guide') && abilities.has('memory_beacon')) {
-      this.applyGuidedMemoryImmunity();
-    }
-
-    // 陷阱 + 迟缓 = 陷阱中的巨兽额外停留1回合
-    if (abilities.has('trap') && abilities.has('slow_beast')) {
-      this.applyTrapSlowCombo();
-    }
-
-    // 冻结 + 抬升 = 冻结后抬升的地形永久存在
-    if (abilities.has('freeze_water') && abilities.has('raise_earth')) {
-      this.applyFrozenHighGround();
+    // 如果本轮没有发现新的，检查已发现的反应是否持续生效
+    const discovered = this.resonanceCodex.getDiscovered();
+    for (const reaction of discovered) {
+      if (executeChainReaction(this, reaction.id)) {
+        reaction.usageCount++;
+      }
     }
   }
 

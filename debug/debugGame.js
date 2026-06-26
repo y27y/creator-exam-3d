@@ -961,12 +961,20 @@ class DebugGame {
     if (this.gameState !== 'playing') return;
     this.gameState = 'won';
     this.log(`通过：${message}`, true);
+    // 触发NPC对胜利事件的反应
+    if (this.npcManager) {
+      this.npcManager.reactToGameEvent('onWin', { message });
+    }
   }
 
   failLevel(message) {
     if (this.gameState !== 'playing') return;
     this.gameState = 'lost';
     this.log(`失败：${message}`, true);
+    // 触发NPC对失败事件的反应
+    if (this.npcManager) {
+      this.npcManager.reactToGameEvent('onLose', { message });
+    }
   }
 
   // ========== 工具方法 ==========
@@ -1441,6 +1449,10 @@ class DebugGame {
     unit.rescued = true;
     this.rescued += 1;
     this.log(`${unit.name} 抵达安全点`, true);
+    // 触发NPC对救援事件的反应
+    if (this.npcManager) {
+      this.npcManager.reactToGameEvent('onRescue', { rescued: 1, unitName: unit.name });
+    }
   }
 
   nextStepToward(unit, goal) {
@@ -1815,6 +1827,31 @@ class NPCManager {
     if (hazard === 'darkness') return '阴暗，视野受限';
     if (hazard === 'war') return '紧张，远处有争吵声';
     return '平静但脆弱';
+  }
+
+  // 动态事件响应系统
+  reactToGameEvent(eventType, eventData = {}) {
+    const moodMap = {
+      'onRescue': { '老渔夫': '欣慰', '小烛': '兴奋', '矿灯幽灵': '温暖', '驯兽人': '敬佩', '边境诗人': '感动', '守忆人': '清晰', '世界之灵': '欣慰' },
+      'onLoss': { '老渔夫': '悲伤', '小烛': '害怕', '矿灯幽灵': '麻木', '驯兽人': '痛心', '边境诗人': '沉默', '守忆人': '遗忘', '世界之灵': '哀伤' },
+      'onWin': { '老渔夫': '感激', '小烛': '欢呼', '矿灯幽灵': '安息', '驯兽人': '释然', '边境诗人': '歌颂', '守忆人': '铭记', '世界之灵': '祝福' },
+      'onLose': { '老渔夫': '绝望', '小烛': '哭泣', '矿灯幽灵': '消散', '驯兽人': '自责', '边境诗人': '失声', '守忆人': '空白', '世界之灵': '沉睡' }
+    };
+
+    const transition = moodMap[eventType];
+    if (!transition) return;
+
+    for (const npc of this.npcs) {
+      const newMood = transition[npc.name];
+      if (newMood) {
+        npc.mood = newMood;
+        npc.memories.push({
+          text: `事件「${eventType}」发生，情绪变为${newMood}`,
+          turn: this.game.turn,
+          timestamp: Date.now()
+        });
+      }
+    }
   }
 
   // 检查是否有NPC可以对话

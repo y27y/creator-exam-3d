@@ -13,8 +13,10 @@ export const AbilityHandlers = {
 
 // Helper to set temporary terrain linked to a creation
 function setTempTerrain(game, creation, x, y, tile) {
+  const prev = game.getTerrain(x, y);
+  if (prev === tile) return;
   game.setTerrain(x, y, tile);
-  creation.restores.push({ x, y, tile: game.getTerrain(x, y) });
+  creation.restores.push({ x, y, tile: prev });
 }
 
 // ========== Immediate Handlers ==========

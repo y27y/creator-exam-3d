@@ -376,15 +376,33 @@ export class ParticleSystem {
       const particle = this.particles[index];
       this.scene.remove(particle.mesh);
 
-      // Dispose geometries and materials
+      // Dispose geometries and materials properly
       if (particle.mesh.geometry) {
         particle.mesh.geometry.dispose();
       }
-      if (particle.mesh.material && particle.mesh.material.map) {
-        particle.mesh.material.map.dispose();
+      if (particle.mesh.material) {
+        if (particle.mesh.material.map) {
+          particle.mesh.material.map.dispose();
+        }
+        particle.mesh.material.dispose();
       }
 
       this.particles.splice(index, 1);
+    }
+
+    // Enforce max particle limit
+    if (this.particles.length > this.maxParticles) {
+      const excess = this.particles.length - this.maxParticles;
+      for (let i = 0; i < excess; i++) {
+        const particle = this.particles[i];
+        this.scene.remove(particle.mesh);
+        if (particle.mesh.geometry) particle.mesh.geometry.dispose();
+        if (particle.mesh.material) {
+          if (particle.mesh.material.map) particle.mesh.material.map.dispose();
+          particle.mesh.material.dispose();
+        }
+      }
+      this.particles.splice(0, excess);
     }
   }
 

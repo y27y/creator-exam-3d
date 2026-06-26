@@ -78,12 +78,19 @@ class CreatorExam3D {
     this.logs = [];
     this.gameState = 'playing';
     this.materials = new Map();
+    this.geometryCache = new Map();
+    this.labelCache = new Map();
+    this.tileMeshPool = new Map();
+    this.unitMeshPool = new Map();
+    this.creationMeshPool = new Map();
+    this.rescuedMarkerPool = new Map();
 
     // Initialize new systems
     this.memorySystem = getMemorySystem();
     this.particleSystem = null;
     this.screenEffects = null;
     this.npcManager = null;
+    this.lastFrameTime = 0;
 
     this.ui = this.collectUi();
     this.initScene();
@@ -1086,33 +1093,125 @@ class CreatorExam3D {
   }
 
   renderWorld() {
-    this.worldGroup.clear();
-    this.tileMeshes = [];
-
+    // Incremental terrain update - only rebuild changed tiles
+    const activeTileKeys = new Set();
     for (let y = 0; y < BOARD_SIZE; y += 1) {
       for (let x = 0; x < BOARD_SIZE; x += 1) {
         const terrain = this.getTerrain(x, y);
+        const key = `${x},${y}`;
+        activeTileKeys.add(key);
+        const existing = this.tileMeshPool.get(key);
+        if (existing && existing.userData.terrain === terrain) {
+          // Terrain unchanged, skip
+          continue;
+        }
+        // Remove old tile if exists
+        if (existing) {
+          this.worldGroup.remove(existing);
+          if (existing.marker) this.worldGroup.remove(existing.marker);
+        }
+        // Create new tile
         const mesh = this.createTileMesh(terrain, x, y);
         this.worldGroup.add(mesh);
-        this.tileMeshes.push(mesh);
+        this.tileMeshPool.set(key, mesh);
         const marker = this.createTerrainMarker(terrain, x, y);
-        if (marker) this.worldGroup.add(marker);
+        if (marker) {
+          this.worldGroup.add(marker);
+          mesh.marker = marker;
+        }
+      }
+    }
+    // Remove tiles that no longer exist (shouldn't happen in normal gameplay)
+    for (const [key, mesh] of this.tileMeshPool) {
+      if (!activeTileKeys.has(key)) {
+        this.worldGroup.remove(mesh);
+        if (mesh.marker) this.worldGroup.remove(mesh.marker);
+        this.tileMeshPool.delete(key);
       }
     }
 
+    // Update creations - rebuild only if changed
+    const activeCreationIds = new Set();
     for (const creation of this.creations) {
-      this.worldGroup.add(this.createCreationMesh(creation));
+      activeCreationIds.add(creation.id);
+      const existing = this.creationMeshPool.get(creation.id);
+      if (existing) {
+        // Update position and rotation only
+        const pos = this.tileToWorld(creation.x, creation.y);
+        existing.position.set(pos.x, 0.45, pos.z);
+        const core = existing.children.find(c => c.geometry?.type === 'IcosahedronGeometry');
+        if (core) core.rotation.y = creation.remaining * 0.5;
+        continue;
+      }
+      const mesh = this.createCreationMesh(creation);
+      this.worldGroup.add(mesh);
+      this.creationMeshPool.set(creation.id, mesh);
+    }
+    // Remove expired creations
+    for (const [id, mesh] of this.creationMeshPool) {
+      if (!activeCreationIds.has(id)) {
+        this.worldGroup.remove(mesh);
+        this.creationMeshPool.delete(id);
+      }
     }
 
+    // Update units - position only for existing, rebuild for new/changed status
+    const activeUnitIds = new Set();
     for (const unit of this.units) {
-      if (unit.status === 'active') this.worldGroup.add(this.createUnitMesh(unit));
-      if (unit.status === 'rescued') this.worldGroup.add(this.createRescuedMarker(unit));
+      activeUnitIds.add(unit.id);
+      if (unit.status === 'active') {
+        const existing = this.unitMeshPool.get(unit.id);
+        if (existing && existing.userData.unitStatus === unit.status) {
+          // Only update position
+          const pos = this.tileToWorld(unit.x, unit.y);
+          existing.position.set(pos.x, 0.36, pos.z);
+          // Update guided halo
+          const hasHalo = existing.children.some(c => c.geometry?.type === 'TorusGeometry');
+          if (unit.guidedTurns > 0 && !hasHalo) {
+            existing.add(this.createHalo(0x9dffb3));
+          } else if (unit.guidedTurns <= 0 && hasHalo) {
+            const haloIndex = existing.children.findIndex(c => c.geometry?.type === 'TorusGeometry');
+            if (haloIndex >= 0) existing.children.splice(haloIndex, 1);
+          }
+          continue;
+        }
+        // Remove old if status changed
+        if (existing) {
+          this.worldGroup.remove(existing);
+          this.unitMeshPool.delete(unit.id);
+        }
+        const mesh = this.createUnitMesh(unit);
+        this.worldGroup.add(mesh);
+        this.unitMeshPool.set(unit.id, mesh);
+      } else if (unit.status === 'rescued') {
+        const existing = this.rescuedMarkerPool.get(unit.id);
+        if (!existing) {
+          const marker = this.createRescuedMarker(unit);
+          this.worldGroup.add(marker);
+          this.rescuedMarkerPool.set(unit.id, marker);
+        }
+      }
+    }
+    // Remove inactive units
+    for (const [id, mesh] of this.unitMeshPool) {
+      if (!activeUnitIds.has(id)) {
+        this.worldGroup.remove(mesh);
+        this.unitMeshPool.delete(id);
+      }
+    }
+    // Remove rescued markers for non-rescued units
+    for (const [id, marker] of this.rescuedMarkerPool) {
+      const unit = this.units.find(u => u.id === id);
+      if (!unit || unit.status !== 'rescued') {
+        this.worldGroup.remove(marker);
+        this.rescuedMarkerPool.delete(id);
+      }
     }
   }
 
   createTileMesh(terrain, x, y) {
     const height = terrain === TILE.HIGH ? 0.46 : terrain === TILE.MOUNTAIN ? 0.72 : terrain === TILE.WATER ? 0.08 : 0.18;
-    const geometry = new THREE.BoxGeometry(TILE_SIZE * 0.94, height, TILE_SIZE * 0.94);
+    const geometry = this.getCachedGeometry(`tile-${height}`, () => new THREE.BoxGeometry(TILE_SIZE * 0.94, height, TILE_SIZE * 0.94));
     const material = this.getTerrainMaterial(terrain);
     const mesh = new THREE.Mesh(geometry, material);
     const pos = this.tileToWorld(x, y);
@@ -1121,6 +1220,37 @@ class CreatorExam3D {
     mesh.castShadow = terrain !== TILE.WATER;
     mesh.userData = { x, y, terrain, tile: true };
     return mesh;
+  }
+
+  getCachedGeometry(key, factory) {
+    if (!this.geometryCache.has(key)) {
+      this.geometryCache.set(key, factory());
+    }
+    return this.geometryCache.get(key);
+  }
+
+  createLabel(text) {
+    const cached = this.labelCache.get(text);
+    if (cached) return cached.clone();
+
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    canvas.width = 256;
+    canvas.height = 64;
+    ctx.fillStyle = 'rgba(5, 9, 20, 0.72)';
+    roundRect(ctx, 8, 10, 240, 44, 18);
+    ctx.fill();
+    ctx.font = 'bold 24px Microsoft YaHei, sans-serif';
+    ctx.fillStyle = '#f4f7ff';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(text.slice(0, 10), 128, 32);
+    const texture = new THREE.CanvasTexture(canvas);
+    const material = new THREE.SpriteMaterial({ map: texture, transparent: true, depthWrite: false });
+    const sprite = new THREE.Sprite(material);
+    sprite.scale.set(1.2, 0.3, 1);
+    this.labelCache.set(text, sprite);
+    return sprite.clone();
   }
 
   createTerrainMarker(terrain, x, y) {
@@ -1589,10 +1719,11 @@ class CreatorExam3D {
     return this.creations.some((creation) => creation.remaining > 0 && abilities.includes(creation.card.ability) && this.distance(x, y, creation.x, creation.y) <= creation.card.range + 1);
   }
 
-  animate() {
-    requestAnimationFrame(() => this.animate());
+  animate(now) {
+    requestAnimationFrame((t) => this.animate(t));
+    const deltaTime = Math.min((now - this.lastFrameTime) / 1000 || 0.016, 0.1); // Limit max delta
+    this.lastFrameTime = now;
     const t = performance.now() / 1000;
-    const deltaTime = 0.016; // Approximate 60fps
 
     for (const child of this.worldGroup.children) {
       if (child.type === 'Group' && child.children.length > 0) {

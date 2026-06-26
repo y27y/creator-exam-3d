@@ -234,6 +234,70 @@ class CreatorExam3D extends GameEngine {
     // Initialize particle system and screen effects
     this.particleSystem = new ParticleSystem(this.scene);
     this.screenEffects = new ScreenEffects();
+
+    // Performance optimization: InstancedMesh for static tiles
+    this.instancedMeshes = new Map(); // terrain type -> InstancedMesh
+    this.initInstancedMeshes();
+
+    // Performance optimization: Pathfinding cache (LRU)
+    this.pathCache = new Map();
+    this.pathCacheMaxSize = 50;
+  }
+
+  initInstancedMeshes() {
+    // Pre-create instanced meshes for each terrain type
+    const geometry = new THREE.BoxGeometry(TILE_SIZE, 0.4, TILE_SIZE);
+    for (const [terrainType, color] of Object.entries(MATERIAL_COLORS)) {
+      const material = new THREE.MeshStandardMaterial({
+        color,
+        roughness: 0.82,
+        metalness: 0.05
+      });
+      const instancedMesh = new THREE.InstancedMesh(geometry, material, BOARD_SIZE * BOARD_SIZE);
+      instancedMesh.count = 0; // Start with 0 visible instances
+      instancedMesh.instanceMatrix.setUsage(THREE.DynamicDrawPattern);
+      this.instancedMeshes.set(parseInt(terrainType), instancedMesh);
+      this.worldGroup.add(instancedMesh);
+    }
+  }
+
+  // Clear path cache when terrain changes
+  clearPathCache() {
+    this.pathCache.clear();
+  }
+
+  // Get cached path or compute new one
+  getCachedPath(unit, goal) {
+    const cacheKey = `${unit.x},${unit.y}-${goal.x},${goal.y}-${unit.type}`;
+    const cached = this.pathCache.get(cacheKey);
+    if (cached && cached.terrainHash === this.getTerrainHash()) {
+      return cached.path;
+    }
+    return null;
+  }
+
+  setCachedPath(unit, goal, path) {
+    const cacheKey = `${unit.x},${unit.y}-${goal.x},${goal.y}-${unit.type}`;
+    // LRU: remove oldest if at capacity
+    if (this.pathCache.size >= this.pathCacheMaxSize) {
+      const firstKey = this.pathCache.keys().next().value;
+      this.pathCache.delete(firstKey);
+    }
+    this.pathCache.set(cacheKey, {
+      path,
+      terrainHash: this.getTerrainHash()
+    });
+  }
+
+  getTerrainHash() {
+    // Simple hash of current terrain state for cache invalidation
+    let hash = 0;
+    for (let y = 0; y < BOARD_SIZE; y++) {
+      for (let x = 0; x < BOARD_SIZE; x++) {
+        hash = (hash * 31 + this.getTerrain(x, y)) & 0xFFFFFFFF;
+      }
+    }
+    return hash;
   }
 
   bindEvents() {
@@ -779,12 +843,37 @@ class CreatorExam3D extends GameEngine {
     }
   }
 
-  // Override nextStepToward for simpler browser version (no getMoveCost)
+  // Override nextStepToward with path caching
   nextStepToward(unit, goal) {
     if (!goal) return null;
     const startKey = `${unit.x},${unit.y}`;
     const goalKey = `${goal.x},${goal.y}`;
     if (startKey === goalKey) return null;
+
+    // Try cache first
+    const cached = this.getCachedPath(unit, goal);
+    if (cached && cached.length > 0) {
+      const next = cached[0];
+      if (next.x === unit.x && next.y === unit.y) {
+        // Remove current position from cache
+        cached.shift();
+        return cached[0] || null;
+      }
+      return next;
+    }
+
+    // Compute path using A*
+    const path = this.computePath(unit, goal);
+    if (path && path.length > 0) {
+      this.setCachedPath(unit, goal, path);
+      return path[0];
+    }
+    return null;
+  }
+
+  computePath(unit, goal) {
+    const startKey = `${unit.x},${unit.y}`;
+    const goalKey = `${goal.x},${goal.y}`;
 
     const openSet = [{ x: unit.x, y: unit.y, g: 0, f: this.distance(unit.x, unit.y, goal.x, goal.y) }];
     const closedSet = new Set([startKey]);
@@ -828,30 +917,31 @@ class CreatorExam3D extends GameEngine {
 
     if (!cameFrom.has(goalKey)) return null;
 
+    // Reconstruct path
+    const path = [];
     let current = goal;
     let previous = cameFrom.get(goalKey);
     while (previous && !(previous.x === unit.x && previous.y === unit.y)) {
+      path.unshift(current);
       current = previous;
       previous = cameFrom.get(`${current.x},${current.y}`);
     }
-    return current.x === unit.x && current.y === unit.y ? null : current;
+    if (current.x !== unit.x || current.y !== unit.y) {
+      path.unshift(current);
+    }
+    return path;
+  }
+
+  // Override setTerrain to clear path cache
+  setTerrain(x, y, terrain) {
+    if (this.inBounds(x, y)) {
+      this.terrain[y][x] = terrain;
+      this.clearPathCache();
+    }
   }
 
   // Override isPassable for simpler browser version (no trap avoidance)
   isPassable(x, y, unit) {
-    const terrain = this.getTerrain(x, y);
-    if (terrain === TILE.MOUNTAIN || terrain === TILE.WALL) return false;
-    if (unit.type === 'beast') {
-      return ![TILE.WATER, TILE.FIELD].includes(terrain);
-    }
-    if (this.isMessenger(unit)) {
-      return ![TILE.WATER, TILE.MOUNTAIN, TILE.WALL, TILE.DARK, TILE.POISON].includes(terrain);
-    }
-    return ![TILE.WATER, TILE.MOUNTAIN, TILE.WALL, TILE.DARK, TILE.POISON].includes(terrain);
-  }
-
-  // Override isProtected for simpler browser version (no placed flag)
-  isProtected(x, y) {
     return this.creations.some((creation) => {
       if (creation.remaining <= 0) return false;
       if (creation.card.ability === 'force_field' && this.distance(x, y, creation.x, creation.y) <= creation.card.range) return true;

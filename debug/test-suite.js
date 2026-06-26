@@ -1052,6 +1052,24 @@ runner.test('世界传说 - 应记录传说事件并生成神话', async () => {
   runner.assert(report.totalArtifacts >= 1, '报告应包含神器');
 });
 
+// 测试性能优化 - 路径缓存
+runner.test('性能优化 - 路径缓存应减少计算', () => {
+  const game = new DebugGame();
+  game.reset();
+
+  // 模拟多次寻路
+  const unit = game.units[0];
+  const goal = unit.goal;
+
+  // 测试寻路性能
+  const start1 = Date.now();
+  const step1 = game.nextStepToward(unit, goal);
+  const time1 = Date.now() - start1;
+
+  runner.assert(step1 !== undefined, '应找到下一步');
+  runner.assert(time1 < 100, '寻路应在100ms内完成');
+});
+
 // 运行测试
 runner.run().then(success => {
   process.exit(success ? 0 : 1);

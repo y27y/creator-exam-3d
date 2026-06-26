@@ -2,6 +2,9 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { compileCreation, abilityLabel } from './aiClient.js';
 import { cloneLevel, INSPIRATIONS, LEVELS, SYMBOL_TO_TILE, TILE } from './levels.js';
+import { getMemorySystem } from './aiMemory.js';
+import { ParticleSystem, ScreenEffects } from './particles.js';
+import { NPCManager } from './npcManager.js';
 
 const TILE_SIZE = 1.55;
 const BOARD_SIZE = 7;
@@ -75,6 +78,12 @@ class CreatorExam3D {
     this.logs = [];
     this.gameState = 'playing';
     this.materials = new Map();
+
+    // Initialize new systems
+    this.memorySystem = getMemorySystem();
+    this.particleSystem = null;
+    this.screenEffects = null;
+    this.npcManager = null;
 
     this.ui = this.collectUi();
     this.initScene();
@@ -173,6 +182,10 @@ class CreatorExam3D {
     this.scene.add(base);
 
     this.scene.add(this.worldGroup);
+
+    // Initialize particle system and screen effects
+    this.particleSystem = new ParticleSystem(this.scene);
+    this.screenEffects = new ScreenEffects();
   }
 
   bindEvents() {
@@ -228,6 +241,13 @@ class CreatorExam3D {
     this.ui.modal.classList.add('hidden');
     this.ui.nextBtn.classList.add('hidden');
     this.ui.cardPanel.classList.add('hidden');
+
+    // Initialize NPC manager for this level
+    this.npcManager = new NPCManager(this.level);
+
+    // Update memory system
+    this.memorySystem.worldState.currentLevel = this.level.id;
+
     this.addLog(`考核开始：${this.level.shortTitle}。`, true);
     for (const tip of this.level.tips || []) this.addLog(`提示：${tip}`);
     this.renderWorld();
@@ -340,6 +360,23 @@ class CreatorExam3D {
     this.addLog(`你在 ${this.tileName(x, y)} 创造了「${card.name}」：${card.description}`, true);
     if (card.stabilityCost > 0) {
       this.addLog(`副作用触发：${card.side_effect} 世界裂隙 +${card.stabilityCost}。`);
+    }
+
+    // Record creation in memory system
+    this.memorySystem.recordCreation(card, this.level.id, this.turn, {
+      x, y,
+      remainingUnits: this.units.filter(u => u.status === 'active').length,
+      currentEntropy: this.entropy
+    });
+
+    // Spawn particle effects
+    const pos = this.tileToWorld(x, y);
+    this.particleSystem.spawnAbilityParticles(pos.x, 0.5, pos.z, card.ability, card.range);
+    this.particleSystem.spawnFloatingText(pos.x, 1.5, pos.z, card.name, this.particleSystem.getAbilityColor(card.ability));
+
+    // Screen flash for high-cost creations
+    if (card.cost >= 3) {
+      this.screenEffects.flash('#' + this.particleSystem.getAbilityColor(card.ability).toString(16).padStart(6, '0'), 400);
     }
 
     this.checkEndCondition(false);
@@ -739,6 +776,24 @@ class CreatorExam3D {
     this.gameState = 'won';
     this.addLog(`通过：${message}`, true);
     const isFinal = this.levelIndex === LEVELS.length - 1;
+
+    // Record level completion in memory
+    this.memorySystem.recordLevelCompletion(this.level.id, 'won', {
+      turns: this.turn,
+      maxTurns: this.level.maxTurns,
+      rescued: this.rescued,
+      lost: this.lost,
+      entropy: this.entropy
+    });
+
+    // Screen effects for victory
+    this.screenEffects.flash('#9dffb3', 500);
+    if (isFinal) {
+      // Generate epic ending for final level
+      const epicEnding = this.memorySystem.generateEpicEnding();
+      message += `\n\n${epicEnding.text}`;
+    }
+
     this.ui.nextBtn.classList.toggle('hidden', isFinal);
     this.showModal('考核通过', message + (isFinal ? ' 你完成了完整原型的全部关卡。' : ' 可以进入下一关。'), '继续', '重试');
   }
@@ -747,6 +802,20 @@ class CreatorExam3D {
     if (this.gameState !== 'playing') return;
     this.gameState = 'lost';
     this.addLog(`失败：${message}`, true);
+
+    // Record level completion in memory
+    this.memorySystem.recordLevelCompletion(this.level.id, 'lost', {
+      turns: this.turn,
+      maxTurns: this.level.maxTurns,
+      rescued: this.rescued,
+      lost: this.lost,
+      entropy: this.entropy
+    });
+
+    // Screen shake for failure
+    this.screenEffects.shake(8, 500);
+    this.screenEffects.vignette('rgba(255, 0, 50, 0.3)', 1000);
+
     this.showModal('考核失败', message, '重试', '重试');
   }
 
@@ -1171,6 +1240,10 @@ class CreatorExam3D {
     unit.rescued = true;
     this.rescued += 1;
     this.addLog(`${unit.name} 抵达安全点。`, true);
+
+    // Spawn rescue particle effect
+    const pos = this.tileToWorld(unit.x, unit.y);
+    this.particleSystem.spawnRescueEffect(pos.x, 0.5, pos.z);
   }
 
   nextStepToward(unit, goal) {
@@ -1238,12 +1311,20 @@ class CreatorExam3D {
   animate() {
     requestAnimationFrame(() => this.animate());
     const t = performance.now() / 1000;
+    const deltaTime = 0.016; // Approximate 60fps
+
     for (const child of this.worldGroup.children) {
       if (child.type === 'Group' && child.children.length > 0) {
         const hasCore = child.children.some((item) => item.geometry?.type === 'IcosahedronGeometry');
         if (hasCore) child.rotation.y = Math.sin(t * 0.8) * 0.08;
       }
     }
+
+    // Update particle system
+    if (this.particleSystem) {
+      this.particleSystem.update(deltaTime);
+    }
+
     this.controls.update();
     this.renderer.render(this.scene, this.camera);
   }

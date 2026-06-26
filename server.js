@@ -169,7 +169,7 @@ function sanitizeCard(raw, playerText) {
     : '奇迹';
   const description = typeof card.description === 'string' && card.description.trim()
     ? card.description.trim().slice(0, 120)
-    : `由”${String(playerText || '').slice(0, 24)}”凝成的创世奇迹。`;
+    : `由"${String(playerText || '').slice(0, 24)}"凝成的创世奇迹。`;
   const sideEffect = typeof card.side_effect === 'string' && card.side_effect.trim()
     ? card.side_effect.trim().slice(0, 80)
     : '世界裂隙轻微上升。';
@@ -271,7 +271,7 @@ async function handleCompileCreation(req, res) {
     return;
   }
 
-  const systemPrompt = `你是3D游戏《创世计划：造物者考核》的”造物编译器”。玩家会用自然语言创造一个物件、生物或世界法则。你必须把它翻译成受规则约束的游戏卡牌，同时根据玩家的创意描述生成独特的机制变体。
+  const systemPrompt = `你是3D游戏《创世计划：造物者考核》的"造物编译器"。玩家会用自然语言创造一个物件、生物或世界法则。你必须把它翻译成受规则约束的游戏卡牌，同时根据玩家的创意描述生成独特的机制变体。
 
 【绝对规则】
 1. 只输出JSON对象，不要Markdown，不要解释，不要注释。
@@ -302,28 +302,28 @@ async function handleCompileCreation(req, res) {
 
 【JSON Schema】
 {
-  “name”: “2到7个中文字的卡名”,
-  “type”: “生物/地形/机械/法则/仪式/奇迹之一”,
-  “ability”: “上方枚举之一”,
-  “tags”: [“最多4个短标签”],
-  “range”: 0到2的整数,
-  “duration”: 1到4的整数,
-  “cost”: 1到3的整数,
-  “stabilityCost”: 0到2的整数,
-  “description”: “不超过60字，说明实际游戏效果”,
-  “side_effect”: “不超过40字，说明副作用或限制”,
-  “specialEffect”: {
-    “type”: “必须是 mobile 或 movement 或 reactive 或 environmental 或 sacrifice 或 none 这六个字符串之一”,
-    “description”: “不超过30字，说明这个造物与标准版本有何不同”,
-    “trigger”: “必须是 onTurnStart 或 onPlacement 或 onExpire 或 onResonance 或 none 这五个字符串之一”
+  "name": "2到7个中文字的卡名",
+  "type": "生物/地形/机械/法则/仪式/奇迹之一",
+  "ability": "上方枚举之一",
+  "tags": ["最多4个短标签"],
+  "range": 0到2的整数,
+  "duration": 1到4的整数,
+  "cost": 1到3的整数,
+  "stabilityCost": 0到2的整数,
+  "description": "不超过60字，说明实际游戏效果",
+  "side_effect": "不超过40字，说明副作用或限制",
+  "specialEffect": {
+    "type": "必须是 mobile 或 movement 或 reactive 或 environmental 或 sacrifice 或 none 这六个字符串之一",
+    "description": "不超过30字，说明这个造物与标准版本有何不同",
+    "trigger": "必须是 onTurnStart 或 onPlacement 或 onExpire 或 onResonance 或 none 这五个字符串之一"
   }
 }
 
 【specialEffect type 说明】
-- mobile/movement：造物每回合自动向特定地形移动，如”向水域移动”、”向黑暗移动”。
-- reactive：当特定事件发生时触发额外效果，如”当洪水扩散时吸收它”。
-- environmental：改变周围环境的行为，如”在水域中范围+1”。
-- sacrifice：获得强大效果但付出代价，如”每回合消耗1奇迹点”。
+- mobile/movement：造物每回合自动向特定地形移动，如"向水域移动"、"向黑暗移动"。
+- reactive：当特定事件发生时触发额外效果，如"当洪水扩散时吸收它"。
+- environmental：改变周围环境的行为，如"在水域中范围+1"。
+- sacrifice：获得强大效果但付出代价，如"每回合消耗1奇迹点"。
 - none：标准造物，没有特殊机制。
 
 【设计原则】
@@ -331,8 +331,8 @@ async function handleCompileCreation(req, res) {
 2. 越强的造物 cost 和 stabilityCost 越高。
 3. 不允许全图清除、不允许直接过关、不允许永久无敌。
 4. 当前关卡目标优先，输出要能帮助玩家解决关卡但仍需要玩家放置和结算。
-5. 相同ability可以有完全不同的玩法：例如”发光水母”和”月光灯塔”都是illuminate，但水母应该mobile（向水域移动），灯塔应该environmental（在高点范围+1）。
-6. 如果玩家描述非常标准，没有独特之处，specialEffect的type填”none”，description填”无特殊效果”，trigger填”none”。`;
+5. 相同ability可以有完全不同的玩法：例如"发光水母"和"月光灯塔"都是illuminate，但水母应该mobile（向水域移动），灯塔应该environmental（在高点范围+1）。
+6. 如果玩家描述非常标准，没有独特之处，specialEffect的type填"none"，description填"无特殊效果"，trigger填"none"。`;
 
   const userPrompt = JSON.stringify({
     playerText,

@@ -2,6 +2,7 @@ import { cloneLevel, LEVELS, SYMBOL_TO_TILE, TILE } from './levels.js';
 import { localCompile } from './aiClient.js';
 import { RESONANCE_CODEX, executeChainReaction } from './chainReactionCodex.js';
 import { legacySystem } from './legacySystem.js';
+import { worldLegendSystem } from './worldLegend.js';
 
 const BOARD_SIZE = 7;
 const MAX_LOGS = 100;
@@ -1442,6 +1443,29 @@ class GameEngine {
     return result;
   }
 
+  // ========== World Legend Integration ==========
+
+  recordLegendaryEvent(type, actor, target, impact = 'minor') {
+    const event = {
+      type,
+      actor: actor || '造物者',
+      target: target || null,
+      level: this.level?.title || '未知',
+      turn: this.turn,
+      description: `${actor || '造物者'}在${this.level?.title || '未知'}${type === 'creation' ? '创造了' : type === 'rescue' ? '拯救了' : '做出了'}${target || '伟大的事迹'}`,
+      impact
+    };
+    return worldLegendSystem.recordLegendaryEvent(event);
+  }
+
+  createArtifact(creation, impact = 'minor') {
+    return worldLegendSystem.createArtifact(creation, {
+      creator: '造物者',
+      level: this.level?.title,
+      impact
+    });
+  }
+
   // ========== Logging ==========
 
   log(text, important = false) {
@@ -1464,6 +1488,10 @@ class GameEngine {
     const legacy = legacySystem.recordRescue(unit, this.level.id, levelStats);
     if (legacy && legacy.rescueCount > 1) {
       this.log(`【传承】${unit.name} 再次出现！传承等级：${legacy.tier}`, true);
+    }
+    // Record legendary event for significant rescues
+    if (this.lost === 0 && this.rescued >= 2) {
+      this.recordLegendaryEvent('rescue', '造物者', unit.name, 'major');
     }
     this.hooks.onRescue(unit);
   }

@@ -1004,6 +1004,54 @@ runner.test('Storyteller - 应与aiMemory联动生成自适应事件', async () 
   runner.assert(context.narrativeArc !== undefined, '应包含叙事弧线');
 });
 
+// 测试世界传说系统
+runner.test('世界传说 - 应记录传说事件并生成神话', async () => {
+  const { worldLegendSystem } = await import('../public/js/worldLegend.js');
+  worldLegendSystem.legends = [];
+  worldLegendSystem.myths.clear();
+  worldLegendSystem.currentAge = 1;
+
+  // 记录一个重大事件
+  const legend = worldLegendSystem.recordLegendaryEvent({
+    type: 'creation',
+    actor: '造物者',
+    target: '永恒之光',
+    level: '洪水村庄',
+    description: '造物者创造了永恒之光',
+    impact: 'major'
+  });
+
+  runner.assert(legend !== null, '应生成传说');
+  runner.assert(legend.age === 1, '传说应属于当前纪元');
+
+  // 检查是否生成了神话
+  const myths = worldLegendSystem.myths.get('洪水村庄');
+  runner.assert(myths !== undefined, '重大事件应生成神话');
+  runner.assert(myths.length > 0, '应至少有一个神话');
+
+  // 测试神器创建
+  const artifact = worldLegendSystem.createArtifact(
+    { name: '测试造物', ability: 'illuminate' },
+    { level: '测试关卡', impact: 'major' }
+  );
+  runner.assert(artifact.name === '永恒之光', '应根据能力类型命名神器');
+  runner.assert(artifact.power > 0, '神器应有力量值');
+
+  // 测试NPC封神
+  const figure = worldLegendSystem.enshrineNPC(
+    { id: 'test-npc', name: '测试英雄', type: 'villager' },
+    'legendary_deed'
+  );
+  runner.assert(figure.name === '测试英雄', '应正确记录历史人物');
+  runner.assert(figure.quotes.length > 0, '历史人物应有名言');
+
+  // 测试世界传说报告
+  const report = worldLegendSystem.generateWorldLegendReport();
+  runner.assert(report.totalLegends >= 1, '报告应包含传说');
+  runner.assert(report.totalMyths >= 1, '报告应包含神话');
+  runner.assert(report.totalArtifacts >= 1, '报告应包含神器');
+});
+
 // 运行测试
 runner.run().then(success => {
   process.exit(success ? 0 : 1);

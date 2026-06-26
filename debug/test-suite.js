@@ -1923,6 +1923,96 @@ runner.test('认知深渊 - 序列化与状态描述', async () => {
   runner.assert(abyss2.riddlesSolved === 1, '反序列化后应恢复解谜统计');
 });
 
+// 测试验证腐化系统
+runner.test('验证腐化 - 应生成非法卡牌并累积腐化', async () => {
+  const { VerificationCorruption } = await import('../public/js/verificationCorruption.js');
+  const corruption = new VerificationCorruption();
+
+  const gameState = {
+    targetTerrain: 'dark',
+    miraclePoints: 5,
+    entropy: 2,
+    entropyLimit: 7
+  };
+
+  const result = corruption.createParadoxCard('light_dark', gameState);
+  runner.assert(result.success === true, '应成功生成悖论卡牌');
+  runner.assert(result.card !== null, '应返回卡牌');
+  runner.assert(result.card.isIllegal === true, '卡牌应标记为非法');
+  runner.assert(result.corruption === 3, '应产生3点腐化');
+  runner.assert(result.warnings.length > 0, '应有警告信息');
+
+  const stats = corruption.getStats();
+  runner.assert(stats.corruptionLevel === 3, '腐化值应为3');
+  runner.assert(stats.totalIllegalCards === 1, '应记录1张非法卡牌');
+});
+
+runner.test('验证腐化 - 引擎过载应禁用能力', async () => {
+  const { VerificationCorruption } = await import('../public/js/verificationCorruption.js');
+  const corruption = new VerificationCorruption();
+
+  const gameState = {
+    targetTerrain: 'dark',
+    miraclePoints: 5,
+    entropy: 2,
+    entropyLimit: 7
+  };
+
+  // 快速累积腐化至过载
+  for (let i = 0; i < 5; i++) {
+    corruption.createParadoxCard('creation_destruction', gameState);
+  }
+
+  runner.assert(corruption.engineOverloaded === true || corruption.corruptionLevel >= 10, '引擎应过载或腐化值很高');
+
+  const state = corruption.getStateDescription();
+  runner.assert(state.level !== 'clean', '腐化状态不应为清洁');
+});
+
+runner.test('验证腐化 - 净化应降低腐化值', async () => {
+  const { VerificationCorruption } = await import('../public/js/verificationCorruption.js');
+  const corruption = new VerificationCorruption();
+
+  const gameState = {
+    targetTerrain: 'dark',
+    miraclePoints: 5,
+    entropy: 2,
+    entropyLimit: 7
+  };
+
+  corruption.createParadoxCard('water_fire', gameState);
+  runner.assert(corruption.corruptionLevel === 2, '腐化值应为2');
+
+  const purify = corruption.purify(2);
+  runner.assert(purify.success === true, '净化应成功');
+  runner.assert(corruption.corruptionLevel === 0, '净化后腐化值应为0');
+});
+
+runner.test('验证腐化 - 序列化与统计', async () => {
+  const { VerificationCorruption } = await import('../public/js/verificationCorruption.js');
+  const corruption = new VerificationCorruption();
+
+  const gameState = {
+    targetTerrain: 'dark',
+    miraclePoints: 5,
+    entropy: 2,
+    entropyLimit: 7
+  };
+
+  corruption.createParadoxCard('memory_forget', gameState);
+
+  const stats = corruption.getStats();
+  runner.assert(stats.totalIllegalCards === 1, '应记录1张非法卡牌');
+
+  const serialized = corruption.serialize();
+  runner.assert(serialized.corruptionLevel === 2, '序列化应包含腐化值');
+
+  const corruption2 = new VerificationCorruption();
+  corruption2.deserialize(serialized);
+  runner.assert(corruption2.corruptionLevel === 2, '反序列化后腐化值应一致');
+  runner.assert(corruption2.illegalCardsCreated.length === 1, '反序列化后应恢复非法卡牌记录');
+});
+
 // 运行测试
 runner.run().then(success => {
   process.exit(success ? 0 : 1);

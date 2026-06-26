@@ -6,6 +6,7 @@ import { legacySystem } from '../public/js/legacySystem.js';
 import { NPCManager } from '../public/js/npcManager.js';
 import { RitualForge } from '../public/js/ritualForge.js';
 import { CognitiveAbyss } from '../public/js/cognitiveAbyss.js';
+import { VerificationCorruption } from '../public/js/verificationCorruption.js';
 
 class DebugGame extends GameEngine {
   constructor() {
@@ -13,6 +14,7 @@ class DebugGame extends GameEngine {
     this.npcManager = new NPCManager(this.level || { id: 'default', title: '默认关卡', map: [], units: [] });
     this.ritualForge = new RitualForge();
     this.cognitiveAbyss = new CognitiveAbyss();
+    this.verificationCorruption = new VerificationCorruption();
   }
 
   reset() {
@@ -20,6 +22,7 @@ class DebugGame extends GameEngine {
     this.npcManager = new NPCManager(this.level || { id: 'default', title: '默认关卡', map: [], units: [] });
     this.ritualForge = new RitualForge();
     this.cognitiveAbyss = new CognitiveAbyss();
+    this.verificationCorruption = new VerificationCorruption();
     // Add legacy NPCs from previous rescues
     if (this.legacyUnits && this.legacyUnits.length > 0) {
       for (const npc of this.legacyUnits) {

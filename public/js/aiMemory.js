@@ -657,6 +657,8 @@ ${lossContext}${redemptionContext}
 
   // Save to localStorage
   saveToStorage() {
+    if (!this.hasStorage()) return;
+
     try {
       const data = {
         playerProfile: this.playerProfile,
@@ -676,6 +678,8 @@ ${lossContext}${redemptionContext}
 
   // Load from localStorage
   loadFromStorage() {
+    if (!this.hasStorage()) return;
+
     try {
       const data = JSON.parse(localStorage.getItem('creator_exam_memory'));
       if (data) {
@@ -690,6 +694,10 @@ ${lossContext}${redemptionContext}
     } catch (e) {
       console.warn('Failed to load memory from storage:', e);
     }
+  }
+
+  hasStorage() {
+    return typeof localStorage !== 'undefined' && localStorage !== null;
   }
 
   // Clear all memory

@@ -1238,6 +1238,25 @@ runner.test('AIMemory - 应使用语义记忆检索相关记忆', async () => {
   runner.assert(summary !== null, '应生成叙事摘要');
 });
 
+runner.test('AIMemory - Node环境缺少localStorage时不应输出存储警告', async () => {
+  const { resetMemorySystem } = await import('../public/js/aiMemory.js');
+  const originalWarn = console.warn;
+  const warnings = [];
+  console.warn = (...args) => warnings.push(args.join(' '));
+
+  try {
+    const memory = resetMemorySystem();
+    memory.addNarrativeMemory('event', { text: '测试记忆' });
+  } finally {
+    console.warn = originalWarn;
+  }
+
+  runner.assert(
+    warnings.every(warning => !warning.includes('localStorage is not defined')),
+    'Node环境不应输出localStorage缺失警告'
+  );
+});
+
 // 测试叙事因果引擎
 runner.test('因果引擎 - 应记录事件并追踪因果链', async () => {
   const { CausalGraph } = await import('../public/js/worldLegend.js');
@@ -1804,7 +1823,13 @@ runner.test('仪式熔炉 - 序列化与统计', async () => {
     turn: 1
   };
 
-  forge.performRitual(creations, gameState);
+  const originalRandom = Math.random;
+  Math.random = () => 0;
+  try {
+    forge.performRitual(creations, gameState);
+  } finally {
+    Math.random = originalRandom;
+  }
 
   const stats = forge.getStats();
   runner.assert(stats.total === 1, '应记录1次仪式');

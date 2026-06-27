@@ -11,6 +11,7 @@
 - 玩家可以连续探索由AI生成但受规则验证的7x7区域网络。
 - NPC不只是任务提供者，而是有记忆、情绪、关系、目标和行动计划的数字居民。
 - 关键NPC必须是持久居民，而不是每个区域临时生成的一次性角色。
+- 跨区域连续剧情是核心体验：前一区域的救援、失败、承诺、损失和造物必须能在后续区域形成可追踪后果。
 - 玩家每次造物、救援、失败、对话都会被记录为世界事件，并影响后续区域、NPC态度和支线故事。
 - 叙事文本由AI辅助生成，但世界状态变化必须由可测试的本地规则执行。
 
@@ -134,6 +135,7 @@ GameEngine
 - `GameEngine`只拥有当前区域的短期战术状态。
 - `NPCManager`继续管理当前区域可见NPC，但长期居民档案由`ResidentAgentSystem`拥有。
 - `ResidentAgentSystem`必须维护稳定居民ID；区域只引用居民，不重新定义关键NPC。
+- 跨区域剧情只能来自结构化事件、居民记忆、因果图和区域历史，不能只依赖AI续写文本。
 - `server.js`可以请求AI生成候选内容，但所有候选内容必须经过`RuleValidator`后才能进入游戏。
 - AI可以生成意图、解释、对话和候选区域，但不能直接修改`terrain`、`units`、`entropy`或胜负状态。
 
@@ -265,12 +267,21 @@ AI只负责选择“行动意图”和生成自然语言说明。本地代码负
 collect world summary
 collect unresolved threads
 collect relevant NPC memories
+collect causal consequences from previous regions
 request AI region candidate
 validate 7x7 map and units
 simulate reachability and difficulty
 repair or fallback if invalid
 add region to world graph
 ```
+
+区域生成必须优先处理未解决剧情线：
+
+- 被救下的居民可能迁移到新区域。
+- 失踪或死亡的角色会留下遗物、传闻或关系后果。
+- 玩家承诺过的请求会在后续区域变成可执行支线。
+- 高熵造物会污染未来区域或改变居民对玩家的态度。
+- 频繁使用的造物类型会塑造当地传说和风险。
 
 区域之间是图，而不是线性关卡：
 
@@ -314,6 +325,7 @@ flood-village
 - 区域传闻。
 - 支线提示。
 - 结局或阶段总结。
+- 跨区域剧情回顾，例如“这座断桥来自洪水村庄那场未完成的救援”。
 
 叙事触发策略：
 
@@ -367,6 +379,7 @@ GameEngine win/loss
   -> EventBus emits region_resolved or region_lost
   -> MemoryStore stores outcome
   -> ResidentAgentSystem updates long-term resident state
+  -> CausalGraph links unresolved outcomes to future hooks
   -> RegionManager proposes next available regions
   -> RuleValidator validates region candidates
   -> UI presents exploration choices
@@ -459,6 +472,7 @@ player talks to NPC
 - 居民长期档案不能直接从`NPCManager`改，必须通过`ResidentAgentSystem`。
 - `NPCManager`里的NPC对象是居民档案在当前区域的投影，不能成为长期事实来源。
 - 区域数据只能保存居民引用，例如`residentIds`，不能复制关键NPC的完整长期记忆。
+- 跨区域剧情事实只能通过`EventBus`和`CausalGraph`产生，AI文本不能单独创造长期事实。
 - AI返回的数据永远是候选，不是事实。
 - 所有事实变化必须通过`EventBus`记录。
 
@@ -523,6 +537,7 @@ node debug/world-sim-scenarios.js
 - 当前游戏行为不变。
 - 玩家造物、救援、失败、胜利都会进入事件流。
 - 老渔夫、小烛等关键NPC拥有稳定居民ID，并能被后续区域引用。
+- 至少能从一个区域结果生成结构化`futureHook`，例如“被救居民迁移”“未救角色失踪”“高熵污染扩散”。
 
 ### Phase 2：居民Agent闭环
 
@@ -538,6 +553,7 @@ node debug/world-sim-scenarios.js
 - NPC不是随机说话，而是基于最近事件和个人记忆回应。
 - NPC行动能影响当前区域的小状态，例如短期引导、传播知识、请求帮助。
 - 同一个居民跨区域出现时保留关系、记忆和长期目标。
+- 同一个居民能引用前一区域事实，而不是只说当前区域通用台词。
 
 ### Phase 3：AI区域探索
 
@@ -565,6 +581,7 @@ node debug/world-sim-scenarios.js
 
 - 被玩家影响过的NPC能在未来区域出现。
 - 玩家过去选择能影响区域危机、居民态度或支线请求。
+- 至少一条跨区域支线由前一区域事实触发，并能在后续区域被推进或解决。
 
 ### Phase 5：开放世界打磨
 
@@ -627,6 +644,6 @@ node debug/world-sim-scenarios.js
 - 玩家能连续探索至少3个AI生成或半生成区域。
 - 至少2个NPC能记住玩家行为并在后续区域产生不同反应。
 - 至少1个NPC能跨区域出现，并保留稳定身份、记忆、关系和目标。
-- 至少1条支线不是预写脚本，而是由事件、记忆和区域生成共同形成。
+- 至少1条跨区域连续剧情不是预写脚本，而是由事件、记忆、因果图和区域生成共同形成。
 - 所有AI失败场景都有本地兜底。
 - 测试能证明生成区域合法、居民行动合法、长期状态可序列化。

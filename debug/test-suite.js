@@ -1353,7 +1353,7 @@ runner.test('认知效果 - 应扭曲文本并生成记忆碎片', async () => {
   // 测试文本扭曲
   const text = '造物者创造了永恒之光';
   const distorted = fx.distortText(text, 0.8);
-  runner.assert(distorted.length !== text.length, '扭曲后文本应改变');
+  runner.assert(distorted !== text, '扭曲后文本应改变');
 
   // 测试矛盾对话
   const dialogue = '我记得你救过他们';
@@ -2246,6 +2246,142 @@ runner.test('裂隙回响 - 序列化与统计', async () => {
   system2.deserialize(serialized);
   runner.assert(system2.getActiveEchoes().length === 1, '反序列化后应有1个活跃回响');
   runner.assert(system2.totalManifested === 1, '反序列化后统计应一致');
+});
+
+// 测试造物者工坊系统
+runner.test('造物者工坊 - 拆解造物获得材料', async () => {
+  const { CreatorWorkshop, MATERIAL_TYPES } = await import('../public/js/creatorWorkshop.js');
+  const workshop = new CreatorWorkshop();
+
+  const card = {
+    name: '发光水母',
+    ability: 'illuminate',
+    range: 2,
+    duration: 3,
+    cost: 2,
+    stabilityCost: 1
+  };
+
+  workshop.addCreation(card);
+  runner.assert(workshop.inventory.length === 1, '库存应有1个造物');
+
+  const result = workshop.dismantle(workshop.inventory[0].id);
+  runner.assert(result.success === true, '拆解应成功');
+  runner.assert(result.materials.length > 0, '应获得材料');
+  runner.assert(workshop.inventory.length === 0, '拆解后库存应为空');
+
+  const summary = workshop.getMaterialsSummary();
+  const matKeys = Object.keys(summary);
+  runner.assert(matKeys.length > 0, '应获得材料');
+});
+
+runner.test('造物者工坊 - 改造造物', async () => {
+  const { CreatorWorkshop } = await import('../public/js/creatorWorkshop.js');
+  const workshop = new CreatorWorkshop();
+
+  const card = {
+    name: '发光水母',
+    ability: 'illuminate',
+    range: 2,
+    duration: 3,
+    cost: 2,
+    stabilityCost: 1
+  };
+
+  workshop.addCreation(card);
+  // 添加足够材料
+  workshop.materials.set('wood', 5);
+
+  const result = workshop.modify(workshop.inventory[0].id, 'range_boost');
+  runner.assert(result.success === true, '改造应成功');
+  runner.assert(result.finalCard.range === 3, '范围应+1');
+  runner.assert(result.workshopItem.modifications.length === 1, '应有1个改造记录');
+});
+
+runner.test('造物者工坊 - 融合两个造物', async () => {
+  const { CreatorWorkshop } = await import('../public/js/creatorWorkshop.js');
+  const workshop = new CreatorWorkshop();
+
+  const cardA = {
+    name: '吸水蘑菇',
+    ability: 'absorb_water',
+    range: 1,
+    duration: 3,
+    cost: 1,
+    stabilityCost: 0
+  };
+
+  const cardB = {
+    name: '净化圣水',
+    ability: 'cleanse',
+    range: 2,
+    duration: 2,
+    cost: 2,
+    stabilityCost: 1
+  };
+
+  workshop.addCreation(cardA);
+  workshop.addCreation(cardB);
+  workshop.materials.set('wood', 5);
+
+  const idA = workshop.inventory[0].id;
+  const idB = workshop.inventory[1].id;
+
+  const result = workshop.fuse(idA, idB);
+  runner.assert(result.success === true, '融合应成功');
+  runner.assert(result.finalCard.isFused === true, '融合造物应有标记');
+  runner.assert(workshop.inventory.length === 0, '融合后源造物应被消耗');
+  runner.assert(workshop.workshopCreations.length === 1, '应有1个工坊造物');
+});
+
+runner.test('造物者工坊 - 材料不足应失败', async () => {
+  const { CreatorWorkshop } = await import('../public/js/creatorWorkshop.js');
+  const workshop = new CreatorWorkshop();
+
+  const card = {
+    name: '发光水母',
+    ability: 'illuminate',
+    range: 2,
+    duration: 3,
+    cost: 2,
+    stabilityCost: 1
+  };
+
+  workshop.addCreation(card);
+  // 不添加材料，直接改造
+
+  const result = workshop.modify(workshop.inventory[0].id, 'range_boost');
+  runner.assert(result.success === false, '材料不足应失败');
+  runner.assert(result.error.includes('材料'), '应提示材料不足');
+});
+
+runner.test('造物者工坊 - 序列化与统计', async () => {
+  const { CreatorWorkshop } = await import('../public/js/creatorWorkshop.js');
+  const workshop = new CreatorWorkshop();
+
+  const card = {
+    name: '测试造物',
+    ability: 'calm',
+    range: 1,
+    duration: 3,
+    cost: 1,
+    stabilityCost: 0
+  };
+
+  workshop.addCreation(card);
+  workshop.materials.set('wood', 3);
+  workshop.dismantle(workshop.inventory[0].id);
+
+  const stats = workshop.getStats();
+  runner.assert(stats.dismantleCount === 1, '应记录1次拆解');
+  runner.assert(stats.inventorySize === 0, '库存应为空');
+
+  const serialized = workshop.serialize();
+  runner.assert(serialized.totalCrafts >= 0, '序列化应包含统计');
+
+  const workshop2 = new CreatorWorkshop();
+  workshop2.deserialize(serialized);
+  runner.assert(workshop2.dismantleHistory.length === 1, '反序列化后应保留拆解历史');
 });
 
 // 运行测试

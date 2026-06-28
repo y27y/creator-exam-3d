@@ -3574,6 +3574,133 @@ runner.test('WorldSimulation - 应包含AIDirector序列化', async () => {
   runner.assertTrue(serialized.aiDirector !== undefined, 'serialize()应包含aiDirector');
 });
 
+runner.test('ResidentScheduleSystem - 居民日程分配和触发', async () => {
+  const { ResidentScheduleSystem, RESIDENT_SCHEDULE_TYPES } = await import('../public/js/residentScheduleSystem.js');
+  const { ResidentRegistry } = await import('../public/js/residentRegistry.js');
+  const { WorldSimulation } = await import('../public/js/worldSimulation.js');
+
+  const registry = new ResidentRegistry({ seedDefaults: false });
+  registry.registerResident({
+    residentId: 'resident-test',
+    name: '测试居民',
+    homeRegionId: 'region-a',
+    currentRegionId: 'region-a'
+  });
+
+  const world = new WorldSimulation({ residentRegistry: registry });
+  const scheduleSystem = new ResidentScheduleSystem({ residentRegistry: registry });
+
+  scheduleSystem.assignSchedule('resident-test', {
+    type: 'patrol',
+    interval: 2,
+    nextTriggerTurn: 3
+  });
+
+  const schedule = scheduleSystem.getSchedule('resident-test');
+  runner.assertTrue(schedule !== null, '应能获取日程');
+  runner.assertEqual(schedule.type, 'patrol', '日程类型应为patrol');
+  runner.assertEqual(schedule.interval, 2, 'interval应为2');
+  runner.assertEqual(schedule.nextTriggerTurn, 3, 'nextTriggerTurn应为3');
+  runner.assertTrue(RESIDENT_SCHEDULE_TYPES.includes('patrol'), 'patrol应在RESIDENT_SCHEDULE_TYPES中');
+
+  scheduleSystem.tick(2, world);
+  const eventsBefore = world.eventBus.query({ type: 'resident_action' }).length;
+  runner.assertEqual(eventsBefore, 0, '回合2不应触发');
+
+  scheduleSystem.tick(3, world);
+  const eventsAfter = world.eventBus.query({ type: 'resident_action' }).length;
+  runner.assertEqual(eventsAfter, 1, '回合3应触发1个事件');
+
+  const updatedSchedule = scheduleSystem.getSchedule('resident-test');
+  runner.assertEqual(updatedSchedule.nextTriggerTurn, 5, '触发后nextTriggerTurn应更新为5');
+
+  scheduleSystem.tick(5, world);
+  runner.assertEqual(world.eventBus.query({ type: 'resident_action' }).length, 2, '回合5应再次触发');
+});
+
+runner.test('ResidentScheduleSystem - 旅行日程应更新居民区域', async () => {
+  const { ResidentScheduleSystem } = await import('../public/js/residentScheduleSystem.js');
+  const { ResidentRegistry } = await import('../public/js/residentRegistry.js');
+  const { WorldSimulation } = await import('../public/js/worldSimulation.js');
+
+  const registry = new ResidentRegistry({ seedDefaults: false });
+  registry.registerResident({
+    residentId: 'resident-traveler',
+    name: '旅行者',
+    homeRegionId: 'region-a',
+    currentRegionId: 'region-a'
+  });
+
+  const world = new WorldSimulation({ residentRegistry: registry });
+  const scheduleSystem = new ResidentScheduleSystem({ residentRegistry: registry });
+
+  scheduleSystem.assignSchedule('resident-traveler', {
+    type: 'travel',
+    targetRegionId: 'region-b',
+    interval: 1,
+    nextTriggerTurn: 1
+  });
+
+  const residentBefore = registry.getResident('resident-traveler');
+  runner.assertEqual(residentBefore.currentRegionId, 'region-a', '旅行前应在region-a');
+
+  scheduleSystem.tick(1, world);
+
+  const residentAfter = registry.getResident('resident-traveler');
+  runner.assertEqual(residentAfter.currentRegionId, 'region-b', '旅行后应在region-b');
+
+  const event = world.eventBus.query({ type: 'resident_action' })[0];
+  runner.assertTrue(event !== undefined, '应发出resident_action事件');
+  runner.assertEqual(event.payload.scheduleType, 'travel', '事件payload应包含travel类型');
+});
+
+runner.test('ResidentScheduleSystem - 序列化和反序列化', async () => {
+  const { ResidentScheduleSystem } = await import('../public/js/residentScheduleSystem.js');
+  const { ResidentRegistry } = await import('../public/js/residentRegistry.js');
+
+  const registry = new ResidentRegistry({ seedDefaults: false });
+  registry.registerResident({
+    residentId: 'resident-serial',
+    name: '序列化居民',
+    homeRegionId: 'region-a',
+    currentRegionId: 'region-a'
+  });
+
+  const scheduleSystem = new ResidentScheduleSystem({ residentRegistry: registry });
+  scheduleSystem.assignSchedule('resident-serial', {
+    type: 'quest',
+    targetRegionId: 'region-b',
+    interval: 3,
+    nextTriggerTurn: 5
+  });
+
+  const serialized = scheduleSystem.serialize();
+  runner.assertEqual(serialized.version, 1, '序列化版本应为1');
+  runner.assertEqual(serialized.schedules.length, 1, '应有1个日程');
+  runner.assertEqual(serialized.schedules[0].residentId, 'resident-serial', 'residentId应保留');
+  runner.assertEqual(serialized.schedules[0].schedule.type, 'quest', '日程类型应保留');
+  runner.assertEqual(serialized.schedules[0].schedule.targetRegionId, 'region-b', 'targetRegionId应保留');
+
+  const scheduleSystem2 = new ResidentScheduleSystem({ residentRegistry: registry });
+  scheduleSystem2.deserialize(serialized);
+  const restored = scheduleSystem2.getSchedule('resident-serial');
+  runner.assertTrue(restored !== null, '反序列化后应恢复日程');
+  runner.assertEqual(restored.type, 'quest', '反序列化后类型应为quest');
+  runner.assertEqual(restored.interval, 3, '反序列化后interval应为3');
+  runner.assertEqual(restored.nextTriggerTurn, 5, '反序列化后nextTriggerTurn应为5');
+  runner.assertEqual(restored.targetRegionId, 'region-b', '反序列化后targetRegionId应为region-b');
+
+  scheduleSystem.clearSchedule('resident-serial');
+  runner.assertEqual(scheduleSystem.getSchedule('resident-serial'), null, '清除后应为null');
+});
+
+runner.test('WorldSimulation - 应包含scheduleSystem序列化', async () => {
+  const { WorldSimulation } = await import('../public/js/worldSimulation.js');
+  const world = new WorldSimulation();
+  const serialized = world.serialize();
+  runner.assertTrue(serialized.scheduleSystem !== undefined, 'serialize()应包含scheduleSystem');
+});
+
 // 运行测试
 runner.run().then(success => {
   process.exit(success ? 0 : 1);

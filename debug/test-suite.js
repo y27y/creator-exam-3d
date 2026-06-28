@@ -3384,6 +3384,71 @@ runner.test('Continuity UI - game.js应通过Presenter渲染而不直接改世�
   runner.assert(source.includes('continuityHooks'), 'game.js应包含continuityHooks UI引用');
 });
 
+runner.test('DebugSnapshot - 应捕获世界状态为可序列化对象', async () => {
+  const { WorldSimulation } = await import('../public/js/worldSimulation.js');
+  const { DebugSnapshot } = await import('../public/js/debugSnapshot.js');
+
+  const world = new WorldSimulation();
+  world.recordGameEvent({
+    type: 'unit_rescued',
+    regionId: 'flood-village',
+    actorId: 'player',
+    turn: 3,
+    payload: { unitName: '小烛', residentId: 'resident-xiaozhu' },
+    importance: 0.9,
+    tags: ['rescue', 'resident']
+  });
+
+  const snapshot = new DebugSnapshot({ worldSimulation: world });
+  const captured = snapshot.capture();
+
+  runner.assertTrue(captured.capturedAt, 'snapshot.capturedAt应存在');
+  runner.assertTrue(captured.residents.length > 0, 'snapshot.residents.length应>0');
+  runner.assertTrue(captured.events.some(e => e.type === 'unit_rescued'), 'snapshot.events应包含unit_rescued事件');
+  runner.assertTrue(captured.futureHooks.length > 0, 'snapshot.futureHooks.length应>0');
+});
+
+runner.test('DebugSnapshot - 应支持选择性排除字段', async () => {
+  const { WorldSimulation } = await import('../public/js/worldSimulation.js');
+  const { DebugSnapshot } = await import('../public/js/debugSnapshot.js');
+
+  const world = new WorldSimulation();
+  world.recordGameEvent({
+    type: 'unit_rescued',
+    regionId: 'flood-village',
+    actorId: 'player',
+    turn: 3,
+    payload: { unitName: '小烛', residentId: 'resident-xiaozhu' },
+    importance: 0.9,
+    tags: ['rescue', 'resident']
+  });
+
+  const snapshot = new DebugSnapshot({ worldSimulation: world, includeEvents: false });
+  runner.assertEqual(snapshot.capture().events.length, 0, 'capture().events.length应===0');
+  runner.assertTrue(snapshot.capture().residents.length > 0, 'capture().residents.length应>0');
+});
+
+runner.test('DebugSnapshot - toJson应返回有效JSON', async () => {
+  const { WorldSimulation } = await import('../public/js/worldSimulation.js');
+  const { DebugSnapshot } = await import('../public/js/debugSnapshot.js');
+
+  const world = new WorldSimulation();
+  world.recordGameEvent({
+    type: 'unit_rescued',
+    regionId: 'flood-village',
+    actorId: 'player',
+    turn: 3,
+    payload: { unitName: '小烛', residentId: 'resident-xiaozhu' },
+    importance: 0.9,
+    tags: ['rescue', 'resident']
+  });
+
+  const snapshot = new DebugSnapshot({ worldSimulation: world });
+  const json = snapshot.toJson();
+  const parsed = JSON.parse(json);
+  runner.assertTrue(typeof parsed === 'object', 'JSON.parse(json)应成功并返回对象');
+});
+
 // 运行测试
 runner.run().then(success => {
   process.exit(success ? 0 : 1);

@@ -11,6 +11,7 @@ import { GameEngine, TERRAIN_LABELS } from './gameEngine.js';
 import { RESONANCE_CODEX, executeChainReaction } from './chainReactionCodex.js';
 import { buildContinuityViewModel } from './continuityPresenter.js';
 import { ResidentDialogueSystem } from './residentDialogueSystem.js';
+import { DebugSnapshot } from './debugSnapshot.js';
 import { SaveSlotManager } from './saveSlotManager.js';
 import { MemoryStore } from './memoryStore.js';
 
@@ -1819,6 +1820,13 @@ class CreatorExam3D extends GameEngine {
     if (this.explorationDirector) {
       await this.explorationDirector.resolveChoice(choiceId);
     }
+  }
+
+  exportDebugSnapshot() {
+    const snapshot = new DebugSnapshot({
+      worldSimulation: this.worldSession?.worldSimulation || this.worldSimulation
+    });
+    snapshot.download(`world-snapshot-${Date.now()}.json`);
   }
 
   bindSaveSlotUI() {

@@ -4,6 +4,7 @@ import { ResidentAgentSystem } from './residentAgentSystem.js';
 import { AIDirector } from './aiDirector.js';
 import { ResidentScheduleSystem } from './residentScheduleSystem.js';
 import { WorldEconomySystem } from './worldEconomySystem.js';
+import { ResidentRumorSystem } from './residentRumorSystem.js';
 
 function hookId(type, eventId) {
   return `hook-${type}-${eventId}`;
@@ -33,6 +34,10 @@ export class WorldSimulation {
       residentRegistry: this.residentRegistry
     });
     this.economySystem = options.economySystem || new WorldEconomySystem({
+      eventBus: this.eventBus
+    });
+    this.rumorSystem = options.rumorSystem || new ResidentRumorSystem({
+      residentRegistry: this.residentRegistry,
       eventBus: this.eventBus
     });
     this.futureHooks = new Map();
@@ -194,6 +199,7 @@ export class WorldSimulation {
       });
     }
     this.scheduleSystem.tick(context.turn || 0, this);
+    this.rumorSystem.tick(context.turn || 0);
     return actions;
   }
 
@@ -236,6 +242,7 @@ export class WorldSimulation {
       aiDirector: this.aiDirector.serialize(),
       scheduleSystem: this.scheduleSystem.serialize(),
       economySystem: this.economySystem.serialize(),
+      rumorSystem: this.rumorSystem.serialize(),
       futureHooks: Array.from(this.futureHooks.entries())
     };
   }
@@ -247,6 +254,7 @@ export class WorldSimulation {
     this.aiDirector.deserialize(data.aiDirector || {});
     this.scheduleSystem.deserialize(data.scheduleSystem || {});
     this.economySystem.deserialize(data.economySystem || {});
+    this.rumorSystem.deserialize(data.rumorSystem || {});
     this.futureHooks = new Map(Array.isArray(data.futureHooks) ? data.futureHooks : []);
   }
 }

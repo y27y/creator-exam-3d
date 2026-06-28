@@ -3968,6 +3968,109 @@ runner.test('JournalPresenter - 应包含谣言和未解决张力', async () => 
   runner.assertTrue(model2.stats.totalRumors > 0, 'stats.totalRumors应>0')
 })
 
+runner.test('ResidentRumorSystem - 居民记忆应能转化为谣言', async () => {
+  const { ResidentRumorSystem } = await import('../public/js/residentRumorSystem.js')
+  const { ResidentRegistry } = await import('../public/js/residentRegistry.js')
+
+  const registry = new ResidentRegistry({ seedDefaults: false })
+  registry.registerResident({
+    residentId: 'resident-test',
+    name: '测试居民',
+    homeRegionId: 'region-a',
+    currentRegionId: 'region-a'
+  })
+  registry.recordMemory('resident-test', {
+    type: 'unit_rescued',
+    text: '测试居民在region-a被玩家救下',
+    regionId: 'region-a',
+    importance: 0.9
+  })
+
+  const rumorSystem = new ResidentRumorSystem({ residentRegistry: registry })
+  const rumor = rumorSystem.generateRumorFromMemory('resident-test', 0)
+  runner.assertTrue(rumor !== null, '应生成谣言')
+  runner.assertEqual(rumor.residentId, 'resident-test', '谣言应关联到正确居民')
+  runner.assertTrue(rumor.text.includes('测试居民'), '谣言文本应包含居民名称')
+  runner.assertTrue(rumorSystem.rumors.has(rumor.id), 'rumors Map应包含该谣言')
+})
+
+runner.test('ResidentRumorSystem - 路线提案应能投票和决议', async () => {
+  const { ResidentRumorSystem } = await import('../public/js/residentRumorSystem.js')
+  const { ResidentRegistry } = await import('../public/js/residentRegistry.js')
+  const { EventBus } = await import('../public/js/eventBus.js')
+
+  const registry = new ResidentRegistry({ seedDefaults: false })
+  registry.registerResident({
+    residentId: 'resident-proposer',
+    name: '提案者',
+    homeRegionId: 'region-a',
+    currentRegionId: 'region-a'
+  })
+  registry.registerResident({
+    residentId: 'resident-voter',
+    name: '投票者',
+    homeRegionId: 'region-a',
+    currentRegionId: 'region-a'
+  })
+
+  const eventBus = new EventBus()
+  const rumorSystem = new ResidentRumorSystem({ residentRegistry: registry, eventBus })
+  const proposal = rumorSystem.generateRouteProposal('resident-proposer', 'region-b', 'region-b更安全')
+  runner.assertTrue(proposal !== null, '应生成提案')
+  runner.assertEqual(proposal.status, 'pending', '初始状态应为pending')
+
+  const voteResult = rumorSystem.voteForProposal(proposal.id, 'resident-voter')
+  runner.assertTrue(voteResult, '投票应成功')
+  runner.assertEqual(proposal.votes, 1, '投票数应为1')
+
+  const accepted = rumorSystem.resolveProposal(proposal.id, true)
+  runner.assertTrue(accepted, '决议应成功')
+  runner.assertEqual(proposal.status, 'accepted', '状态应变为accepted')
+
+  const events = eventBus.query({ type: 'route_proposal_accepted' })
+  runner.assertEqual(events.length, 1, '应发出route_proposal_accepted事件')
+})
+
+runner.test('ResidentRumorSystem - 序列化和反序列化', async () => {
+  const { ResidentRumorSystem } = await import('../public/js/residentRumorSystem.js')
+  const { ResidentRegistry } = await import('../public/js/residentRegistry.js')
+
+  const registry = new ResidentRegistry({ seedDefaults: false })
+  registry.registerResident({
+    residentId: 'resident-serial',
+    name: '序列化居民',
+    homeRegionId: 'region-a',
+    currentRegionId: 'region-a'
+  })
+  registry.recordMemory('resident-serial', {
+    type: 'creation_placed',
+    text: '有人在region-a创造了奇怪的东西',
+    regionId: 'region-a',
+    importance: 0.7
+  })
+
+  const rumorSystem = new ResidentRumorSystem({ residentRegistry: registry })
+  const rumor = rumorSystem.generateRumorFromMemory('resident-serial', 0)
+  const proposal = rumorSystem.generateRouteProposal('resident-serial', 'region-b', '去探索')
+
+  const serialized = rumorSystem.serialize()
+  runner.assertEqual(serialized.version, 1, '序列化版本应为1')
+  runner.assertTrue(serialized.rumors.length > 0, '应包含谣言')
+  runner.assertTrue(serialized.routeProposals.length > 0, '应包含提案')
+
+  const restored = new ResidentRumorSystem({ residentRegistry: registry })
+  restored.deserialize(serialized)
+  runner.assertTrue(restored.rumors.has(rumor.id), '反序列化后应恢复谣言')
+  runner.assertTrue(restored.routeProposals.has(proposal.id), '反序列化后应恢复提案')
+})
+
+runner.test('WorldSimulation - 应包含rumorSystem序列化', async () => {
+  const { WorldSimulation } = await import('../public/js/worldSimulation.js')
+  const world = new WorldSimulation()
+  const serialized = world.serialize()
+  runner.assertTrue(serialized.rumorSystem !== undefined, 'serialize()应包含rumorSystem')
+})
+
 // 运行测试
 runner.run().then(success => {
   process.exit(success ? 0 : 1);

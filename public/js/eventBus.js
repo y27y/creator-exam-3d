@@ -40,6 +40,13 @@ export class EventBus {
       tags: normalizeTags(event.tags)
     };
 
+    // 将非payload的顶层字段也保留到canonical上（如category等）
+    for (const key of Object.keys(event)) {
+      if (!(key in canonical) && key !== 'payload') {
+        canonical[key] = event[key]
+      }
+    }
+
     this.events.push(canonical);
     if (this.events.length > this.maxEvents) {
       this.events = this.events.slice(-this.maxEvents);

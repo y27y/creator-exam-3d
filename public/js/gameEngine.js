@@ -1,14 +1,14 @@
 import { cloneLevel, LEVELS, SYMBOL_TO_TILE, TILE } from './levels.js';
 import { localCompile } from './aiClient.js';
 import { RESONANCE_CODEX, executeChainReaction } from './chainReactionCodex.js';
-import { legacySystem } from './legacySystem.js';
+import { legacySystem, TRAIT_POOL } from './legacySystem.js';
 import { worldLegendSystem } from './worldLegend.js';
 import { persistentWorld } from './persistentWorld.js';
 import { RitualForge } from './ritualForge.js';
 import { OathManager, OATH_TYPES } from './oathbinding.js';
 import { CognitiveAbyss } from './cognitiveAbyss.js';
 import { VerificationCorruption } from './verificationCorruption.js';
-import { CreatorWorkshop } from './creatorWorkshop.js';
+import { CreatorWorkshop, WorkshopCreation } from './creatorWorkshop.js';
 import { EnemyIntentSystem } from './enemyIntent.js';
 
 const BOARD_SIZE = 7;
@@ -102,6 +102,7 @@ class GameEngine {
       met: false,
       ...unit
     }))
+    this.applyLegacyUnitEffects();
     this.creations = []
     this.turn = 1
     this.rescued = 0
@@ -180,6 +181,69 @@ class GameEngine {
         worldChanged: false
       }
     };
+  }
+
+  applyLegacyUnitEffects() {
+    const legacyByName = new Map();
+    for (const legacy of legacySystem.legacyUnits.values()) {
+      legacyByName.set(legacy.name, legacy);
+    }
+
+    for (const unit of this.units) {
+      const legacy = legacyByName.get(unit.name);
+      if (!legacy) continue;
+
+      unit.isLegacy = true;
+      unit.legacyId = legacy.id;
+      unit.legacyTier = legacy.tier;
+      unit.legacyTraits = (legacy.traits || []).map(t => t.id);
+
+      // Apply tier bonuses
+      const tier = legacySystem.constructor === Object
+        ? null
+        : (typeof legacySystem.getTier === 'function' ? legacySystem.getTier(legacy.tier) : null);
+      const tierData = tier || { survivor: { bonus: null }, hero: { bonus: 'random_trait' }, legend: { bonus: 'choose_trait' }, ancestor: { bonus: 'new_game_plus' } }[legacy.tier];
+
+      if (legacy.tier === 'ancestor') {
+        unit.maxExtraLives = (unit.maxExtraLives || 0) + 1;
+        unit.extraLives = unit.maxExtraLives;
+      }
+      if (legacy.tier === 'legend' || legacy.tier === 'ancestor') {
+        unit.moveBonus = (unit.moveBonus || 0) + 1;
+      }
+
+      // Apply trait effects
+      for (const traitId of unit.legacyTraits) {
+        const trait = Object.values(TRAIT_POOL).find(t => t.id === traitId);
+        if (!trait) continue;
+        switch (trait.effect) {
+          case 'immune_to_water_loss':
+            unit.waterImmune = true;
+            break;
+          case 'immune_to_dark_chaos':
+            unit.chaosImmune = true;
+            break;
+          case 'beast_anger_slow':
+            unit.beastCalm = true;
+            break;
+          case 'extra_war_reduction':
+            unit.peaceBonus = true;
+            break;
+          case 'chaos_resistance':
+            unit.chaosResist = true;
+            break;
+          case 'move_speed_plus':
+            unit.moveBonus = (unit.moveBonus || 0) + 1;
+            break;
+          case 'guide_others':
+            unit.guideOthers = true;
+            break;
+          case 'emergency_boost':
+            unit.emergencyBoost = true;
+            break;
+        }
+      }
+    }
   }
 
   // ========== World State Management ==========
@@ -487,6 +551,44 @@ class GameEngine {
 
   workshopGetMaterials() {
     return this.creatorWorkshop.getMaterialsSummary();
+  }
+
+  // ========== Phase 6 Persistent State ==========
+
+  getPersistentState() {
+    return {
+      persistentWorld: persistentWorld.serialize(),
+      legacySystem: legacySystem.serialize(),
+      socialGraph: this.npcManager?.socialGraph?.serialize() || null,
+      workshop: this.creatorWorkshop ? {
+        inventory: this.creatorWorkshop.inventory,
+        materials: Array.from(this.creatorWorkshop.materials.entries()),
+        workshopCreations: this.creatorWorkshop.workshopCreations.map(c => c.serialize()),
+        legacyUnits: this.creatorWorkshop.legacyUnits,
+        unlockedOperations: Array.from(this.creatorWorkshop.unlockedOperations)
+      } : null
+    };
+  }
+
+  applyPersistentState(state) {
+    if (!state) return;
+    if (state.persistentWorld) persistentWorld.deserialize(state.persistentWorld);
+    if (state.legacySystem) legacySystem.deserialize(state.legacySystem);
+    if (state.workshop && this.creatorWorkshop) {
+      this.creatorWorkshop.inventory = state.workshop.inventory || [];
+      this.creatorWorkshop.materials = new Map(state.workshop.materials || []);
+      this.creatorWorkshop.workshopCreations = (state.workshop.workshopCreations || []).map(c => WorkshopCreation.deserialize ? WorkshopCreation.deserialize(c) : c);
+      this.creatorWorkshop.legacyUnits = state.workshop.legacyUnits || [];
+      this.creatorWorkshop.unlockedOperations = new Set(state.workshop.unlockedOperations || ['dismantle', 'modify']);
+    }
+    this.pendingSocialGraph = state.socialGraph || null;
+  }
+
+  applyPendingSocialGraph(npcManager) {
+    if (this.pendingSocialGraph && npcManager && npcManager.socialGraph && npcManager.socialGraph.deserialize) {
+      npcManager.socialGraph.deserialize(this.pendingSocialGraph);
+      this.pendingSocialGraph = null;
+    }
   }
 
   // ========== Game Operations ==========
@@ -1195,6 +1297,14 @@ class GameEngine {
         continue;
       }
       if (this.isCivilian(unit) && [TILE.WATER, TILE.DARK, TILE.POISON].includes(terrain)) {
+        if (terrain === TILE.WATER && unit.waterImmune) {
+          this.log(`${unit.name} 的洪灾幸存者体质使其在水中安然无恙`);
+          continue;
+        }
+        if ((terrain === TILE.DARK || terrain === TILE.POISON) && unit.chaosImmune) {
+          this.log(`${unit.name} 的夜行者之眼使其不受黑暗侵蚀`);
+          continue;
+        }
         unit.status = 'lost';
         unit.lost = true;
         this.lost += 1;

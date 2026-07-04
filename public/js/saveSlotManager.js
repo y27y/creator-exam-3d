@@ -43,15 +43,25 @@ export class SaveSlotManager {
     return `${this.prefix}${normalizeSlotId(slotId)}`;
   }
 
-  saveSlot(slotId, worldSession, metadata = {}) {
+  saveSlot(slotId, worldSession, persistentState = {}, metadata = {}) {
+    // Backward compatibility: old callers passed metadata as the 3rd argument
+    const isLegacyMetadata = persistentState &&
+      !persistentState.persistentWorld &&
+      !persistentState.legacySystem &&
+      !persistentState.workshop &&
+      (persistentState.label !== undefined || persistentState.currentRegionId !== undefined);
+    const actualPersistentState = isLegacyMetadata ? null : persistentState;
+    const actualMetadata = isLegacyMetadata ? persistentState : metadata;
+
     const id = normalizeSlotId(slotId);
     const snapshot = {
       version: WORLD_SCHEMA_VERSION,
       slotId: id,
-      label: String(metadata.label || id).slice(0, 60),
+      label: String(actualMetadata.label || id).slice(0, 60),
       savedAt: now(),
-      currentRegionId: metadata.currentRegionId || worldSession.currentRegionId || null,
-      session: worldSession.serialize()
+      currentRegionId: actualMetadata.currentRegionId || worldSession.currentRegionId || null,
+      session: worldSession.serialize(),
+      persistentState: actualPersistentState || null
     };
     this.storage.setItem(this.makeKey(id), JSON.stringify(snapshot));
     this.lastError = null;
@@ -60,15 +70,15 @@ export class SaveSlotManager {
 
   loadSlot(slotId, worldSession) {
     const raw = this.storage.getItem(this.makeKey(slotId));
-    if (!raw) return false;
+    if (!raw) return { loaded: false, persistentState: null };
     try {
       const snapshot = readSnapshot(raw);
       worldSession.deserialize(snapshot.session);
       this.lastError = null;
-      return true;
+      return { loaded: true, persistentState: snapshot.persistentState || null };
     } catch (error) {
       this.lastError = { code: 'load_failed', message: error.message };
-      return false;
+      return { loaded: false, persistentState: null };
     }
   }
 

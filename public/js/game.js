@@ -11,6 +11,8 @@ import { GameEngine, TERRAIN_LABELS } from './gameEngine.js';
 import { executeChainReaction } from './chainReactionCodex.js';
 import { CognitiveEffects } from './cognitiveEffects.js';
 import { worldLegendSystem } from './worldLegend.js';
+import { legacySystem } from './legacySystem.js';
+import { persistentWorld } from './persistentWorld.js';
 import { buildContinuityViewModel } from './continuityPresenter.js';
 import { ResidentDialogueSystem } from './residentDialogueSystem.js';
 import { DebugSnapshot } from './debugSnapshot.js';
@@ -168,6 +170,7 @@ class CreatorExam3D extends GameEngine {
 
     // Initialize NPC manager for this level
     this.npcManager = new NPCManager(this.level);
+    this.applyPendingSocialGraph(this.npcManager);
 
     // Add legacy NPCs from previous rescues
     if (this.legacyUnits && this.legacyUnits.length > 0) {
@@ -257,7 +260,10 @@ class CreatorExam3D extends GameEngine {
       workshopMaterialsList: document.getElementById('workshopMaterialsList'),
       workshopDismantleBtn: document.getElementById('workshopDismantleBtn'),
       workshopModifyBtn: document.getElementById('workshopModifyBtn'),
-      workshopFuseBtn: document.getElementById('workshopFuseBtn')
+      workshopFuseBtn: document.getElementById('workshopFuseBtn'),
+      legacyUnitList: document.getElementById('legacy-unit-list'),
+      legacyWorldStats: document.getElementById('legacy-world-stats'),
+      legacyResidentList: document.getElementById('legacy-resident-list')
     };
   }
 
@@ -1101,7 +1107,7 @@ class CreatorExam3D extends GameEngine {
 
     // Store surviving creations into workshop for cross-level crafting
     const surviving = this.creations.filter(c => c.placed && c.remaining > 0);
-    if (surviving.length > 0) {
+    if (surviving.length > 0 && typeof this.workshopAddCreation === 'function') {
       for (const c of surviving) {
         this.workshopAddCreation(c.card);
       }
@@ -1544,6 +1550,7 @@ class CreatorExam3D extends GameEngine {
     this.renderAbyssPanel();
     this.renderCorruptionPanel();
     this.renderWorkshopPanel();
+    this.renderPersistentPanel();
   }
 
   renderLegendPanel() {
@@ -1650,6 +1657,12 @@ class CreatorExam3D extends GameEngine {
   renderEnemyIntentPanel() {
     if (!this.ui.enemyIntentList) return;
 
+    if (typeof this.generateEnemyIntentPreview !== 'function') {
+      this.ui.enemyIntentList.innerHTML = '<div class="continuity-item">当前没有可预见的行动</div>';
+      this.ui.enemyIntentNarrative.innerHTML = '';
+      return;
+    }
+
     const result = this.generateEnemyIntentPreview();
     if (!result || !result.previews || result.previews.length === 0) {
       this.ui.enemyIntentList.innerHTML = '<div class="continuity-item">当前没有可预见的行动</div>';
@@ -1675,8 +1688,22 @@ class CreatorExam3D extends GameEngine {
   renderAbyssPanel() {
     if (!this.ui.abyssRiddleText) return;
 
-    const abyss = this.cognitiveAbyss;
-    if (!abyss.active && abyss.depth < 0.8) {
+    if (typeof this.generateAbyssRiddle !== 'function') {
+      this.ui.abyssRiddleText.innerHTML = '<div class="continuity-item">世界裂隙尚浅，认知深渊沉睡中。</div>';
+      this.ui.abyssRiddleInput.classList.add('hidden');
+      this.ui.abyssDecodeBtn.classList.add('hidden');
+      this.ui.abyssResult.innerHTML = '';
+      return;
+    }
+
+    if (!this.currentAbyssRiddle) {
+      this.currentAbyssRiddle = this.generateAbyssRiddle('instruction');
+    }
+
+    const riddle = this.currentAbyssRiddle;
+    const active = riddle && riddle.active !== false;
+    const depth = riddle?.depth ?? 0;
+    if (!active && depth < 0.8) {
       this.ui.abyssRiddleText.innerHTML = '<div class="continuity-item">世界裂隙尚浅，认知深渊沉睡中。</div>';
       this.ui.abyssRiddleInput.classList.add('hidden');
       this.ui.abyssDecodeBtn.classList.add('hidden');
@@ -1687,20 +1714,16 @@ class CreatorExam3D extends GameEngine {
     this.ui.abyssRiddleInput.classList.remove('hidden');
     this.ui.abyssDecodeBtn.classList.remove('hidden');
 
-    if (!this.currentAbyssRiddle) {
-      this.currentAbyssRiddle = this.generateAbyssRiddle('instruction');
-    }
-
-    if (!this.currentAbyssRiddle) {
+    if (!riddle) {
       this.ui.abyssRiddleText.innerHTML = '<div class="continuity-item">深渊静默，未生成谜题。</div>';
       return;
     }
 
     this.ui.abyssRiddleText.innerHTML = `
       <div class="continuity-item abyss-riddle">
-        <div class="riddle-label">裂隙浓度 ${(abyss.depth * 100).toFixed(0)}%</div>
-        <div class="riddle-text">${escapeHtml(this.currentAbyssRiddle.displayed || this.currentAbyssRiddle.distorted)}</div>
-        <div class="riddle-hint">提示：${escapeHtml(this.currentAbyssRiddle.hint || '倾听深渊的低语')}</div>
+        <div class="riddle-label">裂隙浓度 ${(depth * 100).toFixed(0)}%</div>
+        <div class="riddle-text">${escapeHtml(riddle.displayed || riddle.distorted || '')}</div>
+        <div class="riddle-hint">提示：${escapeHtml(riddle.hint || '倾听深渊的低语')}</div>
       </div>
     `;
   }
@@ -1708,9 +1731,15 @@ class CreatorExam3D extends GameEngine {
   renderCorruptionPanel() {
     if (!this.ui.corruptionList) return;
 
-    const corruption = this.verificationCorruption;
-    const level = corruption.corruptionLevel || 0;
-    const engineState = corruption.engineOverloaded ? '已崩溃' : '稳定';
+    if (typeof this.createParadoxCard !== 'function') {
+      this.ui.corruptionList.innerHTML = '<div class="continuity-item">腐化验证系统尚未就绪。</div>';
+      this.ui.corruptionCreateBtn.disabled = true;
+      return;
+    }
+
+    const stats = typeof this.getCorruptionStats === 'function' ? this.getCorruptionStats() : null;
+    const level = stats?.corruptionLevel || 0;
+    const engineState = stats?.engineOverloaded ? '已崩溃' : '稳定';
 
     const paradoxTypes = [
       { key: 'light_dark', name: '噬光之灯' },
@@ -1743,6 +1772,15 @@ class CreatorExam3D extends GameEngine {
   renderWorkshopPanel() {
     if (!this.ui.workshopInventoryList) return;
 
+    if (typeof this.workshopGetInventory !== 'function' || typeof this.workshopGetMaterials !== 'function') {
+      this.ui.workshopInventoryList.innerHTML = '<div class="continuity-item">造物者工坊系统尚未就绪。</div>';
+      this.ui.workshopMaterialsList.innerHTML = '';
+      this.ui.workshopDismantleBtn.disabled = true;
+      this.ui.workshopModifyBtn.disabled = true;
+      this.ui.workshopFuseBtn.disabled = true;
+      return;
+    }
+
     const inventory = this.workshopGetInventory();
     const materials = this.workshopGetMaterials();
 
@@ -1755,6 +1793,10 @@ class CreatorExam3D extends GameEngine {
           <span><strong>${escapeHtml(item.card.name)}</strong> · ${escapeHtml(item.card.ability)}</span>
         </label>
       `).join('');
+      // 保持重新渲染后的选中状态
+      for (const cb of this.ui.workshopInventoryList.querySelectorAll('.workshop-select')) {
+        cb.checked = this.selectedWorkshopItems.has(cb.dataset.invId);
+      }
     }
 
     const materialEntries = Array.isArray(materials) ? materials : Object.entries(materials || {});
@@ -1773,10 +1815,50 @@ class CreatorExam3D extends GameEngine {
     this.ui.workshopFuseBtn.disabled = !canOperate || this.selectedWorkshopItems.size !== 2;
   }
 
+  renderPersistentPanel() {
+    if (!this.ui.legacyUnitList) return;
+
+    const legacyUnits = Array.from(legacySystem.legacyUnits.values());
+    if (legacyUnits.length === 0) {
+      this.ui.legacyUnitList.innerHTML = '<div class="continuity-item">尚未有单位被传承。</div>';
+    } else {
+      this.ui.legacyUnitList.innerHTML = legacyUnits.map(l => {
+        const tierNames = { survivor: '幸存者', hero: '英雄', legend: '传奇', ancestor: '先祖' };
+        const traits = (l.traits || []).map(t => t.name).join('、') || '无';
+        return `<div class="continuity-item">
+          <strong>${escapeHtml(l.name)}</strong> · ${escapeHtml(tierNames[l.tier] || l.tier)}
+          <div class="legacy-meta">救援 ${l.rescueCount} 次 · 特质：${escapeHtml(traits)}</div>
+        </div>`;
+      }).join('');
+    }
+
+    if (this.ui.legacyWorldStats) {
+      this.ui.legacyWorldStats.innerHTML = `
+        <div class="continuity-item">
+          <strong>世界熵值</strong> ${persistentWorld.worldEntropy}
+          <br><strong>世界名望</strong> ${persistentWorld.worldRenown}
+          <br><strong>已完成关卡</strong> ${persistentWorld.levelHistory.length}
+        </div>
+      `;
+    }
+
+    if (this.ui.legacyResidentList) {
+      const residents = this.npcManager?.npcs?.filter(n => n.isLegacy) || [];
+      this.ui.legacyResidentList.innerHTML = residents.length
+        ? residents.map(r => `<div class="continuity-item"><strong>${escapeHtml(r.name)}</strong> · ${escapeHtml(r.tier || '故人')} · ${escapeHtml(r.lore || '')}</div>`).join('')
+        : '<div class="continuity-item">当前关卡没有持久居民。</div>';
+    }
+  }
+
   handleDecodeAbyss() {
     const input = this.ui.abyssRiddleInput?.value?.trim();
     if (!input) {
       this.showToast('请输入解码答案。');
+      return;
+    }
+
+    if (typeof this.attemptDecodeAbyss !== 'function') {
+      this.showToast('认知深渊系统尚未就绪。');
       return;
     }
 
@@ -1807,6 +1889,11 @@ class CreatorExam3D extends GameEngine {
       return;
     }
 
+    if (typeof this.createParadoxCard !== 'function') {
+      this.showToast('腐化验证系统尚未就绪。');
+      return;
+    }
+
     const result = this.createParadoxCard(selected.value);
     if (result.success && result.card) {
       this.activeCard = result.card;
@@ -1829,6 +1916,11 @@ class CreatorExam3D extends GameEngine {
       return;
     }
 
+    if (typeof this.workshopDismantle !== 'function') {
+      this.showToast('造物者工坊系统尚未就绪。');
+      return;
+    }
+
     let dismantled = 0;
     for (const id of ids) {
       const result = this.workshopDismantle(id);
@@ -1847,6 +1939,11 @@ class CreatorExam3D extends GameEngine {
       return;
     }
 
+    if (typeof this.workshopModify !== 'function') {
+      this.showToast('造物者工坊系统尚未就绪。');
+      return;
+    }
+
     const result = this.workshopModify(ids[0], 'range_boost');
     if (result.success) {
       this.showToast(`改造成功：${result.card.name}`);
@@ -1861,6 +1958,11 @@ class CreatorExam3D extends GameEngine {
     const ids = Array.from(this.selectedWorkshopItems);
     if (ids.length !== 2) {
       this.showToast('请选择两个要融合的造物。');
+      return;
+    }
+
+    if (typeof this.workshopFuse !== 'function') {
+      this.showToast('造物者工坊系统尚未就绪。');
       return;
     }
 
@@ -2321,7 +2423,8 @@ class CreatorExam3D extends GameEngine {
   }
 
   saveCurrentSlot() {
-    const snapshot = this.saveSlotManager.saveSlot(this.currentSlotId(), this.worldSession, {
+    const persistentState = this.getPersistentState();
+    const snapshot = this.saveSlotManager.saveSlot(this.currentSlotId(), this.worldSession, persistentState, {
       label: this.currentSlotId(),
       currentRegionId: this.worldSession.currentRegionId || this.level?.id || null
     });
@@ -2330,11 +2433,12 @@ class CreatorExam3D extends GameEngine {
   }
 
   loadSelectedSlot() {
-    const loaded = this.saveSlotManager.loadSlot(this.currentSlotId(), this.worldSession);
-    if (!loaded) {
+    const result = this.saveSlotManager.loadSlot(this.currentSlotId(), this.worldSession);
+    if (!result.loaded) {
       this.addLog?.(`No save slot found for ${this.currentSlotId()}.`);
       return;
     }
+    this.applyPersistentState(result.persistentState);
     this.worldSimulation = this.worldSession.worldSimulation;
     this.memoryStore?.saveWorld(this.worldSession);
     this.reloadCurrentSessionRegion?.();

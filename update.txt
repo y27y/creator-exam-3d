@@ -129,13 +129,47 @@
 **验证**:
 - `node debug/test-suite.js` 171/171 通过
 - 浏览器中可看到敌方意图、工坊改造、腐化效果
+- 敌方意图面板显示平民/灾害行动计划与叙事解读
+- 验证腐化面板显示 8 种悖论类型与当前腐化值
+- 造物者工坊显示库存与材料，胜利后存入存活造物
 
-**状态**: 进行中
+**状态**: 已完成
+
+---
+
+### 2026-07-05 - Phase 6: 跨关卡持久化与单位传承 (进行中)
+
+**目标**: 让被救援单位、社会关系、世界状态真正跨关卡继承，让 ancestor 等级和 legacy 系统生效。
+
+**涉及文件**:
+- `public/js/gameEngine.js`
+- `public/js/game.js`
+- `public/js/persistentWorld.js`
+- `public/js/legacySystem.js`
+- `public/js/memoryStore.js`
+- `public/js/saveSlotManager.js`
+- `public/index.html`
+
+**主要变更**:
+- 补全 `applyPersistentState` 空实现。
+- 关卡胜利/失败时序列化 persistent world / legacy / social graph。
+- save slot 存储 persistent state、legacy units、social graph。
+- ancestor 等级根据行为自动分配并在后续关卡生效。
+- UI 显示可继承的 legacy units 和 persistent residents。
+
+**验证**:
+- `node debug/test-suite.js` 171/171 通过
+- 浏览器中可看到传承单位、世界熵值/名望、持久居民面板
+- save slot 现在保存 persistent world / legacy system / social graph / workshop 状态
+- 传承单位同名单位在后续关卡获得免疫/移速等实际增益
+
+**状态**: 已完成
 
 ---
 
 ### 后续计划
 
-- Phase 5: 认知深渊 + 验证腐化 + 造物者工坊 + 敌方意图预览
-- Phase 6: 跨关卡持久化 + 单位传承
+- 继续扩展 AI 叙事引擎：AI 生成支线任务、自然语言 NPC 对话、动态剧情生成
+- 动态难度调整、关卡编辑器、成就系统
+- TypeScript 迁移、性能优化、移动端适配、多语言支持
 

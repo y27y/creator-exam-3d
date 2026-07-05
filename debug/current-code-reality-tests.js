@@ -209,7 +209,8 @@ function assertAirCombatIntegration() {
   assert.ok(airGameSource.includes('fireBossEscort'), 'air combat slice must apply upstream escort affix as finite add pressure');
   assert.ok(airGameSource.includes('updateFieldRepair') && airGameSource.includes('fieldRepairStatus'), 'air combat slice must apply upstream field repair locally');
   assert.ok(airGameSource.includes('this.resonance.damageTakenMult'), 'air combat slice must apply finite armor-plating damage reduction locally');
-  assert.ok(airGameSource.includes('playerBulletDamage') && airGameSource.includes('armorPierceMinHp') && airGameSource.includes('bullet.main'), 'air combat slice must apply finite armor-piercer bonus only to main bullets');
+  assert.ok(airGameSource.includes('armorPierces') && airGameSource.includes('playerBulletDamage') && airGameSource.includes('armorPierceMinHp') && airGameSource.includes('bullet.main'), 'air combat slice must apply finite armor-piercer bonus only to main bullets');
+  assert.ok(airGameSource.includes("this.burst(b.x, b.y, '#ff922b', 6)"), 'air combat slice must show finite armor-piercer hit feedback');
   assert.ok(airGameSource.includes('splitDamage') && airGameSource.includes('#be4bdb'), 'air combat slice must fire finite split laser side beams for beam resonance');
   assert.ok(airGameSource.includes('sideDamage') && airGameSource.includes('#ffd43b'), 'air combat slice must fire finite side cannon shots for cannon resonance');
   assert.ok(airGameSource.includes('showClearanceCard') && airGameSource.includes('updateClearanceCard'), 'air combat must show a short boss clearance card after each boss defeat');

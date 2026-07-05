@@ -739,9 +739,13 @@
       return factor;
     },
 
-    playerBulletDamage(bullet, target) {
+    armorPierces(bullet, target) {
       const minHp = this.resonance.armorPierceMinHp || 12;
-      return bullet.main && target?.maxHp >= minHp ? bullet.damage * (1 + (this.resonance.armorPierceMult || 0)) : bullet.damage;
+      return bullet.main && (this.resonance.armorPierceMult || 0) > 0 && target?.maxHp >= minHp;
+    },
+
+    playerBulletDamage(bullet, target) {
+      return this.armorPierces(bullet, target) ? bullet.damage * (1 + this.resonance.armorPierceMult) : bullet.damage;
     },
 
     resolveCollisions() {
@@ -750,6 +754,7 @@
         for (const e of this.enemies) {
           if (!e.dead && hit(b, e)) {
             b.dead = true;
+            if (this.armorPierces(b, e)) this.burst(b.x, b.y, '#ff922b', 6);
             if (e.damage(this.playerBulletDamage(b, e))) this.killEnemy(e);
             else this.burst(b.x, b.y, '#eef3ec', 3);
             break;
@@ -757,6 +762,7 @@
         }
         if (!b.dead && this.boss && hit(b, this.boss)) {
           b.dead = true;
+          if (this.armorPierces(b, this.boss)) this.burst(b.x, b.y, '#ff922b', 6);
           if (this.boss.damage(this.playerBulletDamage(b, this.boss))) this.defeatBoss();
           else this.burst(b.x, b.y, '#eef3ec', 3);
         }

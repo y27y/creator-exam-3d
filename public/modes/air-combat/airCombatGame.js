@@ -418,6 +418,7 @@
     damageTaken: 0,
     creationOverload: 0,
     lastStandTriggered: false,
+    jammedTime: 0,
     noHitT: 0,
     fieldRepairT: 0,
     score: 0,
@@ -449,6 +450,7 @@
       this.damageTaken = 0;
       this.creationOverload = 0;
       this.lastStandTriggered = false;
+      this.jammedTime = 0;
       this.noHitT = 0;
       this.fieldRepairT = 0;
       this.score = 0;
@@ -652,6 +654,9 @@
 
     jamFactor(x, y) {
       let factor = 1;
+      if (this.boss?.affix?.jamRadius && dist2({ x, y }, this.boss) <= this.boss.affix.jamRadius * this.boss.affix.jamRadius) {
+        factor = Math.max(factor, this.boss.affix.weaponSlow || 1);
+      }
       for (const enemy of this.enemies) {
         if (enemy.dead || enemy.type !== 'jammer') continue;
         if (dist2({ x, y }, enemy) <= enemy.jamRadius * enemy.jamRadius) factor = Math.max(factor, enemy.weaponSlow);
@@ -729,6 +734,7 @@
       const tags = [this.resonance.name];
       if (this.damageTaken >= 100) tags.push('承伤偏高');
       else if (this.clearedLayers >= 2) tags.push('走位稳定');
+      if (this.jammedTime / Math.max(1, this.time) >= 0.18) tags.push('干扰压力高');
       if (this.clearedLayers >= this.route.length) tags.push('Boss处理完整');
       else if (this.clearedLayers >= 3) tags.push('中段清算有效');
       if (this.creationOverload >= 3) tags.push('频繁脉冲');
@@ -750,12 +756,14 @@
         bossDefeated: this.bossDefeated,
         damageTaken: this.damageTaken,
         creationOverload: this.creationOverload,
+        jammedTime: Math.round(this.jammedTime),
         rescuedEchoes: victory ? this.difficulty.allyWings + this.clearedLayers : this.clearedLayers,
         endingModifier: victory ? 'airspace_cleansed' : 'airspace_scarred',
         affixes: this.route.map(boss => `${boss.affix.name}·${boss.title}`)
       });
       resultTitle.textContent = victory ? '裂隙空域已清算' : '空域载体坠落';
-      resultBody.textContent = `${result.notableMoment} 分数 ${result.score}，清算 ${result.clearedLayers}/6 段。复盘：${this.reviewTags(victory).join(' · ')}。`;
+      const jamText = result.jammedTime > 0 ? `，干扰 ${result.jammedTime}s` : '';
+      resultBody.textContent = `${result.notableMoment} 分数 ${result.score}，清算 ${result.clearedLayers}/6 段${jamText}。复盘：${this.reviewTags(victory).join(' · ')}。`;
       resultPanel.classList.remove('hidden');
       this.say(victory ? bridge.lineFor('victory') : bridge.lineFor('defeat'), 4, {
         eventType: victory ? 'airspace_victory' : 'airspace_defeat',
@@ -827,6 +835,10 @@
       return jam > 1 ? ` · 干扰×${jam.toFixed(2)}` : '';
     },
 
+    updateJammerPressure(dt) {
+      if (this.player && this.jamFactor(this.player.x, this.player.y) > 1) this.jammedTime += dt;
+    },
+
     update(dt) {
       this.time += dt;
       for (const star of this.stars) {
@@ -849,6 +861,7 @@
       this.segmentTime += dt;
       this.nearLineCd = Math.max(0, this.nearLineCd - dt);
       this.updateFieldRepair(dt);
+      this.updateJammerPressure(dt);
       this.player.update(dt);
       if (!this.boss && this.segmentTime > 8.5) this.spawnBoss();
       this.spawnTimer -= dt;

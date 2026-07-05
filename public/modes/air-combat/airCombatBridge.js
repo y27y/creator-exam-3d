@@ -136,6 +136,15 @@
       spawnBias: 0.48,
       line: '长夜没守住的缺口，正在空中重新开裂。'
     },
+    jammer: {
+      key: 'jammer',
+      name: '扰频',
+      color: '#15aabf',
+      jamRadius: 300,
+      weaponSlow: 1.25,
+      scoreMult: 1.13,
+      line: 'Boss 正在扩散扰频圈，贴得太近会拖慢造物武器。'
+    },
     support: {
       key: 'support',
       name: '修复',
@@ -364,7 +373,7 @@
     else if (entropy >= 4) keys.push('rapid');
     if (lostCount() > 0) keys.push('phantom');
     if (residentsCount() >= 4 || /block|force_field/.test(abilityText)) keys.push('escort');
-    if (defense && defense.victory === false) keys.push('breach');
+    if (defense && defense.victory === false) keys.push('breach', 'jammer');
     if (/illuminate|memory_beacon|dream_link|guide/.test(abilityText)) keys.push('support');
     if (!keys.length) keys.push('armored');
     if (keys.length === 1) keys.push(residentsCount() >= 3 ? 'support' : 'rapid');
@@ -518,6 +527,7 @@
       bossDefeated: result.bossDefeated || [],
       damageTaken: Math.max(0, Math.round(result.damageTaken || 0)),
       creationOverload: result.creationOverload || 0,
+      jammedTime: Math.max(0, Math.round(result.jammedTime || 0)),
       rescuedEchoes: result.rescuedEchoes || 0,
       endingModifier: result.endingModifier || (result.outcome === 'victory' ? 'airspace_cleansed' : 'airspace_scarred'),
       weapon: weaponLoadout(),

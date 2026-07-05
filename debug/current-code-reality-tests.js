@@ -156,9 +156,11 @@ function assertAirCombatIntegration() {
   assert.ok(bridgeSource.includes('airspaceAffixes'), 'AI world state must include airspace affix context');
   assert.ok(bridgeSource.includes('resonance: routeResonance()'), 'air combat result must return route resonance to main game');
   assert.ok(bridgeSource.includes('affixes:'), 'air combat result must return finite boss affixes');
+  assert.ok(bridgeSource.includes('jammedTime:'), 'air combat result must return jammer pressure to main game');
   assert.ok(bridgeSource.includes('lastStandShield'), 'air bridge must turn prior night-watch success into finite last-stand protection');
   assert.ok(bridgeSource.includes('ionStorm') && bridgeSource.includes('离子风暴'), 'air bridge must adapt upstream ion storm as a finite boss-route affix');
   assert.ok(bridgeSource.includes('escort') && bridgeSource.includes('护卫'), 'air bridge must adapt upstream boss escort as a finite boss-route affix');
+  assert.ok(bridgeSource.includes('jammer') && bridgeSource.includes('扰频'), 'air bridge must adapt upstream jammer as a finite boss-route affix');
   assert.ok(bridgeSource.includes('fieldRepair') && bridgeSource.includes('纳米修复'), 'air bridge must adapt upstream field repair as a prior-flow reward');
   assert.ok(bridgeSource.includes('splitPairs') && bridgeSource.includes('分束棱镜'), 'air bridge must adapt upstream split laser as beam resonance');
 
@@ -170,6 +172,8 @@ function assertAirCombatIntegration() {
   assert.ok(airGameSource.includes('bulletRateMult'), 'air combat slice must apply boss affix bullet-rate modifiers locally');
   assert.ok(airGameSource.includes('jamFactor'), 'air combat slice must apply jammer pressure locally');
   assert.ok(airGameSource.includes('jamStatus'), 'air combat HUD must show jammer weapon-slow feedback');
+  assert.ok(airGameSource.includes('this.boss?.affix?.jamRadius'), 'air combat slice must let jammer boss affixes slow creation weapons');
+  assert.ok(airGameSource.includes('jammedTime') && airGameSource.includes('updateJammerPressure'), 'air combat result must track finite jammer pressure');
   assert.ok(airGameSource.includes('repairNearbyEnemies'), 'air combat slice must apply support enemy depth locally');
   assert.ok(airGameSource.includes('jammer') && airGameSource.includes('support'), 'air combat enemy pool must include selected upstream enemy roles');
   assert.ok(airGameSource.includes('hudAffix'), 'air combat HUD must show boss affix details');

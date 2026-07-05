@@ -169,7 +169,8 @@
         phantom: { hp: 6, r: 18, speed: 150, score: 260, color: '#f0a6ca', fire: 1.0 },
         sniper: { hp: 7, r: 20, speed: 72, score: 340, color: '#e64980', fire: 1.8, warn: 0.55, bulletSpeed: 520, damage: 13, shots: 1 },
         jammer: { hp: 10, r: 24, speed: 76, score: 300, color: '#75d7e6', fire: 1.6, jamRadius: 210, weaponSlow: 1.28 },
-        support: { hp: 12, r: 24, speed: 68, score: 320, color: '#72d6bd', fire: 0, repairRadius: 130, repairAmount: 2, repairInterval: 2.4 }
+        support: { hp: 12, r: 24, speed: 68, score: 320, color: '#72d6bd', fire: 0, repairRadius: 130, repairAmount: 2, repairInterval: 2.4 },
+        carrier: { hp: 22, r: 32, speed: 65, score: 900, color: '#9775fa', fire: 0, spawns: 'medium', spawnCount: 2 }
       }[type];
       this.type = type;
       this.x = 32 + Math.random() * (W - 64);
@@ -201,6 +202,9 @@
       this.regenTimer = 0;
       this.regenEvery = 0;
       this.regenPct = 0;
+      this.spawns = data.spawns || '';
+      this.spawnCount = data.spawnCount || 0;
+      this.carrierSpawn = 0;
       this.dead = false;
     }
 
@@ -213,6 +217,8 @@
       else if (this.type === 'detonator') this.x = this.baseX + Math.sin(this.t * 5.2) * 24;
       else if (this.type === 'jammer') this.x = this.baseX + Math.sin(this.t * 2.8) * 52;
       else if (this.type === 'support') this.x = this.baseX + Math.sin(this.t * 1.8) * 34;
+      else if (this.type === 'carrier') this.x = this.baseX + Math.sin(this.t * 1.3) * 28;
+      if (this.carrierSpawn > 0) this.carrierSpawn -= dt;
       this.fire -= dt;
       if (this.sniperWarn > 0 && game.player) {
         this.sniperWarn -= dt;
@@ -311,6 +317,14 @@
         ctx.lineTo(this.r * 0.86, 0);
       } else if (this.type === 'support') {
         ctx.arc(0, 0, this.r * 0.8, 0, Math.PI * 2);
+      } else if (this.type === 'carrier') {
+        ctx.ellipse(0, 0, this.r * 0.9, this.r * 0.65, 0, 0, Math.PI * 2);
+        ctx.moveTo(-this.r * 0.55, 0);
+        ctx.lineTo(-this.r * 0.92, this.r * 0.58);
+        ctx.lineTo(-this.r * 0.35, this.r * 0.38);
+        ctx.moveTo(this.r * 0.55, 0);
+        ctx.lineTo(this.r * 0.92, this.r * 0.58);
+        ctx.lineTo(this.r * 0.35, this.r * 0.38);
       } else {
         ctx.moveTo(0, this.r);
         ctx.lineTo(-this.r, -this.r * 0.75);
@@ -334,6 +348,13 @@
         ctx.stroke();
       } else {
         ctx.fillRect(-this.r * 0.5, -2, this.r, 4);
+      }
+      if (this.carrierSpawn > 0) {
+        ctx.strokeStyle = 'rgba(151,117,250,.72)';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(0, 0, this.r + 8 + Math.sin(game.time * 12) * 3, 0, Math.PI * 2);
+        ctx.stroke();
       }
       ctx.restore();
     }
@@ -386,6 +407,7 @@
       this.affixTimer = this.affix.every || 5.6;
       if (this.affix.attack === 'prism') game.firePrismLane(this, this.affix);
       else if (this.affix.attack === 'ionStorm') game.fireIonStormLane(this, this.affix);
+      else if (this.affix.attack === 'ring') game.fireBarrageRing(this, this.affix);
       else if (this.affix.attack === 'escort') game.fireBossEscort(this, this.affix);
       else if (this.affix.attack === 'repair') game.repairBoss(this, this.affix);
     }
@@ -599,7 +621,7 @@
       const stage = this.segmentIndex + 1;
       const pool = stage < 2 ? ['small', 'small', 'medium']
         : stage < 4 ? ['small', 'medium', 'gunner', 'splitter']
-          : ['medium', 'gunner', 'splitter', 'sniper', 'detonator', 'phantom', 'phantom'];
+          : ['medium', 'gunner', 'splitter', 'sniper', 'detonator', 'phantom', 'phantom', 'carrier'];
       const affix = this.currentAffix();
       const biased = affix?.enemyBias && Math.random() < (affix.spawnBias || 0) ? affix.enemyBias : pool;
       const enemy = new Enemy(pick(biased), stage);
@@ -691,6 +713,18 @@
         const a = i * Math.PI * 2 / count;
         this.enemyBullets.push({ x, y, vx: Math.cos(a) * speed, vy: Math.sin(a) * speed, r: 5, damage, dead: false });
       }
+    },
+
+    fireBarrageRing(boss, affix) {
+      this.fireRing(
+        boss.x,
+        boss.y,
+        affix.count || 14,
+        affix.speed || 230,
+        9 * (affix.damageMult || 1)
+      );
+      this.burst(boss.x, boss.y, affix.color || '#ff922b', 10);
+      this.say('环幕词缀展开整圈弹幕，先横移找空隙再反击。', 1.8);
     },
 
     fireWall(x, y, speed) {
@@ -802,6 +836,7 @@
       this.burst(enemy.x, enemy.y, enemy.color, 14);
       if (enemy.type === 'detonator') this.fireRing(enemy.x, enemy.y, enemy.ringCount || 14, enemy.ringSpeed || 210, enemy.ringDamage || 9);
       this.pointDefenseCleared += this.triggerPointDefense(enemy);
+      if (enemy.type === 'carrier') this.spawnCarrierChildren(enemy);
       if (enemy.type === 'splitter') {
         for (let i = 0; i < 2; i += 1) {
           const child = new Enemy('small', this.segmentIndex + 1);
@@ -811,6 +846,18 @@
         }
       }
       if (Math.random() < 0.08) this.powerups.push({ x: enemy.x, y: enemy.y, r: 12, kind: pick(['heal', 'shield', 'power']), dead: false });
+    },
+
+    spawnCarrierChildren(enemy) {
+      const count = Math.max(1, Math.min(3, enemy.spawnCount || 2));
+      for (let i = 0; i < count; i += 1) {
+        const child = new Enemy(enemy.spawns || 'medium', this.segmentIndex + 1);
+        child.x = clamp(enemy.x + (i - (count - 1) / 2) * 30, 24, W - 24);
+        child.baseX = child.x;
+        child.y = enemy.y;
+        child.carrierSpawn = 1;
+        this.enemies.push(child);
+      }
     },
 
     clearEnemyBulletsNear(x, y, range, color) {
@@ -985,6 +1032,7 @@
       if (this.route.some(boss => boss.affix?.attack === 'prism')) tags.push('棱镜航线');
       if (this.route.some(boss => boss.affix?.attack === 'ionStorm')) tags.push('离子风暴');
       if (this.route.some(boss => boss.affix?.attack === 'escort')) tags.push('护卫僚机');
+      if (this.route.some(boss => boss.affix?.attack === 'ring')) tags.push('环幕弹幕');
       if (!victory && this.bossDefeated.length === 0) tags.push('首段压力高');
       return [...new Set(tags)].slice(0, 4);
     },

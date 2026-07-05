@@ -120,6 +120,27 @@
       regenPct: 0.08,
       line: '再生精英会周期缝合机体，别把低血目标留在空域里恢复。'
     },
+    barrage: {
+      key: 'barrage',
+      name: '环幕',
+      color: '#ff922b',
+      attack: 'ring',
+      every: 6.2,
+      count: 14,
+      speed: 230,
+      damageMult: 0.78,
+      scoreMult: 1.16,
+      line: '环幕词缀会周期吐出整圈弹幕，贴脸输出前先给自己留一条退路。'
+    },
+    carrierWing: {
+      key: 'carrierWing',
+      name: '母舰残群',
+      color: '#9775fa',
+      enemyBias: ['carrier'],
+      spawnBias: 0.4,
+      scoreMult: 1.15,
+      line: '母舰残群会在坠毁时裂出僚机，清场前别急着贴近残骸。'
+    },
     prism: {
       key: 'prism',
       name: '棱镜',
@@ -525,8 +546,10 @@
     if (residentsCount() >= 4 || /block|force_field/.test(abilityText)) keys.push('escort');
     if (defense && defense.victory === false) keys.push('breach', 'jammer');
     if (defense?.victory && pressure >= 0.75) keys.push('repair');
+    if (entropy >= 5 || pressure >= 0.68) keys.push('barrage');
     if (entropy >= 6 || pressure >= 0.7 || /absorb_water|block|force_field/.test(abilityText)) keys.push('minefield');
     if (defense?.victory && (pressure >= 0.66 || residentsCount() >= 2)) keys.push('regenerator');
+    if (entropy >= 6 || residentsCount() >= 3 || lostCount() >= 2) keys.push('carrierWing');
     if (entropy >= 6 || /memory_beacon|dream_link|guide/.test(abilityText)) keys.push('jammerCloud');
     if (/illuminate|memory_beacon|dream_link|guide/.test(abilityText)) keys.push('support');
     if (!keys.length) keys.push('armored');

@@ -549,7 +549,8 @@ class CreatorExam3D extends GameEngine {
     this.pointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
     this.pointer.y = -(((event.clientY - rect.top) / rect.height) * 2 - 1);
     this.raycaster.setFromCamera(this.pointer, this.camera);
-    const hits = this.raycaster.intersectObjects(this.tileMeshes, false);
+    const hits = this.raycaster.intersectObjects(Array.from(this.tileMeshPool.values()), false);
+
     if (!hits.length) return;
     const { x, y } = hits[0].object.userData;
     this.placeCreation(x, y);

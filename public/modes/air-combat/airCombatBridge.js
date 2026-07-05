@@ -77,6 +77,62 @@
     }
   ];
 
+  const BOSS_AFFIXES = {
+    armored: {
+      key: 'armored',
+      name: '装甲',
+      color: '#8bd3ff',
+      hpMult: 0.14,
+      scoreMult: 1.1,
+      line: '裂隙把旧失败铸成外壳，先剥掉它的耐心。'
+    },
+    rapid: {
+      key: 'rapid',
+      name: '急袭',
+      color: '#f87171',
+      fireMult: 0.82,
+      scoreMult: 1.12,
+      line: '它不再等待回合，只追问你反应还够不够快。'
+    },
+    prism: {
+      key: 'prism',
+      name: '棱镜',
+      color: '#d8c58a',
+      attack: 'prism',
+      every: 5.6,
+      warn: 0.55,
+      scoreMult: 1.14,
+      line: '光被折成竖直裂缝，别停在同一条航线里。'
+    },
+    phantom: {
+      key: 'phantom',
+      name: '亡名',
+      color: '#f0a6ca',
+      enemyBias: ['phantom'],
+      spawnBias: 0.65,
+      bulletRateMult: 1.06,
+      line: '失去的名字靠近机翼，试图把航线改写成返航。'
+    },
+    breach: {
+      key: 'breach',
+      name: '破城',
+      color: '#ff9f6e',
+      hpMult: 0.08,
+      enemyBias: ['jammer', 'support'],
+      spawnBias: 0.48,
+      line: '长夜没守住的缺口，正在空中重新开裂。'
+    },
+    support: {
+      key: 'support',
+      name: '修复',
+      color: '#72d6bd',
+      enemyBias: ['support'],
+      spawnBias: 0.42,
+      hpMult: 0.06,
+      line: '裂隙残机开始互相缝补，拖久了就会变硬。'
+    }
+  };
+
   const WEAPON_MAP = {
     absorb_water: {
       name: '鲸潮护盾',
@@ -116,8 +172,65 @@
     }
   };
 
+  const RESONANCE_BY_KIND = {
+    beam: {
+      key: 'beam',
+      name: '光路共鸣',
+      effect: '主炮穿线更稳，造物脉冲冷却缩短。',
+      color: '#d8c58a',
+      damageBonus: 1,
+      fireIntervalMult: 0.9,
+      skillCooldownMult: 0.86,
+      scoreMult: 1.04
+    },
+    shield: {
+      key: 'shield',
+      name: '守夜共鸣',
+      effect: '初始护盾提高，居民回声更愿意挡在前面。',
+      color: '#8bd3ff',
+      startingShield: 28,
+      hpBonus: 10,
+      skillCooldownMult: 0.94
+    },
+    spear: {
+      key: 'spear',
+      name: '记忆共鸣',
+      effect: '双发弹伤害提高，Boss 击破后回声结算更清晰。',
+      color: '#b8c2d6',
+      damageBonus: 1,
+      scoreMult: 1.08
+    },
+    wing: {
+      key: 'wing',
+      name: '梦桥共鸣',
+      effect: '额外僚机协同，近身残影更容易被清掉。',
+      color: '#f0a6ca',
+      allyWingsBonus: 1,
+      fireIntervalMult: 0.96
+    },
+    cannon: {
+      key: 'cannon',
+      name: '秩序共鸣',
+      effect: '重弹伤害提高，但射击节奏更重。',
+      color: '#f87171',
+      damageBonus: 2,
+      fireIntervalMult: 1.08,
+      scoreMult: 1.06
+    }
+  };
+
   function parseJson(value) {
     try { return JSON.parse(value); } catch (_error) { return null; }
+  }
+
+  function escapeHtml(value) {
+    return String(value ?? '').replace(/[&<>"']/g, char => ({
+      '&': '&amp;',
+      '<': '&lt;',
+      '>': '&gt;',
+      '"': '&quot;',
+      "'": '&#39;'
+    }[char]));
   }
 
   function loadContext() {
@@ -181,11 +294,60 @@
     };
   }
 
+  function routeResonance() {
+    const weapon = weaponLoadout();
+    const base = RESONANCE_BY_KIND[weapon.kind] || {
+      key: 'default',
+      name: '裂隙共鸣',
+      effect: '白天残留的创造力维持基础火力。',
+      color: weapon.color || '#72d6bd'
+    };
+    const defense = context.towerDefenseResult || {};
+    const resonance = {
+      damageBonus: 0,
+      fireIntervalMult: 1,
+      skillCooldownMult: 1,
+      startingShield: 0,
+      hpBonus: 0,
+      allyWingsBonus: 0,
+      scoreMult: 1,
+      sourceCreation: weapon.sourceCreation,
+      ...base,
+      towerDefenseRelief: !!defense.victory
+    };
+    if (defense.victory) {
+      resonance.startingShield = (Number(resonance.startingShield) || 0) + 16;
+      resonance.hpBonus = (Number(resonance.hpBonus) || 0) + 8;
+    }
+    return resonance;
+  }
+
+  function contextualAffixKeys() {
+    const entropy = Number(context.entropy || 0);
+    const defense = context.towerDefenseResult || null;
+    const abilityText = creations().map(creationAbility).join(' ');
+    const keys = [];
+    if (entropy >= 7) keys.push('prism');
+    else if (entropy >= 4) keys.push('rapid');
+    if (lostCount() > 0) keys.push('phantom');
+    if (defense && defense.victory === false) keys.push('breach');
+    if (/illuminate|memory_beacon|dream_link|guide/.test(abilityText)) keys.push('support');
+    if (!keys.length) keys.push('armored');
+    if (keys.length === 1) keys.push(residentsCount() >= 3 ? 'support' : 'rapid');
+    return [...new Set(keys)];
+  }
+
+  function affixForStage(index) {
+    const keys = contextualAffixKeys();
+    return BOSS_AFFIXES[keys[index % keys.length]] || BOSS_AFFIXES.armored;
+  }
+
   function route() {
     const entropy = Number(context.entropy || 0);
     const pressure = Math.max(0, Math.min(3, Math.floor(entropy / 3)));
     return BOSS_ROUTE.map((boss, index) => ({
       ...boss,
+      affix: affixForStage(index),
       hp: boss.hp + pressure * 55 + index * 20,
       stage: index + 1
     }));
@@ -201,11 +363,13 @@
     const entropy = Number(context.entropy || 0);
     const defense = context.towerDefenseResult || {};
     const defenseRelief = defense.victory ? 0.85 : 1.12;
+    const resonance = routeResonance();
     return {
       enemyRate: Math.max(0.72, Math.min(1.35, (0.9 + entropy * 0.035) * defenseRelief)),
       bulletRate: Math.max(0.8, Math.min(1.45, 0.95 + entropy * 0.04 + lostCount() * 0.04)),
-      playerHp: Math.max(70, 110 + residentsCount() * 4 - lostCount() * 6 + (defense.victory ? 12 : -8)),
-      allyWings: Math.min(3, Math.floor(residentsCount() / 2))
+      playerHp: Math.max(70, 110 + residentsCount() * 4 - lostCount() * 6 + (defense.victory ? 12 : -8) + (resonance.hpBonus || 0)),
+      allyWings: Math.min(4, Math.floor(residentsCount() / 2) + (resonance.allyWingsBonus || 0)),
+      startingShield: Math.max(0, resonance.startingShield || 0)
     };
   }
 
@@ -223,6 +387,8 @@
       recentCreations: creations().map(creationName).filter(Boolean).slice(-5),
       towerDefenseResult: context.towerDefenseResult || null,
       playerStyle: context.playerStyle || '未知',
+      routeResonance: routeResonance().name,
+      airspaceAffixes: route().map(boss => `${boss.affix.name}·${boss.title}`),
       ...extra
     };
   }
@@ -269,6 +435,8 @@
     if (event === 'victory') return '第七天没有被消灭，它只是终于愿意让世界继续。';
     if (event === 'defeat') return '空域载体坠回裂隙，世界还需要下一次清算。';
     if (event === 'boss-defeated' && boss) return `${boss.title}被清算，${boss.memory}`;
+    if (event === 'boss' && boss?.affix) return `${boss.affix.name}·${boss.title}进入航线。${boss.affix.line}`;
+    if (event === 'boss-phase' && boss?.affix) return `${boss.title}换相，${boss.affix.line}`;
     if (boss) return boss.lines[Math.min(boss.lines.length - 1, Math.floor(Math.random() * boss.lines.length))];
     return fallbackBrief();
   }
@@ -278,21 +446,24 @@
     const brief = document.getElementById('airspace-brief');
     const loadout = document.getElementById('airspace-loadout');
     const weapon = weaponLoadout();
+    const resonance = routeResonance();
     const fallback = fallbackBrief();
     if (brief) {
       brief.textContent = fallback;
       requestAirCombatText('airspace_brief', fallback, {
-        route: route().map(boss => `${boss.stage}.${boss.title}`).join(' / '),
-        weapon: weapon.name
+        route: route().map(boss => `${boss.stage}.${boss.affix.name}·${boss.title}`).join(' / '),
+        weapon: weapon.name,
+        resonance: resonance.name
       }).then(text => {
         if (text && brief.textContent === fallback) brief.textContent = text;
       });
     }
     if (loadout) {
       loadout.innerHTML = `
-        <div><strong>${weapon.name}</strong> 来自「${weapon.sourceCreation}」</div>
-        <div>${weapon.description}</div>
-        <div>航线：6 段 Boss 清算 · 熵值 ${Number(context.entropy || 0)}</div>
+        <div><strong>${escapeHtml(weapon.name)}</strong> 来自「${escapeHtml(weapon.sourceCreation)}」</div>
+        <div>${escapeHtml(weapon.description)}</div>
+        <div>共鸣：<strong>${escapeHtml(resonance.name)}</strong> · ${escapeHtml(resonance.effect)}</div>
+        <div>航线：6 段 Boss 清算 · 熵值 ${Number(context.entropy || 0)} · 词缀 ${escapeHtml(contextualAffixKeys().map(key => BOSS_AFFIXES[key].name).join(' / '))}</div>
       `;
     }
   }
@@ -312,6 +483,8 @@
       rescuedEchoes: result.rescuedEchoes || 0,
       endingModifier: result.endingModifier || (result.outcome === 'victory' ? 'airspace_cleansed' : 'airspace_scarred'),
       weapon: weaponLoadout(),
+      resonance: routeResonance(),
+      affixes: result.affixes || route().map(boss => `${boss.affix.name}·${boss.title}`),
       notableMoment: result.notableMoment || lineFor(result.outcome === 'victory' ? 'victory' : 'defeat')
     };
     try { localStorage.setItem(RESULT_KEY, JSON.stringify(payload)); } catch (_error) {}
@@ -339,6 +512,8 @@
     route,
     difficulty,
     weaponLoadout,
+    routeResonance,
+    contextualAffixKeys,
     lineFor,
     requestAirCombatText,
     syncChrome,

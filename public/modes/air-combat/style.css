@@ -97,6 +97,17 @@ button {
   white-space: nowrap;
 }
 
+.hud-detail {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .airspace-comm {
   position: absolute;
   left: 12px;

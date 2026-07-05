@@ -3,6 +3,7 @@
   const canvas = document.getElementById('airspace-canvas');
   const ctx = canvas.getContext('2d');
   const hudStage = document.getElementById('hud-stage');
+  const hudAffix = document.getElementById('hud-affix');
   const hudWeapon = document.getElementById('hud-weapon');
   const hudScore = document.getElementById('hud-score');
   const comm = document.getElementById('airspace-comm');
@@ -44,7 +45,7 @@
   }
 
   class Player {
-    constructor(difficulty, weapon) {
+    constructor(difficulty, weapon, resonance) {
       this.x = W / 2;
       this.y = H - 96;
       this.targetX = this.x;
@@ -52,11 +53,12 @@
       this.r = 15;
       this.maxHp = difficulty.playerHp;
       this.hp = this.maxHp;
-      this.shield = 0;
+      this.shield = difficulty.startingShield || 0;
       this.fire = 0;
       this.skillCd = 0;
       this.wings = difficulty.allyWings;
       this.weapon = weapon;
+      this.resonance = resonance || {};
     }
 
     update(dt) {
@@ -67,7 +69,8 @@
       this.fire -= dt;
       this.skillCd = Math.max(0, this.skillCd - dt);
       if (this.fire <= 0) {
-        this.fire = this.weapon.kind === 'cannon' ? 0.18 : 0.1;
+        const base = this.weapon.kind === 'cannon' ? 0.18 : 0.1;
+        this.fire = base * (this.resonance.fireIntervalMult || 1) * game.jamFactor(this.x, this.y);
         game.firePlayer();
       }
     }
@@ -139,7 +142,9 @@
         medium: { hp: 7, r: 21, speed: 95, score: 180, color: '#d8c58a', fire: 1.7 },
         gunner: { hp: 11, r: 24, speed: 82, score: 260, color: '#8bd3ff', fire: 1.2 },
         splitter: { hp: 8, r: 22, speed: 100, score: 220, color: '#72d6bd', fire: 0 },
-        phantom: { hp: 6, r: 18, speed: 150, score: 260, color: '#f0a6ca', fire: 1.0 }
+        phantom: { hp: 6, r: 18, speed: 150, score: 260, color: '#f0a6ca', fire: 1.0 },
+        jammer: { hp: 10, r: 24, speed: 76, score: 300, color: '#75d7e6', fire: 1.6, jamRadius: 210, weaponSlow: 1.28 },
+        support: { hp: 12, r: 24, speed: 68, score: 320, color: '#72d6bd', fire: 0, repairRadius: 130, repairAmount: 2, repairInterval: 2.4 }
       }[type];
       this.type = type;
       this.x = 32 + Math.random() * (W - 64);
@@ -147,11 +152,17 @@
       this.baseX = this.x;
       this.t = Math.random() * 4;
       this.hp = data.hp + stage;
+      this.maxHp = this.hp;
       this.r = data.r;
       this.speed = data.speed;
       this.score = data.score;
       this.color = data.color;
       this.fire = data.fire ? data.fire + Math.random() : 999;
+      this.jamRadius = data.jamRadius || 0;
+      this.weaponSlow = data.weaponSlow || 1;
+      this.repairRadius = data.repairRadius || 0;
+      this.repairAmount = data.repairAmount || 0;
+      this.repairTimer = data.repairInterval ? data.repairInterval * (0.55 + Math.random() * 0.4) : 0;
       this.dead = false;
     }
 
@@ -161,10 +172,19 @@
       if (this.type === 'phantom') this.x = this.baseX + Math.sin(this.t * 4) * 70;
       else if (this.type === 'gunner') this.x = this.baseX + Math.sin(this.t * 2.2) * 44;
       else if (this.type === 'splitter') this.x = this.baseX + Math.sin(this.t * 3) * 30;
+      else if (this.type === 'jammer') this.x = this.baseX + Math.sin(this.t * 2.8) * 52;
+      else if (this.type === 'support') this.x = this.baseX + Math.sin(this.t * 1.8) * 34;
       this.fire -= dt;
       if (this.fire <= 0 && game.player) {
         this.fire = this.type === 'phantom' ? 1.0 : 1.45;
         game.fireEnemyAt(this.x, this.y, 240 + game.segmentIndex * 12, 8);
+      }
+      if (this.repairAmount > 0 && this.y > 0 && this.y < H * 0.75) {
+        this.repairTimer -= dt;
+        if (this.repairTimer <= 0) {
+          this.repairTimer = 2.4;
+          game.repairNearbyEnemies(this);
+        }
       }
       if (this.y > H + this.r) this.dead = true;
     }
@@ -181,6 +201,14 @@
     draw(ctx) {
       ctx.save();
       ctx.translate(this.x, this.y);
+      if (this.type === 'jammer' || this.type === 'support') {
+        const rr = this.type === 'jammer' ? 70 : 58;
+        ctx.strokeStyle = this.type === 'jammer' ? 'rgba(117,215,230,.36)' : 'rgba(114,214,189,.32)';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(0, 0, rr + Math.sin(game.time * 5) * 3, 0, Math.PI * 2);
+        ctx.stroke();
+      }
       ctx.fillStyle = this.color;
       ctx.beginPath();
       if (this.type === 'gunner') {
@@ -193,6 +221,13 @@
         ctx.lineTo(-this.r, -this.r);
         ctx.lineTo(0, -this.r * 0.35);
         ctx.lineTo(this.r, -this.r);
+      } else if (this.type === 'jammer') {
+        ctx.moveTo(0, -this.r);
+        ctx.lineTo(-this.r * 0.86, 0);
+        ctx.lineTo(0, this.r);
+        ctx.lineTo(this.r * 0.86, 0);
+      } else if (this.type === 'support') {
+        ctx.arc(0, 0, this.r * 0.8, 0, Math.PI * 2);
       } else {
         ctx.moveTo(0, this.r);
         ctx.lineTo(-this.r, -this.r * 0.75);
@@ -201,7 +236,13 @@
       ctx.closePath();
       ctx.fill();
       ctx.fillStyle = 'rgba(0,0,0,.34)';
-      ctx.fillRect(-this.r * 0.5, -2, this.r, 4);
+      if (this.type === 'support') {
+        ctx.fillStyle = '#eef3ec';
+        ctx.fillRect(-3, -this.r * 0.45, 6, this.r * 0.9);
+        ctx.fillRect(-this.r * 0.45, -3, this.r * 0.9, 6);
+      } else {
+        ctx.fillRect(-this.r * 0.5, -2, this.r, 4);
+      }
       ctx.restore();
     }
   }
@@ -209,12 +250,15 @@
   class Boss {
     constructor(def) {
       this.def = def;
+      this.affix = def.affix || null;
       this.x = W / 2;
       this.y = -def.hp / 20;
       this.r = 54 + def.stage * 2;
-      this.hp = def.hp;
-      this.maxHp = def.hp;
+      this.maxHp = Math.round(def.hp * (1 + (this.affix?.hpMult || 0)));
+      this.hp = this.maxHp;
       this.fire = 1.4;
+      this.fireMult = this.affix?.fireMult || 1;
+      this.affixTimer = this.affix?.every || 0;
       this.t = 0;
       this.phase = 1;
       this.dead = false;
@@ -234,11 +278,20 @@
           context: { phase: this.phase }
         });
       }
+      this.updateAffix(dt);
       this.fire -= dt;
       if (this.fire <= 0) {
-        this.fire = Math.max(0.42, 1.35 - this.phase * 0.18) / game.difficulty.bulletRate;
+        this.fire = Math.max(0.42, 1.35 - this.phase * 0.18) * this.fireMult / game.difficulty.bulletRate;
         this.attack();
       }
+    }
+
+    updateAffix(dt) {
+      if (this.affix?.attack !== 'prism') return;
+      this.affixTimer -= dt;
+      if (this.affixTimer > 0) return;
+      this.affixTimer = this.affix.every || 5.6;
+      game.firePrismLane(this, this.affix);
     }
 
     attack() {
@@ -284,6 +337,13 @@
         ctx.arc(0, 0, r + 16 + Math.sin(game.time * 6) * 4, 0, Math.PI * 2);
         ctx.fill();
       }
+      if (this.affix) {
+        ctx.strokeStyle = this.affix.color;
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.arc(0, 0, r + 18 + Math.sin(game.time * 5) * 3, 0, Math.PI * 2);
+        ctx.stroke();
+      }
       const grad = ctx.createRadialGradient(-r * 0.3, -r * 0.3, 4, 0, 0, r);
       grad.addColorStop(0, '#eef3ec');
       grad.addColorStop(0.35, this.def.color);
@@ -328,6 +388,7 @@
     route: bridge.route(),
     difficulty: bridge.difficulty(),
     weapon: bridge.weaponLoadout(),
+    resonance: bridge.routeResonance(),
     player: null,
     enemies: [],
     playerBullets: [],
@@ -351,7 +412,11 @@
 
     start() {
       this.state = 'playing';
-      this.player = new Player(this.difficulty, this.weapon);
+      this.route = bridge.route();
+      this.difficulty = bridge.difficulty();
+      this.weapon = bridge.weaponLoadout();
+      this.resonance = bridge.routeResonance();
+      this.player = new Player(this.difficulty, this.weapon, this.resonance);
       this.enemies = [];
       this.playerBullets = [];
       this.enemyBullets = [];
@@ -389,12 +454,18 @@
       this.updateHud();
     },
 
+    currentAffix() {
+      return this.route[this.segmentIndex]?.affix || null;
+    },
+
     spawnEnemy() {
       const stage = this.segmentIndex + 1;
       const pool = stage < 2 ? ['small', 'small', 'medium']
         : stage < 4 ? ['small', 'medium', 'gunner', 'splitter']
           : ['medium', 'gunner', 'splitter', 'phantom', 'phantom'];
-      this.enemies.push(new Enemy(pick(pool), stage));
+      const affix = this.currentAffix();
+      const biased = affix?.enemyBias && Math.random() < (affix.spawnBias || 0) ? affix.enemyBias : pool;
+      this.enemies.push(new Enemy(pick(biased), stage));
     },
 
     spawnBoss() {
@@ -411,7 +482,7 @@
       if (!this.player) return;
       const p = this.player;
       const color = this.weapon.color || '#72d6bd';
-      const damage = this.weapon.kind === 'cannon' ? 4 : 2;
+      const damage = (this.weapon.kind === 'cannon' ? 4 : 2) + (this.resonance.damageBonus || 0);
       const speed = this.weapon.kind === 'cannon' ? -760 : -900;
       const spread = this.weapon.kind === 'beam' ? [-5, 0, 5] : this.weapon.kind === 'cannon' ? [0] : [-11, 11];
       for (const ox of spread) this.playerBullets.push({ x: p.x + ox, y: p.y - 18, vx: ox * 1.5, vy: speed, r: this.weapon.kind === 'cannon' ? 6 : 4, damage, color, dead: false });
@@ -449,10 +520,19 @@
       }
     },
 
+    firePrismLane(boss, affix) {
+      const x = clamp(this.player?.x || boss.x, 44, W - 44);
+      for (let i = -3; i <= 3; i += 1) {
+        this.enemyBullets.push({ x: x + i * 9, y: boss.y + boss.r * 0.35, vx: i * 12, vy: 310, r: 4, damage: 10, color: affix.color, dead: false });
+      }
+      this.burst(x, boss.y + boss.r, affix.color, 10);
+      this.say('棱镜词缀折出竖直裂线，立刻离开当前航道。', 1.8);
+    },
+
     useSkill() {
       const p = this.player;
       if (!p || p.skillCd > 0 || this.state !== 'playing') return;
-      p.skillCd = 8;
+      p.skillCd = 8 * (this.resonance.skillCooldownMult || 1);
       this.creationOverload += 1;
       this.say(bridge.lineFor('weapon'), 3.2, {
         eventType: 'airspace_weapon',
@@ -469,17 +549,17 @@
       } else {
         for (const e of this.enemies) {
           if (!e.dead && Math.abs(e.x - p.x) < 120) {
-            if (e.damage(12)) this.killEnemy(e);
+            if (e.damage(12 + (this.resonance.damageBonus || 0))) this.killEnemy(e);
           }
         }
-        if (this.boss && Math.abs(this.boss.x - p.x) < 130 && this.boss.damage(38)) this.defeatBoss();
+        if (this.boss && Math.abs(this.boss.x - p.x) < 130 && this.boss.damage(38 + (this.resonance.damageBonus || 0) * 4)) this.defeatBoss();
       }
       this.burst(p.x, p.y, this.weapon.color, 28);
     },
 
     killEnemy(enemy) {
       enemy.dead = true;
-      this.score += enemy.score;
+      this.score += Math.round(enemy.score * (this.resonance.scoreMult || 1));
       this.burst(enemy.x, enemy.y, enemy.color, 14);
       if (enemy.type === 'splitter') {
         for (let i = 0; i < 2; i += 1) {
@@ -490,6 +570,27 @@
         }
       }
       if (Math.random() < 0.08) this.powerups.push({ x: enemy.x, y: enemy.y, r: 12, kind: pick(['heal', 'shield', 'power']), dead: false });
+    },
+
+    repairNearbyEnemies(source) {
+      let repaired = 0;
+      for (const enemy of this.enemies) {
+        if (enemy.dead || enemy === source || enemy.hp >= enemy.maxHp) continue;
+        if (dist2(source, enemy) > source.repairRadius * source.repairRadius) continue;
+        enemy.hp = Math.min(enemy.maxHp, enemy.hp + source.repairAmount);
+        repaired += 1;
+        this.burst(enemy.x, enemy.y, source.color, 4);
+      }
+      return repaired;
+    },
+
+    jamFactor(x, y) {
+      let factor = 1;
+      for (const enemy of this.enemies) {
+        if (enemy.dead || enemy.type !== 'jammer') continue;
+        if (dist2({ x, y }, enemy) <= enemy.jamRadius * enemy.jamRadius) factor = Math.max(factor, enemy.weaponSlow);
+      }
+      return factor;
     },
 
     resolveCollisions() {
@@ -539,8 +640,9 @@
 
     defeatBoss() {
       const boss = this.boss.def;
-      this.score += boss.hp + boss.stage * 700;
-      this.bossDefeated.push(boss.title);
+      const title = boss.affix ? `${boss.affix.name}·${boss.title}` : boss.title;
+      this.score += Math.round((boss.hp + boss.stage * 700) * (boss.affix?.scoreMult || 1) * (this.resonance.scoreMult || 1));
+      this.bossDefeated.push(title);
       this.clearedLayers += 1;
       this.say(bridge.lineFor('boss-defeated', boss), 3.8, {
         eventType: 'airspace_boss_defeated',
@@ -556,6 +658,18 @@
       }, 1100);
     },
 
+    reviewTags(victory) {
+      const tags = [this.resonance.name];
+      if (this.damageTaken >= 100) tags.push('承伤偏高');
+      else if (this.clearedLayers >= 2) tags.push('走位稳定');
+      if (this.clearedLayers >= this.route.length) tags.push('Boss处理完整');
+      else if (this.clearedLayers >= 3) tags.push('中段清算有效');
+      if (this.creationOverload >= 3) tags.push('频繁脉冲');
+      if (this.route.some(boss => boss.affix?.attack === 'prism')) tags.push('棱镜航线');
+      if (!victory && this.bossDefeated.length === 0) tags.push('首段压力高');
+      return [...new Set(tags)].slice(0, 4);
+    },
+
     finish(outcome) {
       this.state = 'result';
       const victory = outcome === 'victory';
@@ -567,10 +681,11 @@
         damageTaken: this.damageTaken,
         creationOverload: this.creationOverload,
         rescuedEchoes: victory ? this.difficulty.allyWings + this.clearedLayers : this.clearedLayers,
-        endingModifier: victory ? 'airspace_cleansed' : 'airspace_scarred'
+        endingModifier: victory ? 'airspace_cleansed' : 'airspace_scarred',
+        affixes: this.route.map(boss => `${boss.affix.name}·${boss.title}`)
       });
       resultTitle.textContent = victory ? '裂隙空域已清算' : '空域载体坠落';
-      resultBody.textContent = `${result.notableMoment} 分数 ${result.score}，清算 ${result.clearedLayers}/6 段。`;
+      resultBody.textContent = `${result.notableMoment} 分数 ${result.score}，清算 ${result.clearedLayers}/6 段。复盘：${this.reviewTags(victory).join(' · ')}。`;
       resultPanel.classList.remove('hidden');
       this.say(victory ? bridge.lineFor('victory') : bridge.lineFor('defeat'), 4, {
         eventType: victory ? 'airspace_victory' : 'airspace_defeat',
@@ -612,8 +727,13 @@
 
     updateHud() {
       const boss = this.route[this.segmentIndex] || this.route[this.route.length - 1];
-      hudStage.textContent = boss ? `${boss.stage}/6 ${boss.title}` : '第七天裂隙空域';
-      hudWeapon.textContent = this.weapon.name;
+      hudStage.textContent = boss ? `${boss.stage}/6 ${boss.affix.name}·${boss.title}` : '第七天裂隙空域';
+      if (hudAffix) {
+        const active = this.boss?.def === boss ? this.boss : null;
+        const cd = active?.affix?.attack ? ` · ${Math.max(0, active.affixTimer || 0).toFixed(1)}s` : '';
+        hudAffix.textContent = boss?.affix ? `${boss.affix.line}${cd}` : '';
+      }
+      hudWeapon.textContent = `${this.weapon.name} · ${this.resonance.name}`;
       hudScore.textContent = String(Math.round(this.score));
       skillBtn.disabled = !this.player || this.player.skillCd > 0 || this.state !== 'playing';
       skillBtn.textContent = this.player && this.player.skillCd > 0 ? `${Math.ceil(this.player.skillCd)}s` : '造物脉冲';
@@ -719,7 +839,7 @@
     },
 
     drawEnemyBullet(b) {
-      ctx.fillStyle = '#f87171';
+      ctx.fillStyle = b.color || '#f87171';
       ctx.beginPath();
       ctx.arc(b.x, b.y, b.r, 0, Math.PI * 2);
       ctx.fill();

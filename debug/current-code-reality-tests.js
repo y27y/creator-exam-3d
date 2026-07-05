@@ -150,12 +150,26 @@ function assertAirCombatIntegration() {
   assert.ok(bridgeSource.includes('/api/narrative'), 'air bridge must use the shared narrative endpoint');
   assert.ok(bridgeSource.includes('airspace_brief'), 'air bridge must generate a context-driven airspace briefing');
   assert.ok(bridgeSource.includes('worldState'), 'air bridge must send main-flow world state to AI narrative');
+  assert.ok(bridgeSource.includes('BOSS_AFFIXES'), 'air bridge must adapt upstream boss affixes into finite route modifiers');
+  assert.ok(bridgeSource.includes('contextualAffixKeys'), 'air bridge must derive boss affixes from main-game context');
+  assert.ok(bridgeSource.includes('routeResonance'), 'air bridge must derive creation route resonance from prior player flow');
+  assert.ok(bridgeSource.includes('airspaceAffixes'), 'AI world state must include airspace affix context');
+  assert.ok(bridgeSource.includes('resonance: routeResonance()'), 'air combat result must return route resonance to main game');
+  assert.ok(bridgeSource.includes('affixes:'), 'air combat result must return finite boss affixes');
 
   assert.ok(airGameSource.includes('class Boss'), 'air combat slice must include boss logic');
   assert.ok(airGameSource.includes('class Enemy'), 'air combat slice must include enemy logic');
   assert.ok(airGameSource.includes('useSkill()'), 'air combat slice must include creation weapon pulse');
+  assert.ok(airGameSource.includes('bridge.routeResonance()'), 'air combat slice must consume creation resonance locally');
+  assert.ok(airGameSource.includes('firePrismLane'), 'air combat slice must apply prism boss affix locally');
+  assert.ok(airGameSource.includes('jamFactor'), 'air combat slice must apply jammer pressure locally');
+  assert.ok(airGameSource.includes('repairNearbyEnemies'), 'air combat slice must apply support enemy depth locally');
+  assert.ok(airGameSource.includes('jammer') && airGameSource.includes('support'), 'air combat enemy pool must include selected upstream enemy roles');
+  assert.ok(airGameSource.includes('hudAffix'), 'air combat HUD must show boss affix details');
+  assert.ok(airGameSource.includes('reviewTags'), 'air combat result must adapt upstream run review tags to finite route review');
   assert.ok(airGameSource.includes("finish('victory')"), 'air combat route must have a finite victory state');
   assert.ok(airGameSource.includes('CREATOR_EXAM_AIR_COMBAT_READY'), 'browser verification should have a readiness signal');
+  assert.ok(airIndexSource.includes('id="hud-affix"'), 'air combat markup must expose an affix HUD line');
   for (const eventType of [
     'airspace_intro',
     'airspace_segment',
@@ -177,7 +191,7 @@ function assertAirCombatIntegration() {
   assert.ok(!airUpdateBlock.includes('requestAirCombatText'), 'air combat must not request AI narrative inside the frame update loop');
 
   const combinedModeSource = `${bridgeSource}\n${airGameSource}\n${airIndexSource}`;
-  assert.doesNotMatch(combinedModeSource, /Multiplayer|WebRTC|Leaderboard|ChallengeHistory|EndlessBoard|selectMap|普通关卡|排行榜/, 'air combat mode must not carry over old multiplayer, leaderboard, or normal-level shell');
+  assert.doesNotMatch(combinedModeSource, /Multiplayer|WebRTC|Leaderboard|ChallengeHistory|EndlessBoard|chipselect|drawChipSelect|routePreviewText|selectMap|普通关卡|排行榜/, 'air combat mode must not carry over old multiplayer, leaderboard, endless draft, or normal-level shell');
 
   const world = new WorldSimulation();
   world.recordGameEvent({

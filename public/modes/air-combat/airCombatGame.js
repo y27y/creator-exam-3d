@@ -571,6 +571,7 @@
       this.noHitT = 0;
       this.fieldRepairT = 0;
       this.score = 0;
+      this.time = 0;
       menu.classList.add('hidden');
       resultPanel.classList.add('hidden');
       this.hideClearanceCard();
@@ -608,6 +609,7 @@
       this.segmentTime = 0;
       this.spawnTimer = 0.8;
       this.boss = null;
+      this.segmentStartDamage = this.damageTaken;
       this.lasers.length = 0;
       const boss = this.route[this.segmentIndex];
       this.say(`${boss.title}正在靠近。${boss.memory}`, 3.6, {
@@ -677,7 +679,6 @@
     spawnBoss() {
       const def = this.route[this.segmentIndex];
       this.boss = new Boss(def);
-      this.segmentStartDamage = this.damageTaken;
       this.say(bridge.lineFor('boss', def), 3.8, {
         eventType: 'airspace_boss',
         boss: def,
@@ -928,7 +929,8 @@
         if (enemy.dead || (enemy.type !== 'jammer' && enemy.elite !== 'jammer')) continue;
         if (dist2({ x, y }, enemy) <= enemy.jamRadius * enemy.jamRadius) factor = Math.max(factor, enemy.weaponSlow);
       }
-      return factor;
+      const resist = clamp(Number(this.resonance.signalFilterJamResist) || 0, 0, 0.65);
+      return 1 + (factor - 1) * Math.max(0.35, 1 - resist);
     },
 
     armorCaliberDamage() {
@@ -1161,7 +1163,7 @@
         const cd = active?.affix?.attack ? ` · ${Math.max(0, active.affixTimer || 0).toFixed(1)}s` : '';
         hudAffix.textContent = boss?.affix ? `${boss.affix.line}${cd}` : '';
       }
-      hudWeapon.textContent = `${this.weapon.name} · ${this.resonance.name}${this.armorCaliberStatus()}${this.vitalReactorStatus()}${this.shieldAmplifierStatus()}${this.bossHunterStatus()}${this.executionerStatus()}${this.missileVolleyStatus()}${this.painConverterStatus()}${this.pointDefenseStatus()}${this.lastStandStatus()}${this.fieldRepairStatus()}${this.jamStatus()}`;
+      hudWeapon.textContent = `${this.weapon.name} · ${this.resonance.name}${this.armorCaliberStatus()}${this.vitalReactorStatus()}${this.shieldAmplifierStatus()}${this.bossHunterStatus()}${this.executionerStatus()}${this.missileVolleyStatus()}${this.painConverterStatus()}${this.pointDefenseStatus()}${this.signalFilterStatus()}${this.lastStandStatus()}${this.fieldRepairStatus()}${this.jamStatus()}`;
       hudScore.textContent = String(Math.round(this.score));
       skillBtn.disabled = !this.player || this.player.skillCd > 0 || this.state !== 'playing';
       skillBtn.textContent = this.player && this.player.skillCd > 0 ? `${Math.ceil(this.player.skillCd)}s` : '造物脉冲';
@@ -1215,6 +1217,11 @@
 
     pointDefenseStatus() {
       return (this.resonance.pointDefenseRange || 0) > 0 ? ' · 近防协议' : '';
+    },
+
+    signalFilterStatus() {
+      const resist = Number(this.resonance.signalFilterJamResist) || 0;
+      return resist > 0 ? ` · 抗干扰滤波-${Math.round(resist * 100)}%` : '';
     },
 
     jamStatus() {

@@ -236,6 +236,7 @@ function assertAirCombatIntegration() {
   assert.ok(bridgeSource.includes('导弹齐射') && bridgeSource.includes('missileVolleyBonus'), 'air bridge must adapt upstream missile route volley as finite cannon resonance');
   assert.ok(bridgeSource.includes('痛觉转换') && bridgeSource.includes('painConverterCooldownPerHp'), 'air bridge must adapt upstream pain converter as finite prior-flow resonance');
   assert.ok(bridgeSource.includes('近防协议') && bridgeSource.includes('pointDefenseRange'), 'air bridge must adapt upstream point defense as finite prior-flow resonance');
+  assert.ok(bridgeSource.includes('抗干扰滤波') && bridgeSource.includes('signalFilterJamResist'), 'air bridge must adapt upstream anti-jam bonus as finite prior-flow resonance');
   assert.ok(bridgeSource.includes('splitPairs') && bridgeSource.includes('分束棱镜'), 'air bridge must adapt upstream split laser as beam resonance');
   assert.ok(bridgeSource.includes('sidePairs') && bridgeSource.includes('侧翼炮塔'), 'air bridge must adapt upstream side cannons as cannon resonance');
 
@@ -283,10 +284,12 @@ function assertAirCombatIntegration() {
   assert.ok(airGameSource.includes('missileVolley: true') && airGameSource.includes('missileVolleyStatus') && airGameSource.includes('导弹齐射+1'), 'air combat slice must apply upstream missile volley as finite cannon pressure and HUD');
   assert.ok(airGameSource.includes('triggerPainConverter') && airGameSource.includes('painConverterStatus') && airGameSource.includes('痛觉转译'), 'air combat slice must convert real HP loss into finite creation-pulse cooldown');
   assert.ok(airGameSource.includes('clearEnemyBulletsNear') && airGameSource.includes('triggerPointDefense') && airGameSource.includes('pointDefenseStatus'), 'air combat slice must clear enemy bullets near kills for finite point-defense resonance');
+  assert.ok(airGameSource.includes('signalFilterStatus') && airGameSource.includes('signalFilterJamResist') && airGameSource.includes('Math.max(0.35, 1 - resist)'), 'air combat slice must reduce jammer slow with finite anti-jam resonance');
   assert.ok(airGameSource.includes('splitDamage') && airGameSource.includes('#be4bdb'), 'air combat slice must fire finite split laser side beams for beam resonance');
   assert.ok(airGameSource.includes('sideDamage') && airGameSource.includes('#ffd43b'), 'air combat slice must fire finite side cannon shots for cannon resonance');
   assert.ok(airGameSource.includes('showClearanceCard') && airGameSource.includes('updateClearanceCard'), 'air combat must show a short boss clearance card after each boss defeat');
   assert.ok(airGameSource.includes('clearanceReward') && airGameSource.includes('完美清算奖励') && airGameSource.includes('cleanClears'), 'air combat must adapt upstream cleared-event reward into finite boss-clear rewards');
+  assert.ok(airGameSource.includes('this.time = 0'), 'air combat restart must reset run timer');
   assert.ok(airGameSource.includes('advanceBriefing') && airGameSource.includes('renderBriefingStep'), 'air combat must gate combat start behind briefing steps');
   assert.ok(airGameSource.includes("finish('victory')"), 'air combat route must have a finite victory state');
   assert.ok(airGameSource.includes('CREATOR_EXAM_AIR_COMBAT_READY'), 'browser verification should have a readiness signal');
@@ -311,6 +314,10 @@ function assertAirCombatIntegration() {
   assert.notEqual(airUpdateEnd, -1, 'air combat update loop must be followed by draw loop');
   const airUpdateBlock = airGameSource.slice(airUpdateStart, airUpdateEnd);
   assert.ok(!airUpdateBlock.includes('requestAirCombatText'), 'air combat must not request AI narrative inside the frame update loop');
+  const nextSegmentBlock = sourceBlock(airGameSource, '    nextSegment() {', '    currentAffix() {');
+  assert.ok(nextSegmentBlock.includes('this.segmentStartDamage = this.damageTaken'), 'clean-clear tracking must cover the whole finite segment, not just the Boss phase');
+  const spawnBossBlock = sourceBlock(airGameSource, '    spawnBoss() {', '    firePlayer() {');
+  assert.ok(!spawnBossBlock.includes('segmentStartDamage'), 'Boss spawn must not reset clean-clear damage baseline after pre-boss waves');
 
   const combinedModeSource = `${bridgeSource}\n${airGameSource}\n${airIndexSource}`;
   assert.doesNotMatch(combinedModeSource, /Multiplayer|WebRTC|Leaderboard|ChallengeHistory|EndlessBoard|chipselect|drawChipSelect|routePreviewText|selectMap|普通关卡|排行榜/, 'air combat mode must not carry over old multiplayer, leaderboard, endless draft, or normal-level shell');
@@ -354,6 +361,8 @@ function assertAirCombatRouteBalance() {
   assert.ok(highPressure.routeResonance().painConverterCooldownPerHp > 0, 'high final pressure should unlock finite pain converter resonance');
   assert.ok(highPressure.routeResonance().painConverterMaxCooldown <= 4.2, 'pain converter cooldown refund must stay bounded');
   assert.ok(highPressure.routeResonance().pointDefenseRange > 0, 'rescued residents should unlock finite point-defense resonance');
+  assert.ok(highPressure.routeResonance().signalFilterJamResist > 0, 'light/memory or stable defense flow should unlock finite anti-jam resonance');
+  assert.ok(highPressure.routeResonance().signalFilterJamResist <= 0.28, 'anti-jam resonance must stay bounded');
   for (const boss of highRoute) {
     assert.ok(['prism', 'ionStorm', 'ring', 'escort', 'repair', undefined].includes(boss.affix.attack), `unknown finite affix attack ${boss.affix.attack}`);
     assert.ok(boss.hp >= 300 && boss.hp <= 1100, `boss ${boss.title} hp is outside finite route bounds`);

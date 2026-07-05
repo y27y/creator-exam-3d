@@ -527,6 +527,7 @@
       painConverterCooldownPerHp: 0,
       painConverterMaxCooldown: 0,
       pointDefenseRange: 0,
+      signalFilterJamResist: 0,
       sourceCreation: weapon.sourceCreation,
       ...base,
       towerDefenseRelief: !!defense.victory
@@ -587,6 +588,12 @@
     if (residentsCount() >= 2 || weapon.kind === 'spear') {
       resonance.pointDefenseRange = Math.min(190, 126 + residentsCount() * 12 + (weapon.kind === 'spear' ? 24 : 0));
       resonance.effect = `${resonance.effect} 近防协议会在击杀点清除附近敌弹。`;
+    }
+    const abilityText = creations().map(creationAbility).join(' ');
+    const antiJamSeed = /illuminate|memory_beacon|dream_link|guide/.test(abilityText) || weapon.kind === 'spear' || weapon.kind === 'wing';
+    if (antiJamSeed || defense.victory) {
+      resonance.signalFilterJamResist = Math.min(0.28, 0.14 + (antiJamSeed ? 0.06 : 0) + (defense.victory ? 0.04 : 0) + Math.min(0.04, residentsCount() * 0.01));
+      resonance.effect = `${resonance.effect} 抗干扰滤波会削弱扰频减速 ${Math.round(resonance.signalFilterJamResist * 100)}%。`;
     }
     return resonance;
   }

@@ -6,16 +6,6 @@ import { TILE } from './levels.js';
 export const RESONANCE_CODEX = {
   // All possible chain reactions
   reactions: new Map([
-    ['steam_fog', {
-      id: 'steam_fog',
-      name: '蒸汽迷雾',
-      abilities: ['illuminate', 'absorb_water'],
-      description: '照明与吸水产生共鸣，在两者之间升起蒸汽迷雾，临时阻挡视野但可通行',
-      effect: '生成2回合持续的迷雾地形',
-      discovered: false,
-      discoverTurn: null,
-      usageCount: 0
-    }],
     ['indestructible_barrier', {
       id: 'indestructible_barrier',
       name: '森林屏障',
@@ -63,16 +53,6 @@ export const RESONANCE_CODEX = {
       abilities: ['freeze_water', 'grow_forest'],
       description: '冰与森林共鸣，形成霜木林，永久阻挡灾害扩散',
       effect: '在重叠区域生成永久森林',
-      discovered: false,
-      discoverTurn: null,
-      usageCount: 0
-    }],
-    ['earthquake', {
-      id: 'earthquake',
-      name: '地裂',
-      abilities: ['raise_earth', 'dig_channel'],
-      description: '抬升与挖掘共鸣，引发小型地震改变周围地形',
-      effect: '随机改变周围1格地形',
       discovered: false,
       discoverTurn: null,
       usageCount: 0
@@ -243,8 +223,6 @@ export function executeChainReaction(game, reactionId) {
   if (!reaction || !reaction.discovered) return false;
 
   switch (reactionId) {
-    case 'steam_fog':
-      return applySteamFog(game);
     case 'indestructible_barrier':
       return applyIndestructibleBarrier(game);
     case 'guided_memory_immunity':
@@ -255,8 +233,6 @@ export function executeChainReaction(game, reactionId) {
       return applyFrozenHighGround(game);
     case 'frostwood':
       return applyFrostwood(game);
-    case 'earthquake':
-      return applyEarthquake(game);
     case 'dream_guidance':
       return applyDreamGuidance(game);
     case 'peace_field':
@@ -276,27 +252,13 @@ export function executeChainReaction(game, reactionId) {
 
 // ========== 具体效果实现 ==========
 
-function applySteamFog(game) {
-  const illuminate = game.creations.find(c => c.placed && c.remaining > 0 && c.card.ability === 'illuminate');
-  const absorb = game.creations.find(c => c.placed && c.remaining > 0 && c.card.ability === 'absorb_water');
-  if (!illuminate || !absorb) return false;
-
-  const midX = Math.round((illuminate.x + absorb.x) / 2);
-  const midY = Math.round((illuminate.y + absorb.y) / 2);
-  if (game.getTerrain(midX, midY) === TILE.LAND) {
-    game.setTerrain(midX, midY, TILE.FOG);
-    game.log(`照明与吸水产生共鸣，${game.tileName(midX, midY)} 升起蒸汽迷雾`);
-    return true;
-  }
-  return false;
-}
-
 function applyIndestructibleBarrier(game) {
   for (const creation of game.creations.filter(c => c.placed && c.remaining > 0 && c.card.ability === 'block')) {
-    const hadForest = creation.restores?.some(r => r.prev === TILE.FOREST || r.prev === 'forest');
-    if (hadForest && creation.remaining < 6) {
+    const neighbors = game.neighbors(creation.x, creation.y);
+    const nearForest = neighbors.some(n => game.getTerrain(n.x, n.y) === TILE.FOREST);
+    if (nearForest && creation.remaining < 6) {
       creation.remaining += 1;
-      game.log(`「${creation.card.name}」在森林中获得加固，持续时间延长`);
+      game.log(`「${creation.card.name}」在森林旁获得加固，持续时间延长`);
       return true;
     }
   }
@@ -319,8 +281,8 @@ function applyGuidedMemoryImmunity(game) {
 function applyTrapSlowCombo(game) {
   for (const creation of game.creations.filter(c => c.placed && c.remaining > 0 && c.card.ability === 'trap')) {
     const beastHere = game.units.find(u => u.type === 'beast' && u.status === 'active' && u.x === creation.x && u.y === creation.y);
-    if (beastHere && beastHere.stunned) {
-      beastHere.extraStunned = true;
+    if (beastHere && beastHere.stunnedTurns > 0) {
+      beastHere.stunnedTurns += 1;
       game.log(`「${creation.card.name}」与迟缓效果共鸣，${beastHere.name} 被额外牵制`);
       return true;
     }
@@ -377,25 +339,6 @@ function applyFrostwood(game) {
     }
     if (changed > 0) {
       game.log(`冰与森林共鸣，${changed}格霜木林永久存在，不可被灾害侵蚀`);
-      return true;
-    }
-  }
-  return false;
-}
-
-function applyEarthquake(game) {
-  const raise = game.creations.find(c => c.placed && c.remaining > 0 && c.card.ability === 'raise_earth');
-  const dig = game.creations.find(c => c.placed && c.remaining > 0 && c.card.ability === 'dig_channel');
-  if (!raise || !dig) return false;
-
-  if (game.distance(raise.x, raise.y, dig.x, dig.y) <= 2) {
-    const neighbors = game.neighbors(raise.x, raise.y);
-    if (neighbors.length > 0) {
-      const target = neighbors[Math.floor(Math.random() * neighbors.length)];
-      const terrains = [0, 1, 9, 10]; // LAND, WATER, DARK, FOG
-      const newTerrain = terrains[Math.floor(Math.random() * terrains.length)];
-      game.setTerrain(target.x, target.y, newTerrain);
-      game.log(`抬升与挖掘共鸣，${game.tileName(target.x, target.y)} 发生地裂，地形改变`);
       return true;
     }
   }

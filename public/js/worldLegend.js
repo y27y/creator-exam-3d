@@ -479,7 +479,6 @@ export class WorldLegendSystem {
       'freeze_water': '霜冻之晶',
       'raise_earth': '大地之杖',
       'grow_forest': '生命之种',
-      'dig_channel': '开凿之锄',
       'trap': '捕获之网',
       'dream_link': '梦境之线',
       'time_dilation': '时光之沙',

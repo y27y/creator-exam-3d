@@ -122,7 +122,7 @@ export class AIMemorySystem {
 
     // Calculate style scores
     const creative = (abilities['transform_land'] || 0) + (abilities['dream_link'] || 0) + (abilities['time_dilation'] || 0);
-    const strategic = (abilities['guide'] || 0) + (abilities['reveal_path'] || 0) + (abilities['dig_channel'] || 0);
+    const strategic = (abilities['guide'] || 0) + (abilities['reveal_path'] || 0);
     const aggressive = (abilities['block'] || 0) + (abilities['slow_beast'] || 0) + (abilities['trap'] || 0);
     const careful = (abilities['force_field'] || 0) + (abilities['calm'] || 0) + (abilities['memory_beacon'] || 0);
 
@@ -331,7 +331,7 @@ export class AIMemorySystem {
       },
       {
         style: 'tactical',
-        score: ((abilities['guide'] || 0) + (abilities['reveal_path'] || 0) + (abilities['dig_channel'] || 0)) / total
+        score: ((abilities['guide'] || 0) + (abilities['reveal_path'] || 0)) / total
           + (profile.efficiencyScore < 0.6 ? 0.2 : 0)
       },
       {

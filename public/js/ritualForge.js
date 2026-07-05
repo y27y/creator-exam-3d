@@ -332,7 +332,7 @@ export class RitualForge {
     };
 
     // Count ability categories
-    const hasWater = abilities.some(a => ['absorb_water', 'freeze_water', 'dig_channel'].includes(a));
+    const hasWater = abilities.some(a => ['absorb_water', 'freeze_water'].includes(a));
     const hasEarth = abilities.some(a => ['transform_land', 'raise_earth', 'grow_forest'].includes(a));
     const hasLight = abilities.some(a => ['illuminate', 'sun_blessing', 'cleanse'].includes(a));
     const hasDark = abilities.some(a => ['force_field', 'dream_link', 'memory_beacon'].includes(a));

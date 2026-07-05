@@ -98,7 +98,7 @@ class GameEngine {
       status: 'active',
       rescued: false,
       lost: false,
-      stunned: false,
+      stunnedTurns: 0,
       guidedTurns: 0,
       met: false,
       ...unit
@@ -771,7 +771,7 @@ class GameEngine {
       let changed = 0;
       for (const cell of this.tilesWithin(x, y, card.range)) {
         const terrain = this.getTerrain(cell.x, cell.y);
-        if (terrain === TILE.LAND || terrain === TILE.SWAMP || terrain === TILE.FOG) {
+        if (terrain === TILE.LAND || terrain === TILE.SWAMP || terrain === TILE.WATER) {
           this.setTempTerrain(creation, cell.x, cell.y, TILE.HIGH);
           changed += 1;
         }
@@ -791,16 +791,12 @@ class GameEngine {
       if (changed) this.log(`「${card.name}」种植了 ${changed} 格森林`);
       else this.log(`「${card.name}」没有可种植的土地`);
     }
-    if (card.ability === 'dig_channel') {
-      this.setTerrain(x, y, TILE.WATER);
-      this.log(`「${card.name}」在 ${this.tileName(x, y)} 挖掘了水渠`);
-    }
     if (card.ability === 'trap') {
       this.log(`「${card.name}」在 ${this.tileName(x, y)} 设置了陷阱`);
     }
     if (card.ability === 'time_dilation') {
-      this.level.maxTurns += 1;
-      this.log(`「${card.name}」延缓了时间，剩余回合 +1`);
+      this.level.maxTurns += 2;
+      this.log(`「${card.name}」延缓了时间，剩余回合 +2`);
     }
     if (card.ability === 'reveal_path') {
       let revealed = 0;
@@ -832,202 +828,22 @@ class GameEngine {
     if (card.ability === 'dream_link') {
       const targets = this.units.filter((u) => (this.isCivilian(u) || this.isMessenger(u)) && u.status === 'active' && this.distance(u.x, u.y, x, y) <= card.range + 1);
       if (targets.length >= 2) {
-        const a = targets[0];
-        const b = targets[1];
-        a.dreamLinked = b.id;
-        b.dreamLinked = a.id;
-        a.guidedTurns = Math.max(a.guidedTurns, 2);
-        b.guidedTurns = Math.max(b.guidedTurns, 2);
-        this.log(`「${card.name}」连接了 ${a.name} 和 ${b.name} 的梦境，共享视野`);
-      }
-    }
-
-    // 回合持续能力在放置时立即生效（仅对没有上方硬编码即时逻辑的能力）
-    const immediateAbilities = ['create_bridge', 'block', 'force_field', 'transform_land', 'freeze_water', 'raise_earth', 'grow_forest', 'dig_channel', 'trap', 'time_dilation', 'reveal_path', 'sun_blessing', 'dream_link'];
-    if (!immediateAbilities.includes(card.ability)) {
-      applyAbility(this, creation, 'active');
-    }
-  }
-
-  applyActiveCreationEffects() {
-    for (const creation of this.creations) {
-      if (creation.remaining <= 0 || !creation.placed) continue;
-      const { card, x, y } = creation;
-
-      if (card.specialEffect?.type === 'mobile' || card.specialEffect?.type === 'movement') {
-        this.moveCreationMobile(creation);
-      }
-      if (card.specialEffect?.type === 'environmental') {
-        this.applyEnvironmentalEffect(creation);
-      }
-      if (card.specialEffect?.type === 'sacrifice') {
-        this.applySacrificeEffect(creation);
-      }
-
-      if (card.ability === 'absorb_water') {
-        let changed = 0;
-        const effectiveRange = this.getEffectiveRange(creation);
-        for (const cell of this.tilesWithin(x, y, effectiveRange)) {
-          if (changed >= 3) break;
-          if (this.getTerrain(cell.x, cell.y) === TILE.WATER) {
-            this.setTerrain(cell.x, cell.y, TILE.LAND);
-            changed += 1;
-          }
-        }
-        if (changed) this.log(`「${card.name}」吸收了 ${changed} 格水域`);
-      }
-
-      if (card.ability === 'illuminate') {
-        let changed = 0;
-        const effectiveRange = this.getEffectiveRange(creation);
-        for (const cell of this.tilesWithin(x, y, effectiveRange)) {
-          const terrain = this.getTerrain(cell.x, cell.y);
-          if (terrain === TILE.DARK || terrain === TILE.FOG) {
-            this.setTerrain(cell.x, cell.y, TILE.LAND);
-            changed += 1;
-          }
-        }
-        if (changed) this.log(`「${card.name}」照亮了 ${changed} 格黑暗或迷雾`);
-      }
-
-      if (card.ability === 'cleanse') {
-        let changed = 0;
-        const effectiveRange = this.getEffectiveRange(creation);
-        for (const cell of this.tilesWithin(x, y, effectiveRange)) {
-          if ([TILE.DARK, TILE.FOG, TILE.SWAMP, TILE.POISON].includes(this.getTerrain(cell.x, cell.y))) {
-            this.setTerrain(cell.x, cell.y, TILE.LAND);
-            changed += 1;
-          }
-        }
-        if (changed) this.log(`「${card.name}」净化了 ${changed} 格污染地形`);
-      }
-
-      if (card.ability === 'calm') {
-        if (this.isWarLevel()) {
-          const before = this.warMeter;
-          this.warMeter = Math.max(0, this.warMeter - 2);
-          if (before !== this.warMeter) this.log(`「${card.name}」降低战争值：${before} → ${this.warMeter}`);
-        }
-        for (const unit of this.units.filter((u) => u.type === 'beast' && u.status === 'active')) {
-          if (this.distance(unit.x, unit.y, x, y) <= card.range + 1) {
-            unit.anger = Math.max(0, (unit.anger || 0) - 1);
-            unit.stunned = true;
-            this.log(`「${card.name}」安抚了 ${unit.name}，怒气降至 ${unit.anger}`);
-          }
-        }
-      }
-
-      if (card.ability === 'guide') {
-        let guided = 0;
-        const effectiveRange = this.getEffectiveRange(creation);
-        for (const unit of this.units.filter((u) => this.isCivilian(u) || this.isMessenger(u))) {
-          if (unit.status === 'active' && this.distance(unit.x, unit.y, x, y) <= effectiveRange + 1) {
-            unit.guidedTurns = 2;
-            guided += 1;
-          }
-        }
-        if (guided) this.log(`「${card.name}」正在引导 ${guided} 个单位`);
-      }
-
-      if (card.ability === 'slow_beast') {
-        for (const unit of this.units.filter((u) => u.type === 'beast' && u.status === 'active')) {
-          if (this.distance(unit.x, unit.y, x, y) <= card.range + 1) {
-            unit.stunned = true;
-            this.log(`「${card.name}」牵制了 ${unit.name}`);
-          }
-        }
-      }
-
-      if (card.ability === 'memory_beacon') {
-        let changed = 0;
-        const effectiveRange = this.getEffectiveRange(creation);
-        for (const cell of this.tilesWithin(x, y, effectiveRange)) {
-          if (this.getTerrain(cell.x, cell.y) === TILE.FOG || this.getTerrain(cell.x, cell.y) === TILE.DARK) {
-            this.setTerrain(cell.x, cell.y, TILE.LAND);
-            changed += 1;
-          }
-        }
-        for (const unit of this.units.filter((u) => this.isCivilian(u) && u.status === 'active')) {
-          if (this.distance(unit.x, unit.y, x, y) <= effectiveRange + 2) {
-            unit.guidedTurns = 2;
-          }
-        }
-        if (changed) this.log(`「${card.name}」唤回记忆，驱散 ${changed} 格迷雾`);
-      }
-
-      if (card.ability === 'freeze_water') {
-        if (creation.remaining === 1) {
-          this.log(`「${card.name}」冻结的水域即将融化`);
-        }
-      }
-
-      if (card.ability === 'reveal_path') {
-        let revealed = 0;
-        const effectiveRange = this.getEffectiveRange(creation);
-        for (const unit of this.units.filter((u) => (this.isCivilian(u) || this.isMessenger(u)) && u.status === 'active')) {
-          if (this.distance(unit.x, unit.y, x, y) <= effectiveRange + 1) {
-            unit.revealedPath = 3;
-            revealed += 1;
-          }
-        }
-        if (revealed) this.log(`「${card.name}」为 ${revealed} 个单位显示了最优路径`);
-      }
-
-      if (card.ability === 'sun_blessing') {
-        let changed = 0;
-        const effectiveRange = this.getEffectiveRange(creation);
-        for (const cell of this.tilesWithin(x, y, effectiveRange + 1)) {
-          const terrain = this.getTerrain(cell.x, cell.y);
-          if (terrain === TILE.DARK || terrain === TILE.FOG) {
-            this.setTerrain(cell.x, cell.y, TILE.LAND);
-            changed += 1;
-          }
-        }
-        for (const unit of this.units.filter((u) => u.status === 'active')) {
-          if (this.distance(unit.x, unit.y, x, y) <= effectiveRange + 1) {
-            unit.immuneChaos = 2;
-            unit.guidedTurns = Math.max(unit.guidedTurns, 1);
-          }
-        }
-        if (changed) this.log(`「${card.name}」的大范围光照驱散了 ${changed} 格黑暗，并恢复了单位体力`);
-      }
-
-      if (card.ability === 'raise_earth') {
-        for (const unit of this.units.filter((u) => u.status === 'active')) {
-          if (this.getTerrain(unit.x, unit.y) === TILE.HIGH && this.distance(unit.x, unit.y, x, y) <= card.range) {
-            unit.onHighGround = true;
-          }
-        }
-      }
-
-      if (card.ability === 'grow_forest') {
-        // Forest effects handled in spreadHazards
-      }
-
-      if (card.ability === 'dig_channel') {
-        const channelNeighbors = this.neighbors(x, y).filter(n => {
-          const t = this.getTerrain(n.x, n.y);
-          return t === TILE.LAND || t === TILE.FOG || t === TILE.DARK;
-        });
-        if (channelNeighbors.length > 0) {
-          const target = channelNeighbors[Math.floor(Math.random() * channelNeighbors.length)];
-          this.setTerrain(target.x, target.y, TILE.WATER);
-          this.log(`「${card.name}」的水渠将水流导向 ${this.tileName(target.x, target.y)}`);
-        }
-      }
-
-      if (card.ability === 'dream_link') {
-        const targets = this.units.filter((u) => (this.isCivilian(u) || this.isMessenger(u)) && u.status === 'active' && this.distance(u.x, u.y, x, y) <= card.range + 1);
-        if (targets.length >= 2) {
-          const a = targets[0];
-          const b = targets[1];
+        for (let i = 0; i + 1 < targets.length; i += 2) {
+          const a = targets[i];
+          const b = targets[i + 1];
           a.dreamLinked = b.id;
           b.dreamLinked = a.id;
           a.guidedTurns = Math.max(a.guidedTurns, 2);
           b.guidedTurns = Math.max(b.guidedTurns, 2);
-          this.log(`「${card.name}」连接了 ${a.name} 和 ${b.name} 的梦境，共享视野`);
         }
+        this.log(`「${card.name}」连接了 ${targets.length} 个单位的梦境，共享视野与方向`);
       }
+    }
+
+    // 回合持续能力在放置时立即生效（仅对没有上方硬编码即时逻辑的能力）
+    const immediateAbilities = ['create_bridge', 'block', 'force_field', 'transform_land', 'freeze_water', 'raise_earth', 'grow_forest', 'trap', 'time_dilation', 'reveal_path', 'sun_blessing', 'dream_link'];
+    if (!immediateAbilities.includes(card.ability)) {
+      applyAbility(this, creation, 'active');
     }
   }
 
@@ -1127,9 +943,10 @@ class GameEngine {
       this.log(`${unit.name} 已被驯服，安静地停留在原地`);
       return;
     }
-    if (unit.stunned) {
-      unit.stunned = false;
-      this.log(`${unit.name} 本回合被牵制，没有前进`);
+    if (unit.stunnedTurns > 0) {
+      unit.stunnedTurns -= 1;
+      unit.anger = Math.min(this.level.beastAngerLimit || 5, (unit.anger || 0) + 1);
+      this.log(`${unit.name} 本回合被牵制，怒气上升到 ${unit.anger}`);
       return;
     }
     const next = this.nextStepToward(unit, unit.goal);
@@ -1142,7 +959,7 @@ class GameEngine {
     unit.y = next.y;
     const trapHere = this.creations.find(c => c.placed && c.remaining > 0 && c.card.ability === 'trap' && c.x === unit.x && c.y === unit.y);
     if (trapHere) {
-      unit.stunned = true;
+      unit.stunnedTurns = 2;
       trapHere.remaining = 0;
       this.log(`「${trapHere.card.name}」触发！${unit.name} 被困住`);
       return;
@@ -1600,9 +1417,9 @@ class GameEngine {
 
   getAbilityFamily(ability) {
     const families = {
-      water: ['absorb_water', 'create_bridge', 'freeze_water', 'dig_channel', 'redirect_hazard'],
+      water: ['absorb_water', 'create_bridge', 'freeze_water', 'redirect_hazard'],
       light: ['illuminate', 'reveal_path', 'sun_blessing'],
-      terrain: ['transform_land', 'raise_earth', 'grow_forest', 'dig_channel'],
+      terrain: ['transform_land', 'raise_earth', 'grow_forest'],
       defense: ['block', 'force_field', 'trap', 'shield_units'],
       spirit: ['calm', 'guide', 'memory_beacon', 'dream_link', 'haste'],
       special: ['cleanse', 'time_dilation', 'slow_beast', 'teleport']
@@ -1665,7 +1482,7 @@ class GameEngine {
       case 'beastStunned': {
         const beast = this.units.find(u => u.type === 'beast' && u.status === 'active');
         if (beast) {
-          beast.stunned = true;
+          beast.stunnedTurns = 2;
           this.log(`【随机事件】${event.name}！${beast.name} 突然停下脚步，似乎在犹豫什么`, true);
         }
         break;
@@ -1784,9 +1601,9 @@ class GameEngine {
       return ![TILE.WATER, TILE.FIELD, TILE.WALL].includes(terrain);
     }
     if (this.isMessenger(unit)) {
-      return ![TILE.WATER, TILE.MOUNTAIN, TILE.WALL, TILE.DARK, TILE.POISON].includes(terrain);
+      return ![TILE.WATER, TILE.MOUNTAIN, TILE.WALL, TILE.DARK, TILE.POISON, TILE.FOREST].includes(terrain);
     }
-    return ![TILE.WATER, TILE.MOUNTAIN, TILE.WALL, TILE.DARK, TILE.POISON].includes(terrain);
+    return ![TILE.WATER, TILE.MOUNTAIN, TILE.WALL, TILE.DARK, TILE.POISON, TILE.FOREST].includes(terrain);
   }
 
   isProtected(x, y) {
@@ -2160,7 +1977,7 @@ class GameEngine {
           for (const unit of this.units.filter(u => u.type === 'beast' && u.status === 'active')) {
             unit.tamed = true;
             unit.anger = 0;
-            unit.stunned = true;
+            unit.stunnedTurns = 2;
           }
           this.log('驯兽古仪让巨兽安静下来');
           break;
@@ -2260,7 +2077,7 @@ class GameEngine {
             if (buff.type === 'balanced') {
               unit.immuneChaos = Math.max(unit.immuneChaos || 0, buff.duration || 2);
             } else if (buff.type === 'slowed') {
-              unit.stunned = true;
+              unit.stunnedTurns = 2;
             }
           }
         }

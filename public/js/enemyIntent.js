@@ -156,7 +156,7 @@ export class EnemyIntentSystem {
       });
     }
 
-    if (unit.stunned) {
+    if (unit.stunnedTurns > 0) {
       return new IntentPreview({
         unitId: unit.id,
         unitName: unit.name,

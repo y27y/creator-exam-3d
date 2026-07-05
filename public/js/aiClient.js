@@ -2,6 +2,7 @@ const ABILITY_SET = new Set([
   'absorb_water',
   'create_bridge',
   'illuminate',
+  'gale',
   'block',
   'calm',
   'guide',
@@ -15,7 +16,6 @@ const ABILITY_SET = new Set([
   'sun_blessing',
   'raise_earth',
   'grow_forest',
-  'dig_channel',
   'trap',
   'dream_link',
   'time_dilation',
@@ -29,6 +29,7 @@ const ABILITY_LABELS = {
   absorb_water: '吸水/转移',
   create_bridge: '造路/搭桥',
   illuminate: '照明',
+  gale: '大风',
   block: '阻挡',
   calm: '安抚/沟通',
   guide: '引导',
@@ -42,7 +43,6 @@ const ABILITY_LABELS = {
   sun_blessing: '日华祝福',
   raise_earth: '抬升地面',
   grow_forest: '种植森林',
-  dig_channel: '挖掘水渠',
   trap: '设置陷阱',
   dream_link: '梦境链接',
   time_dilation: '时间延缓',
@@ -56,6 +56,7 @@ const TYPE_BY_ABILITY = {
   absorb_water: '生物',
   create_bridge: '地形',
   illuminate: '奇迹',
+  gale: '奇迹',
   block: '地形',
   calm: '仪式',
   guide: '生物',
@@ -69,7 +70,6 @@ const TYPE_BY_ABILITY = {
   sun_blessing: '仪式',
   raise_earth: '地形',
   grow_forest: '生物',
-  dig_channel: '地形',
   trap: '机械',
   dream_link: '仪式',
   time_dilation: '奇迹',
@@ -83,6 +83,7 @@ const NAME_SEEDS = {
   absorb_water: ['云鲸群', '饮洪菌林', '吞潮莲', '搬雨兽'],
   create_bridge: ['浮石桥律', '舞桥木灵', '月桥', '渡水藤'],
   illuminate: ['月亮树', '晨星灯塔', '萤火圣枝', '日核花'],
+  gale: ['卷雾风灵', '长风笛', '吹雾者', '裂空羽'],
   block: ['静默墙', '岩壳屏障', '藤蔓城垣', '眠石阵'],
   calm: ['同梦圆桌', '真言白鸟', '和声花园', '静心水钟'],
   guide: ['归路鹿', '指路风铃', '影行使者', '北星狐'],
@@ -96,7 +97,6 @@ const NAME_SEEDS = {
   sun_blessing: ['日华轮', '光暖树', '阳炎蝶', '晨曦钟'],
   raise_earth: ['地隆笋', '土丘芽', '石升藤', '隆地根'],
   grow_forest: ['速生林', '木灵种', '森罗籽', '树界芽'],
-  dig_channel: ['引流蚓', '水脉渠', '导洪沟', '分流蚁'],
   trap: ['缚兽藤', '陷地阵', '迟步网', '缠根索'],
   dream_link: ['同梦蛛', '共感茧', '心桥蛾', '识海丝'],
   time_dilation: ['时漏沙', '缓时花', '凝刻钟', '延流晶'],
@@ -110,6 +110,7 @@ const TAGS_BY_ABILITY = {
   absorb_water: ['水', '吸收', '潮湿'],
   create_bridge: ['道路', '通行', '临时'],
   illuminate: ['光', '驱散', '显形'],
+  gale: ['风', '驱散', '显形'],
   block: ['屏障', '阻挡', '稳定'],
   calm: ['情绪', '沟通', '和平'],
   guide: ['移动', '方向', '护送'],
@@ -123,7 +124,6 @@ const TAGS_BY_ABILITY = {
   sun_blessing: ['光', '恢复', '大范围'],
   raise_earth: ['地形', '高地', '防御'],
   grow_forest: ['植物', '阻挡', '持续'],
-  dig_channel: ['水', '引导', '控制'],
   trap: ['控制', '巨兽', '临时'],
   dream_link: ['精神', '连接', '共享'],
   time_dilation: ['时间', '延缓', '紧急'],
@@ -137,6 +137,7 @@ const KEYWORDS = [
   { ability: 'absorb_water', words: ['水', '洪', '雨', '潮', '河', '海', '抽水', '吸水', '鲸', '蘑菇', '云'] },
   { ability: 'create_bridge', words: ['桥', '路', '渡', '浮', '跨', '通道', '木板', '石头', '道路'] },
   { ability: 'illuminate', words: ['光', '灯', '太阳', '月亮', '发光', '黑暗', '夜', '萤火', '星'] },
+  { ability: 'gale', words: ['风', '大风', '吹', '刮', '气流', '狂风', '暴风', '清风', '岚', '迷雾', '雾'] },
   { ability: 'block', words: ['墙', '挡', '封', '拦', '城墙', '屏障', '围栏', '堤坝'] },
   { ability: 'calm', words: ['安抚', '和平', '沟通', '翻译', '语言', '真话', '谎言', '梦境', '圆桌', '花园'] },
   { ability: 'guide', words: ['引导', '指路', '带路', '风', '鹿', '鸟', '影子', '护送', '方向'] },
@@ -150,7 +151,6 @@ const KEYWORDS = [
   { ability: 'sun_blessing', words: ['太阳', '日', '光', '温暖', '祝福', '治愈', '恢复', '大范围'] },
   { ability: 'raise_earth', words: ['抬', '升', '高', '地', '土', '丘', '隆', '地面'] },
   { ability: 'grow_forest', words: ['森林', '树', '木', '林', '种', '植物', '生长', '芽'] },
-  { ability: 'dig_channel', words: ['渠', '沟', '挖', '引', '流', '导', '水渠', '分流'] },
   { ability: 'trap', words: ['陷阱', '坑', '网', '索', '绊', '捕', '捉', '机关'] },
   { ability: 'dream_link', words: ['梦', '链接', '连接', '共享', '心', '精神', '同梦', '共感'] },
   { ability: 'time_dilation', words: ['时间', '缓', '慢', '延', '钟', '沙漏', '凝', '延缓'] },
@@ -209,8 +209,8 @@ export function localCompile(text, gameContext = {}) {
 
   // 新能力参数配置
   const rangeMap = {
-    force_field: 2, illuminate: 2, calm: 2, sun_blessing: 3,
-    grow_forest: 2, dig_channel: 2, trap: 2, dream_link: 2,
+    force_field: 2, illuminate: 2, gale: 2, calm: 2, sun_blessing: 2,
+    grow_forest: 2, trap: 2, dream_link: 2,
     reveal_path: 1, freeze_water: 1, raise_earth: 1,
     time_dilation: 0, haste: 1, teleport: 2, shield_units: 2,
     redirect_hazard: 2, slow_beast: 2, absorb_water: 2, cleanse: 2
@@ -219,26 +219,26 @@ export function localCompile(text, gameContext = {}) {
 
   const durationMap = {
     create_bridge: 3, freeze_water: 2, trap: 2, time_dilation: 1,
-    grow_forest: 4, raise_earth: 3, force_field: 2, sun_blessing: 3,
+    grow_forest: 4, raise_earth: 3, force_field: 2, sun_blessing: 2, calm: 1,
     haste: 2, teleport: 2, shield_units: 3, redirect_hazard: 3
   };
   const duration = isTooStrong ? 2 : (durationMap[ability] ?? 3);
 
   const costMap = {
-    guide: 1, reveal_path: 1, block: 1,
-    absorb_water: 2, illuminate: 2, cleanse: 2, calm: 2, slow_beast: 2,
+    guide: 2, reveal_path: 1, block: 1,
+    absorb_water: 2, illuminate: 2, gale: 2, cleanse: 2, calm: 2, slow_beast: 2,
     create_bridge: 2, freeze_water: 2, raise_earth: 2, grow_forest: 2,
-    dig_channel: 2, trap: 2, dream_link: 2, memory_beacon: 2,
-    force_field: 2, sun_blessing: 3, transform_land: 3, time_dilation: 2,
+    trap: 2, dream_link: 2, memory_beacon: 2,
+    force_field: 2, sun_blessing: 2, transform_land: 3, time_dilation: 4,
     haste: 2, teleport: 3, shield_units: 2, redirect_hazard: 2
   };
   const cost = isTooStrong ? 3 : (costMap[ability] ?? 2);
 
   const stabilityMap = {
-    guide: 0, reveal_path: 0, block: 0,
-    absorb_water: 1, illuminate: 1, cleanse: 1, calm: 1, slow_beast: 1,
+    guide: 1, reveal_path: 0, block: 0,
+    absorb_water: 1, illuminate: 1, gale: 1, cleanse: 1, calm: 1, slow_beast: 1,
     create_bridge: 1, freeze_water: 1, raise_earth: 1, grow_forest: 1,
-    dig_channel: 1, trap: 1, dream_link: 1, memory_beacon: 1,
+    trap: 1, dream_link: 1, memory_beacon: 1,
     force_field: 1, sun_blessing: 1, transform_land: 1, time_dilation: 2,
     haste: 1, teleport: 2, shield_units: 1, redirect_hazard: 1
   };
@@ -308,13 +308,14 @@ function buildDescription(ability, isTooStrong, needsPlacement) {
   const effect = {
     absorb_water: '每回合吸收附近水域或削弱洪水。',
     create_bridge: '把水面、沼泽或裂隙临时变成可通行道路。',
-    illuminate: '驱散附近黑暗与迷雾，并帮助单位找到道路。',
+    illuminate: '驱散附近黑暗，并帮助单位找到道路。',
+    gale: '吹散附近迷雾，使被遮蔽的地形重见天日。',
     block: '生成阻挡灾害或巨兽的屏障。',
     calm: '降低附近敌意、战争值或巨兽怒气。',
     guide: '引导附近单位朝目标前进。',
-    cleanse: '净化附近毒、雾、黑暗或污染。',
+    cleanse: '净化附近沼泽或毒污染。',
     slow_beast: '非杀伤地迟缓巨兽或危险单位。',
-    memory_beacon: '让迷路者记起目标，并削弱记忆迷雾。',
+    memory_beacon: '让迷路者记起目标并重新定向（在迷雾中无效）。',
     force_field: '保护一片区域，使灾害短时间无法扩散进入。',
     transform_land: '改造附近地形，使危险地块变得可通行。',
     freeze_water: '冻结附近水域，使其可通行2回合，之后融化。',
@@ -322,10 +323,9 @@ function buildDescription(ability, isTooStrong, needsPlacement) {
     sun_blessing: '大范围光照驱散黑暗，并恢复单位体力使其免疫混乱。',
     raise_earth: '抬升附近地面形成临时高地，可躲避洪水。',
     grow_forest: '种植森林，阻挡灾害扩散并作为天然屏障。',
-    dig_channel: '挖掘水渠，引导洪水流向指定方向。',
     trap: '设置陷阱，使进入的巨兽迟缓2回合。',
     dream_link: '连接两个单位，使其共享视野和方向感。',
-    time_dilation: '延缓局部时间，增加1回合（消耗大量奇迹点）。',
+    time_dilation: '延缓局部时间，增加2回合（消耗大量奇迹点）。',
     haste: '给附近单位增加行动力，使其一回合最多移动2到3格。',
     teleport: '将附近一名单位传送到其目标点，范围有限且代价很高。',
     shield_units: '给附近单位套上短暂护盾，抵消危险地形伤害。',
@@ -340,28 +340,28 @@ function buildSideEffect(ability, isTooStrong) {
     absorb_water: '吸收过多水分会留下湿滑地面。',
     create_bridge: '桥梁只会维持数回合。',
     illuminate: '强光会吸引黑暗向边缘聚集。',
+    gale: '大风可能把迷雾吹向周围地块。',
     block: '完全堵路可能激怒巨兽或拖慢村民。',
     calm: '和平仪式需要靠近冲突中心。',
     guide: '引导范围有限，离开范围后单位会恢复自主行动。',
     cleanse: '净化会消耗奇迹点。',
     slow_beast: '牵制过久会让巨兽积累怒气。',
-    memory_beacon: '信标被雾包围时效果减弱。',
+    memory_beacon: '当迷雾侵蚀了信标，它就会失去效果。',
     force_field: '结界会提升世界裂隙。',
     transform_land: '改造地形可能产生沼泽边缘。',
     freeze_water: '冻结的水域融化后会恢复原状。',
     reveal_path: '显示路径会消耗单位体力。',
-    sun_blessing: '大范围光照会吸引黑暗注意。',
+    sun_blessing: '',
     raise_earth: '抬升的地面不稳定，可能塌陷。',
     grow_forest: '森林可能阻挡己方单位的移动。',
-    dig_channel: '水渠可能改变洪水方向，造成新威胁。',
     trap: '陷阱对村民同样有效。',
-    dream_link: '链接断裂时双方都会迷失方向。',
+    dream_link: '',
     time_dilation: '操控时间会严重撕裂世界稳定性。',
     haste: '加速效果持续短，离开范围后会消失。',
     teleport: '空间折叠会显著提升世界裂隙。',
     shield_units: '护盾会在抵消伤害后快速衰减。',
     redirect_hazard: '被改道的灾害可能在造物消失后回流。'
-  }[ability] || '世界裂隙轻微上升。';
+  }[ability] ?? '世界裂隙轻微上升。';
 }
 
 function buildResolvedDescription(ability, range, isTooStrong = false) {
@@ -411,7 +411,7 @@ function sanitizeCard(raw, playerText, source) {
     tags,
     range,
     duration: clamp(raw.duration, 1, 4, 3),
-    cost: clamp(raw.cost, 1, 3, 2),
+    cost: clamp(raw.cost, 1, 4, 2),
     stabilityCost: clamp(raw.stabilityCost ?? raw.stability_cost, 0, 2, 1),
     description: description.slice(0, 120),
     side_effect: sideEffect.slice(0, 80),

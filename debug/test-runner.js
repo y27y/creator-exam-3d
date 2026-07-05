@@ -62,7 +62,7 @@ function runScenario(levelIndex, scenario) {
   logs.push(`\n========== 第 ${levelIndex} 关: ${game.level.shortTitle} ==========`);
   logs.push(`测试场景: ${scenario.name}`);
   logs.push(`目标: ${game.level.objective}`);
-  logs.push(`初始状态: 回合 ${game.turn}/${game.maxTurns}, 造物次数 ${game.creationCharges}, 奇迹点 ${game.miraclePoints}`);
+  logs.push(`初始状态: 回合 ${game.turn}/${game.level.maxTurns}, 造物次数 ${game.creationCharges}, 奇迹点 ${game.miraclePoints}`);
 
   // 执行造物
   for (const action of scenario.actions) {
@@ -78,7 +78,7 @@ function runScenario(levelIndex, scenario) {
 
   // 模拟所有回合
   let turnCount = 0;
-  while (game.gameState === 'playing' && turnCount < game.maxTurns) {
+  while (game.gameState === 'playing' && turnCount < game.level.maxTurns) {
     const prevTurn = game.turn;
     game.endTurn();
     turnCount++;
@@ -89,7 +89,7 @@ function runScenario(levelIndex, scenario) {
 
   // 记录结果
   logs.push(`\n结果: ${game.gameState.toUpperCase()}`);
-  logs.push(`  完成回合: ${game.turn}/${game.maxTurns}`);
+  logs.push(`  完成回合: ${game.turn}/${game.level.maxTurns}`);
   logs.push(`  已救援: ${game.rescued}${game.level.requiredRescue ? '/' + game.level.requiredRescue : ''}`);
   logs.push(`  迷失: ${game.lost}`);
   logs.push(`  裂隙: ${game.entropy}/${game.level.entropyLimit}`);

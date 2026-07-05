@@ -329,7 +329,7 @@ export class LegacySystem {
       status: 'active',
       rescued: false,
       lost: false,
-      stunned: false,
+      stunnedTurns: 0,
       guidedTurns: 0,
       met: false,
       traits: legacy.traits.map(t => t.id),

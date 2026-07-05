@@ -631,7 +631,7 @@
         <div>共鸣：<strong>${escapeHtml(resonance.name)}</strong> · ${escapeHtml(resonance.effect)}</div>
         <div>通讯：<strong>${escapeHtml(communicator().name)}</strong> · ${escapeHtml(communicator().role)}</div>
         ${loreSignal() ? `<div>传说：${escapeHtml(loreSignal())}</div>` : ''}
-        <div>航线：6 段 Boss 清算 · 熵值 ${Number(context.entropy || 0)} · 词缀 ${escapeHtml(contextualAffixKeys().map(key => BOSS_AFFIXES[key].name).join(' / '))}</div>
+        <div>航线：6 段 Boss 清算 · 熵值 ${Number(context.entropy || 0)} · 词缀 ${escapeHtml(route().map(boss => boss.affix.name).join(' / '))}</div>
       `;
     }
   }

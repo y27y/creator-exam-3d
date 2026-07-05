@@ -22,6 +22,7 @@ import { DebugSnapshot } from './debugSnapshot.js';
 import { SaveSlotManager } from './saveSlotManager.js';
 import { MemoryStore } from './memoryStore.js';
 import { WorldSession } from './worldSession.js';
+import { RiftEchoSystem } from './riftEchoes.js';
 
 const TILE_SIZE = 1.55;
 const BOARD_SIZE = 7;
@@ -145,6 +146,7 @@ class CreatorExam3D extends GameEngine {
     this.memoryStore.loadWorld(this.worldSession.worldSimulation);
     this.saveSlotManager = new SaveSlotManager();
     this.residentDialogueSystem = new ResidentDialogueSystem();
+    this.riftEchoSystem = new RiftEchoSystem();
     this.particleSystem = null;
     this.screenEffects = null;
     this.npcManager = null;
@@ -760,6 +762,7 @@ class CreatorExam3D extends GameEngine {
     this.applyTileHazardsToUnits();
     this.enemyIntentSystem.generatePreviews(this.worldState, this);
     this.cognitiveAbyss.update(this.entropy, this.level.entropyLimit || 7);
+    this.processRiftEchoes();
     this.decrementCreationDurations();
     this.checkOathBetrayals();
     this.checkEndCondition(true);
@@ -2200,7 +2203,7 @@ class CreatorExam3D extends GameEngine {
       },
       rift: {
         entropyRatio: this.entropy / (this.level.entropyLimit || 7),
-        activeEchoes: []
+        activeEchoes: this.riftEchoSystem?.getActiveEchoes?.() || []
       },
       abyss: {
         state: this.getAbyssState?.() || { level: 'dormant', description: '深渊沉睡' },
@@ -2296,6 +2299,9 @@ class CreatorExam3D extends GameEngine {
       case 'trigger-social':
         this.triggerSocialDemo();
         break;
+      case 'manifest-echo':
+        this.triggerRiftEchoDemo();
+        break;
       case 'generate-riddle':
         this.triggerAbyssDemo();
         break;
@@ -2385,6 +2391,96 @@ class CreatorExam3D extends GameEngine {
     if (this.currentAbyssRiddle) {
       this.addLog(`【深渊演示】谜题出现：${this.currentAbyssRiddle.displayed}`, true);
       this.showToast('认知深渊已激活。');
+    }
+  }
+
+  triggerRiftEchoDemo() {
+    if (!this.riftEchoSystem) return;
+    const limit = this.level.entropyLimit || 7;
+    this.entropy = Math.max(this.entropy, Math.ceil(limit * 0.75));
+    this.cognitiveAbyss.update(this.entropy, limit);
+
+    const card = this.demoCard('memory_beacon');
+    const memory = this.memorySystem?.vectorMemory?.addMemory?.(`${card.name}：${card.description}`, {
+      type: 'creation',
+      level: this.level.id,
+      turn: this.turn,
+      ability: card.ability,
+      demo: true
+    }) || {
+      id: `echo-memory-${Date.now()}`,
+      text: card.description,
+      metadata: { type: 'creation', level: this.level.id, turn: this.turn, ability: card.ability }
+    };
+    memory.name = card.name;
+    memory.ability = card.ability;
+    memory.card = card;
+
+    const position = this.findOpenEchoTile();
+    const result = this.riftEchoSystem.manifestEcho(memory, {
+      entropy: this.entropy,
+      entropyLimit: limit,
+      turn: this.turn,
+      abyssDepth: this.cognitiveAbyss?.depth || this.entropy / limit,
+      corruptionLevel: this.verificationCorruption?.corruptionLevel || 0
+    }, position);
+
+    if (result.success) {
+      this.addLog(`【裂隙回响】${result.narrative}`, true);
+      this.addLog(`【回响状态】${card.name} 在 (${result.echo.x + 1}, ${result.echo.y + 1}) 显现，剩余 ${result.echo.remainingTurns} 回合。`);
+      this.showToast(`裂隙回响显现：${card.name}`);
+    } else {
+      this.addLog(`【裂隙回响】${result.error || result.reason || '显现失败'}`, true);
+      this.showToast(result.error || result.reason || '回响显现失败');
+    }
+  }
+
+  findOpenEchoTile() {
+    const candidates = [
+      { x: 3, y: 3 },
+      { x: 2, y: 3 },
+      { x: 4, y: 3 },
+      { x: 3, y: 2 },
+      { x: 3, y: 4 }
+    ];
+    return candidates.find(pos => this.inBounds(pos.x, pos.y) && !this.unitAt(pos.x, pos.y)) || { x: 3, y: 3 };
+  }
+
+  processRiftEchoes() {
+    if (!this.riftEchoSystem) return;
+    const limit = this.level.entropyLimit || 7;
+    const results = this.riftEchoSystem.processTurn({
+      entropy: this.entropy,
+      entropyLimit: limit,
+      turn: this.turn,
+      abyssDepth: this.cognitiveAbyss?.depth || this.entropy / limit,
+      corruptionLevel: this.verificationCorruption?.corruptionLevel || 0
+    });
+    for (const result of results) {
+      if (result.type === 'triggered') {
+        const source = result.echo.originalCreation?.card || result.echo.originalCreation || {};
+        const ability = result.ability || source.ability;
+        if (ability) {
+          applyAbility(this, {
+            id: result.echo.id,
+            card: {
+              ...source,
+              name: source.name || result.echo.originalCreation?.name || '裂隙回响',
+              ability,
+              range: source.range || 1,
+              duration: result.echo.remainingTurns || 1
+            },
+            x: result.echo.x,
+            y: result.echo.y,
+            remaining: result.echo.remainingTurns || 1,
+            placed: true,
+            restores: []
+          }, 'active');
+        }
+        this.addLog(`【回响触发】${result.description}`);
+      } else if (result.type === 'expired') {
+        this.addLog(`【回响消散】${result.narrative}`);
+      }
     }
   }
 
@@ -4241,6 +4337,7 @@ class CreatorExam3D extends GameEngine {
     this.applyTileHazardsToUnits();
     this.enemyIntentSystem.generatePreviews(this.worldState, this);
     this.cognitiveAbyss.update(this.entropy, this.level.entropyLimit || 7);
+    this.processRiftEchoes();
     this.decrementCreationDurations();
     this.checkOathBetrayals();
     this.checkEndCondition(true);

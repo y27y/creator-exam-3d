@@ -210,8 +210,8 @@ export function buildAdvancedMechanicsViewModel(state = {}) {
     {
       id: 'manifest-echo',
       label: '召出回响',
-      enabled: false,
-      hint: '裂隙回响模块已存在，浏览器演示入口待接入'
+      enabled: true,
+      hint: activeEchoes.length ? `当前活跃 ${activeEchoes.length} 个回响` : '自动提升裂隙并从旧造物记忆中显现'
     },
     {
       id: 'generate-riddle',

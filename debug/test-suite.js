@@ -2370,6 +2370,24 @@ runner.test('裂隙回响 - 序列化与统计', async () => {
   runner.assert(system2.totalManifested === 1, '反序列化后统计应一致');
 });
 
+runner.test('高级机制面板 - 裂隙回响应可从浏览器入口触发', async () => {
+  const { buildAdvancedMechanicsViewModel } = await import('../public/js/advancedMechanicsPresenter.js');
+  const model = buildAdvancedMechanicsViewModel({
+    rift: { entropyRatio: 0.75, activeEchoes: [] },
+    workshop: { inventory: [], materials: {}, workshopCreations: [] },
+    ritual: { suggestions: [], placedCreationCount: 0 },
+    oath: { selectedNpc: null, available: [], activeOaths: [] },
+    abyss: { state: { level: 'approaching', description: '裂隙升高' }, currentRiddle: null },
+    story: { summary: {}, availableBeats: 0 },
+    resident: { actions: [] },
+    social: {}
+  });
+
+  const action = model.actions.find(item => item.id === 'manifest-echo');
+  runner.assert(action, '应包含裂隙回响动作');
+  runner.assert(action.enabled === true, '裂隙回响浏览器入口应可触发');
+});
+
 // 测试造物者工坊系统
 runner.test('造物者工坊 - 拆解造物获得材料', async () => {
   const { CreatorWorkshop, MATERIAL_TYPES } = await import('../public/js/creatorWorkshop.js');

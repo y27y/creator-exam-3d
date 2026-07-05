@@ -150,6 +150,7 @@
   let aiText = '';
   let latestWaveText = '';
   let activeWaveRequest = '';
+  let enemyWhisperInFlight = false;
   let battleStart = { hp: 3, money: 2000, finalWave: 30 };
 
   function parseJson(value) {
@@ -320,8 +321,15 @@
     if (info) info.textContent = '守夜塔信息';
     const infoText = document.querySelector('#selection-info p');
     if (infoText) infoText.textContent = '白天创造过的造物会优先映射成今晚的防御塔。';
+    document.getElementById('open-announcement-btn')?.remove();
+    const testBtn = document.getElementById('start-game-test-btn');
+    if (testBtn) testBtn.style.display = 'none';
+    const leaderboardBtn = document.getElementById('open-leaderboard-btn');
+    if (leaderboardBtn) leaderboardBtn.textContent = '🏆 守夜档案';
+    const wikiBtn = document.getElementById('open-wiki-btn');
+    if (wikiBtn) wikiBtn.textContent = '📖 战术图鉴';
     const selectMapBtn = document.getElementById('select-map-btn');
-    if (selectMapBtn && selectMapBtn.textContent.includes('选择地图')) selectMapBtn.textContent = selectMapBtn.textContent.replace('选择地图', '选择防线');
+    if (selectMapBtn) selectMapBtn.textContent = '开始守夜';
     const startBtn = document.getElementById('start-game-from-map-btn');
     if (startBtn) startBtn.textContent = '开始守夜';
     const restartBtn = document.getElementById('restart-btn');
@@ -451,6 +459,19 @@
     return { wave, state };
   }
 
+  async function enemyWhisper(enemyType, towerName, wave, fallback = '') {
+    if (enemyWhisperInFlight) return '';
+    enemyWhisperInFlight = true;
+    const text = await requestNightWatchText(
+      'night_watch_enemy_whisper',
+      `请写一句裂隙来袭者靠近${towerName}时的短句。敌人类型：${enemyType}，当前波次：${wave}。只写一句，18字以内，不解释规则。`,
+      { enemyType, towerName, wave },
+      { enemyType, towerName, wave }
+    );
+    enemyWhisperInFlight = false;
+    return text || fallback;
+  }
+
   function complete(isVictory, state = {}) {
     if (context.mode !== 'night_watch' && new URLSearchParams(window.location.search).get('from') !== 'creator-exam') {
       return null;
@@ -550,6 +571,7 @@
     getStartingState,
     markBattleStarted,
     announceWave,
+    enemyWhisper,
     complete,
     returnToMain
   };

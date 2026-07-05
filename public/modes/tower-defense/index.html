@@ -1024,8 +1024,8 @@
     <h1>战前选择</h1>
     <div id="selection-top-actions">
         <button id="open-announcement-btn" type="button">📢 查看更新公告</button>
-        <button id="open-leaderboard-btn" type="button">🏆 排行榜</button>
-        <button id="open-wiki-btn" type="button">📖 Wiki</button>
+        <button id="open-leaderboard-btn" type="button">🏆 守夜档案</button>
+        <button id="open-wiki-btn" type="button">📖 图鉴</button>
         <button id="open-settings-btn" type="button">🔧 设置</button>
     </div>
     <div id="selection-slots"></div>
@@ -1107,7 +1107,7 @@
         <p id="modal-text">你的基地被摧毁了。</p>
         <div id="score-summary" aria-live="polite"></div>
         <div class="modal-actions">
-            <button id="upload-score-btn" type="button">上传到排行榜</button>
+            <button id="upload-score-btn" type="button">记录到守夜档案</button>
             <button id="replay-btn">重新开始</button>
             <button id="restart-btn">返回菜单</button>
         </div>
@@ -1340,8 +1340,8 @@
     <section id="leaderboard-content">
         <button id="leaderboard-close-x" type="button" aria-label="关闭排行榜">✕</button>
         <header class="leaderboard-header">
-            <h2>地图排行榜：测试赛季</h2>
-            <p>游戏仍处于测试阶段，变动是经常发生的</p>
+            <h2>守夜档案：本地记录</h2>
+            <p>记录当前浏览器中的守城结果，用来复盘防线选择。</p>
         </header>
         <div id="leaderboard-account"></div>
         <div id="leaderboard-map-tabs" role="tablist" aria-label="地图筛选"></div>
@@ -1354,8 +1354,8 @@
     <section id="wiki-content">
         <button id="wiki-close-x" type="button" aria-label="关闭 Wiki">✕</button>
         <header class="wiki-header">
-            <h2><svg class="ui-svg-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4.5 5.5c2.2-1.1 4.7-.9 7.5.8v12c-2.8-1.7-5.3-1.9-7.5-.8zM19.5 5.5c-2.2-1.1-4.7-.9-7.5.8v12c2.8-1.7 5.3-1.9 7.5-.8z"/></svg>无聊塔防 · 图鉴 Wiki</h2>
-            <p>防御塔与敌人的完整数据、特性与实际模型参考。</p>
+            <h2><svg class="ui-svg-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4.5 5.5c2.2-1.1 4.7-.9 7.5.8v12c-2.8-1.7-5.3-1.9-7.5-.8zM19.5 5.5c-2.2-1.1-4.7-.9-7.5.8v12c2.8-1.7 5.3-1.9 7.5-.8z"/></svg>长夜守城 · 战术图鉴</h2>
+            <p>防线器械与裂隙来袭者的完整数据、特性与实际模型参考。</p>
         </header>
         <div id="wiki-tabs" role="tablist" aria-label="Wiki 分类"></div>
         <div id="wiki-body"></div>
@@ -1476,6 +1476,7 @@ let replayRecorder = null;
 let replayPlayback = null;
 let isReplayMode = false;
 let lastVictoryResult = null;
+let lastNightWatchDialogueFrame = -Infinity;
 let simulationRandomState = null;
 let effectRandomState = null;
 let visualReplaySeed = null;
@@ -1530,6 +1531,36 @@ function makeFrameVisualRandom(seed, logicalFrame) {
         state = next.state;
         return next.value;
     };
+}
+
+function localNightWatchDialogue(enemy, tower) {
+    const towerName = tower?.data?.name || '守夜塔';
+    const lines = {
+        normal: [`${towerName}也记得白天的名字吗？`, '城墙后面还有人醒着。', '你们造出的路，也会把我们带来。'],
+        fast: ['别眨眼，我只是回声。', `${towerName}转身慢了一拍。`, '撤离线在发抖。'],
+        strong: ['墙会累，石头会开口。', `${towerName}的火力正在变重。`, '把白天的碎片还给夜里。'],
+        shield: ['先剥开这层裂隙膜。', `${towerName}打在旧梦外壳上。`, '你们的规则进不来。'],
+        summoner: ['听，更多脚步正在学会你们的路。', '我不是一个人来的。', `${towerName}照见了更深的裂口。`],
+        boss: ['第七天之前，所有答案都要回收。', '主考官没有离场。', `${towerName}只是临时写下的反驳。`]
+    };
+    const pool = lines[enemy.type] || lines.normal;
+    return pool[Math.floor(gameRandom() * pool.length)];
+}
+
+function maybeTriggerNightWatchDialogue(enemy) {
+    if (!isNightWatchMode || isTestMode || isReplayMode || !enemy || enemy.hp <= 0 || !towers.length) return;
+    enemy.nightWatchDialogueCooldown = Math.max(0, (enemy.nightWatchDialogueCooldown || 0) - 1);
+    if (enemy.nightWatchDialogueCooldown > 0 || frameCount - lastNightWatchDialogueFrame < 210) return;
+    const nearbyTower = towers.find(tower => Math.hypot(enemy.x - tower.x, enemy.y - tower.y) < 90 * scale);
+    if (!nearbyTower) return;
+
+    enemy.nightWatchDialogueCooldown = 420 + Math.floor(gameRandom() * 240);
+    lastNightWatchDialogueFrame = frameCount;
+    const fallback = localNightWatchDialogue(enemy, nearbyTower);
+    const dialogue = new NightWatchDialogueEffect(enemy.x, enemy.y - enemy.size, fallback);
+    effects.push(dialogue);
+    window.NightWatchBridge?.enemyWhisper?.(enemy.type, nearbyTower.data?.name || nearbyTower.type, wave, fallback)
+        ?.then(text => { if (text) dialogue.text = text; });
 }
 
 function scheduleSimulationEvent(delayFrames, callback) {
@@ -5472,6 +5503,7 @@ class Enemy {
         this.confusionTimer = 0;
         this.confusionResistance = 0;
         this.vulnerabilityStacks = 0;
+        this.nightWatchDialogueCooldown = 180 + Math.floor(effectRandom() * 180);
 
         const mapModifier = MAP_DATA[selectedMap]?.modifier || { hp: 1, speed: 1 };
 
@@ -5759,6 +5791,7 @@ class Enemy {
                 gameOver(false);
             }
         }
+        maybeTriggerNightWatchDialogue(this);
     }
     takeDamage(amount, sourceTower = null, options = {}) {
         if (this.hp <= 0) return; // 已经死亡
@@ -7443,6 +7476,40 @@ class ConfusionEffect extends Effect {
         const labelY = this.y - this.size - 10 * scale - rise;
         ctx.strokeText('↶ 迷乱', this.x, labelY);
         ctx.fillText('↶ 迷乱', this.x, labelY);
+        ctx.restore();
+    }
+}
+
+class NightWatchDialogueEffect extends Effect {
+    constructor(x, y, text) {
+        super(x, y);
+        this.text = text;
+        this.life = 150;
+        this.maxLife = 150;
+    }
+    draw() {
+        const alpha = Math.min(1, this.life / 35);
+        const rise = (1 - this.life / this.maxLife) * 18 * scale;
+        const text = String(this.text || '').slice(0, 34);
+        ctx.save();
+        ctx.globalAlpha = alpha;
+        ctx.font = `${12 * scale}px Arial`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        const paddingX = 8 * scale;
+        const width = Math.min(260 * scale, ctx.measureText(text).width + paddingX * 2);
+        const height = 25 * scale;
+        const x = this.x - width / 2;
+        const y = this.y - 44 * scale - rise;
+        ctx.fillStyle = 'rgba(8, 12, 20, .82)';
+        ctx.strokeStyle = 'rgba(216, 197, 138, .72)';
+        ctx.lineWidth = 1 * scale;
+        ctx.beginPath();
+        ctx.roundRect(x, y, width, height, 6 * scale);
+        ctx.fill();
+        ctx.stroke();
+        ctx.fillStyle = '#f5f5f7';
+        ctx.fillText(text, this.x, y + height / 2);
         ctx.restore();
     }
 }
@@ -10737,7 +10804,7 @@ function gameOver(isVictory) {
         }
         uploadScoreBtn.style.display = isReplayMode || isTestMode ? 'none' : 'inline-block';
         uploadScoreBtn.disabled = false;
-        uploadScoreBtn.textContent = '上传到排行榜';
+        uploadScoreBtn.textContent = isNightWatchMode ? '记录到守夜档案' : '上传到排行榜';
     } else {
         lastVictoryResult = null;
         modalTitle.textContent = "游戏结束";
@@ -11013,7 +11080,7 @@ function updateStartButtonState() {
     const count = selectedTowerPool.length;
     if (count >= 1 && count <= 7) {
         selectMapBtn.disabled = false;
-        selectMapBtn.textContent = `选择防线 (${count}/7)`;
+        selectMapBtn.textContent = isNightWatchMode ? `开始守夜 (${count}/7)` : `选择防线 (${count}/7)`;
         startTestBtn.disabled = false;
     } else {
         selectMapBtn.disabled = true;
@@ -11172,10 +11239,20 @@ function returnToSelectionScreen() {
 }
 
 function showMapSelection() {
+    if (isNightWatchMode) {
+        startRandomNightWatchMap();
+        return;
+    }
     AudioDirector.playHome();
     selectionScreen.style.display = 'none';
     mapSelectionScreen.style.display = 'flex';
     initializeMapSelectionScreen();
+}
+
+function startRandomNightWatchMap() {
+    const mapIds = Object.keys(MAP_DATA);
+    selectedMap = mapIds[Math.floor(Math.random() * mapIds.length)] || 'MAP1';
+    startGame('normal');
 }
 
 // ===================================
@@ -11252,8 +11329,9 @@ function closeAnnouncement() {
 document.getElementById('announce-ok').addEventListener('click', closeAnnouncement);
 document.getElementById('announce-close-x').addEventListener('click', closeAnnouncement);
 announcementModal.addEventListener('click', (e) => { if (e.target === announcementModal) closeAnnouncement(); });
-document.getElementById('open-announcement-btn').addEventListener('click', openAnnouncement);
+document.getElementById('open-announcement-btn')?.addEventListener('click', openAnnouncement);
 function maybeShowAnnouncement() {
+    if (isNightWatchMode) return;
     let seen = null;
     try { seen = localStorage.getItem('tf_announce_seen'); } catch (e) {}
     if (seen !== ANNOUNCE_VERSION) openAnnouncement();
@@ -11267,6 +11345,8 @@ const leaderboardStatus = document.getElementById('leaderboard-status');
 const leaderboardList = document.getElementById('leaderboard-list');
 let leaderboardActiveMap = 'MAP1';
 let leaderboardMe = null;
+const isNightWatchMode = Boolean(window.NightWatchBridge);
+const LOCAL_LEADERBOARD_KEY = 'creatorExamNightWatchLeaderboard';
 
 function escapeHtml(value) {
     return String(value ?? '').replace(/[&<>'"]/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' })[char]);
@@ -11291,6 +11371,10 @@ function renderLeaderboardTabs() {
 }
 
 function renderLeaderboardAccount() {
+    if (isNightWatchMode) {
+        leaderboardAccount.textContent = '本地守夜档案，只保存在当前浏览器。';
+        return;
+    }
     if (leaderboardMe?.authenticated && leaderboardMe.user) {
         const user = leaderboardMe.user;
         leaderboardAccount.innerHTML = `已登录：<b>${escapeHtml(user.name || user.username)}</b><span>（${escapeHtml(user.username)}）</span><button type="button" class="leaderboard-logout" data-leaderboard-logout>退出登录</button>`;
@@ -11305,14 +11389,15 @@ function renderLeaderboardAccount() {
 
 function renderLeaderboardEntries(entries) {
     if (!entries.length) {
-        leaderboardList.innerHTML = '<li class="leaderboard-empty">这张地图还没有战绩。第一个完成并上传的人会出现在这里。</li>';
+        leaderboardList.innerHTML = `<li class="leaderboard-empty">${isNightWatchMode ? '这条防线还没有本地记录。完成一次守夜后会写入这里。' : '这张地图还没有战绩。第一个完成并上传的人会出现在这里。'}</li>`;
         return;
     }
     leaderboardList.innerHTML = entries.map((entry, index) => {
         const rankClass = entry.rank <= 3 ? ' top-three' : '';
         const bonus = Math.round(Number(entry.skillMultiplier || 1) * 100 - 100);
         const replayOutdated = Number(entry.replayVersion || 1) !== 3;
-        return `<li class="leaderboard-entry"><span class="leaderboard-rank${rankClass}">#${entry.rank}</span><span class="leaderboard-player"><b>${escapeHtml(entry.name || entry.username)}</b><span>@${escapeHtml(entry.username)}</span>${replayOutdated ? '<span class="leaderboard-replay-stale">回放版本过时</span>' : ''}</span><span class="leaderboard-loadout" data-leaderboard-loadout="${index}" aria-label="本局携带的防御塔"></span><span class="leaderboard-score">${Number(entry.score || 0).toLocaleString()}<small>速度 ${Number(entry.speedScore || 0).toLocaleString()} · 基地 ${Number(entry.baseScore || 0).toLocaleString()} · 高手 +${bonus}%</small></span><button type="button" class="watch-replay-btn" data-watch-replay="${escapeHtml(entry.replayId)}">观看代理</button></li>`;
+        const replayButton = entry.replayId ? `<button type="button" class="watch-replay-btn" data-watch-replay="${escapeHtml(entry.replayId)}">观看代理</button>` : '';
+        return `<li class="leaderboard-entry"><span class="leaderboard-rank${rankClass}">#${entry.rank}</span><span class="leaderboard-player"><b>${escapeHtml(entry.name || entry.username)}</b><span>@${escapeHtml(entry.username)}</span>${replayOutdated && entry.replayId ? '<span class="leaderboard-replay-stale">回放版本过时</span>' : ''}</span><span class="leaderboard-loadout" data-leaderboard-loadout="${index}" aria-label="本局携带的防御塔"></span><span class="leaderboard-score">${Number(entry.score || 0).toLocaleString()}<small>速度 ${Number(entry.speedScore || 0).toLocaleString()} · 基地 ${Number(entry.baseScore || 0).toLocaleString()} · 高手 +${bonus}%</small></span>${replayButton}</li>`;
     }).join('');
     entries.forEach((entry, index) => renderLeaderboardLoadout(leaderboardList.querySelector(`[data-leaderboard-loadout="${index}"]`), entry.towerPool));
 }
@@ -11344,8 +11429,20 @@ async function loadLeaderboard(mapId = leaderboardActiveMap, notice = '') {
     if (!MAP_DATA[mapId]) mapId = 'MAP1';
     leaderboardActiveMap = mapId;
     renderLeaderboardTabs();
-    leaderboardStatus.textContent = '正在加载排行榜…';
+    leaderboardStatus.textContent = isNightWatchMode ? '正在读取本地守夜档案…' : '正在加载排行榜…';
     leaderboardList.replaceChildren();
+    if (isNightWatchMode) {
+        const entries = readLocalLeaderboard()
+            .filter(entry => entry.mapId === leaderboardActiveMap)
+            .sort((a, b) => Number(b.score || 0) - Number(a.score || 0))
+            .slice(0, 50)
+            .map((entry, index) => ({ ...entry, rank: index + 1 }));
+        leaderboardMe = null;
+        renderLeaderboardAccount();
+        renderLeaderboardEntries(entries);
+        leaderboardStatus.textContent = notice || `${MAP_DATA[leaderboardActiveMap].name} · 本地 ${entries.length} 条记录`;
+        return;
+    }
     try {
         const [me, board] = await Promise.all([
             fetchJson('/td/api/me'),
@@ -11360,6 +11457,21 @@ async function loadLeaderboard(mapId = leaderboardActiveMap, notice = '') {
         leaderboardStatus.textContent = `加载失败：${error.message}`;
         leaderboardList.innerHTML = '<li class="leaderboard-empty">请稍后重试。</li>';
     }
+}
+
+function readLocalLeaderboard() {
+    try {
+        const parsed = JSON.parse(localStorage.getItem(LOCAL_LEADERBOARD_KEY) || '[]');
+        return Array.isArray(parsed) ? parsed : [];
+    } catch (error) {
+        return [];
+    }
+}
+
+function writeLocalLeaderboard(entries) {
+    try {
+        localStorage.setItem(LOCAL_LEADERBOARD_KEY, JSON.stringify(entries.slice(0, 120)));
+    } catch (error) {}
 }
 
 async function openLeaderboard(mapId = leaderboardActiveMap, notice = '') {
@@ -11384,8 +11496,27 @@ async function watchReplay(replayId) {
 }
 
 async function uploadCurrentScore() {
-    if (!lastVictoryResult || !replayRecorder || isReplayMode || isTestMode) return;
+    if (!lastVictoryResult || isReplayMode || isTestMode) return;
+    if (!isNightWatchMode && !replayRecorder) return;
     const uploadButton = document.getElementById('upload-score-btn');
+    if (isNightWatchMode) {
+        const current = readLocalLeaderboard();
+        const entry = {
+            mapId: selectedMap,
+            name: window.NightWatchBridge?.context?.regionTitle || MAP_DATA[selectedMap]?.name || '长夜守城',
+            username: new Date().toLocaleString('zh-CN', { hour12: false }),
+            score: lastVictoryResult.totalScore,
+            speedScore: lastVictoryResult.speedScore,
+            baseScore: lastVictoryResult.baseScore,
+            skillMultiplier: 1 + lastVictoryResult.expertBonus,
+            towerPool: [...selectedTowerPool],
+            completedAt: new Date().toISOString()
+        };
+        writeLocalLeaderboard([entry, ...current].sort((a, b) => Number(b.score || 0) - Number(a.score || 0)));
+        modal.style.display = 'none';
+        await openLeaderboard(selectedMap, '已写入本地守夜档案。');
+        return;
+    }
     uploadButton.disabled = true;
     uploadButton.textContent = '正在检查登录…';
     try {
@@ -11483,7 +11614,7 @@ window.onload = () => {
     const query = new URLSearchParams(window.location.search);
     if (query.get('leaderboard') === '1') {
         closeAnnouncement();
-        openLeaderboard('MAP1', query.get('auth') === 'success' ? 'LinuxDo 登录成功，可以上传战绩。' : '');
+        openLeaderboard('MAP1', query.get('auth') === 'success' && !isNightWatchMode ? 'LinuxDo 登录成功，可以上传战绩。' : '');
         history.replaceState({}, '', window.location.pathname);
     }
 };
@@ -11545,18 +11676,18 @@ function wikiEnemyBaseHp(wave) {
 }
 
 const WIKI_ENEMIES = [
-    { type: 'normal', name: '普通敌人', hpMult: 1, speed: 1.0, size: 10, color: '#bdbdbd', appearance: '第1—30波的基础单位', desc: '标准敌人，无额外抗性或特殊能力。', traits: ['基础生命值：按波次成长公式计算', '基础移动速度：×1.0', '击杀奖励：5 + 波次奖励'] },
-    { type: 'fast', name: '快速敌人', hpMult: 0.8, speed: 2.5, size: 8, color: '#fff176', appearance: '第11波起出现', desc: '低生命值、高机动单位，优先考验火力覆盖与减速控制。', traits: ['本体生命值：普通敌人的80%', '基础移动速度：×2.5', '不具备额外控制抗性'] },
-    { type: 'strong', name: '强壮敌人', hpMult: 2.2, speed: 0.7, size: 20, color: '#ef5350', appearance: '第21波起出现', desc: '高生命值、低移动速度的重装单位。', traits: ['本体生命值：普通敌人的2.2倍', '基础移动速度：×0.7', '不具备额外控制抗性'] },
-    { type: 'shield', name: '护盾敌人', hpMult: 1.7, speed: 0.85, size: 15, color: '#42a5f5', appearance: '第1波起出现；数量随波次提高', desc: '携带可独立承伤的护盾；护盾未被击破前不接受任何减益。', traits: ['本体生命值：普通敌人的1.7倍', '护盾生命值：基础生命值的50%', '护盾存在时免疫减速、眩晕、冰封、燃烧、破防与干扰迷乱', '护盾击破后恢复正常受控'] },
-    { type: 'summoner', name: '召唤者', hpMult: 3, speed: 0.5, size: 18, color: '#9c27b0', appearance: '第10、15、20、25波各出现1名，固定在队列末尾', desc: '低速高生命值单位；存活时间越长，产生的增援越多。', traits: ['本体生命值：普通敌人的3倍', '基础移动速度：×0.5', '每50秒在当前位置召唤2名普通敌人和1名护盾敌人', '增援继承当前波次的生命值与奖励数值'] },
-    { type: 'boss', name: '首领', hpMult: 75, speed: 1.0, size: 25, color: '#ce93d8', appearance: '仅第30波单独出现', desc: '最终波首领，具备阶段性全场压制能力与控制抗性。', traits: ['本体生命值：普通敌人的75倍', '基础移动速度：×1.0', '减速与眩晕持续时间减半', '冰封阈值为40层，冻结持续2秒', '生命降至75% / 50% / 25%时释放全屏震荡波，使防御塔眩晕3.3秒；部署中的毁灭者免疫'] },
-    { type: 'dummy', name: '测试假人', hpMult: null, speed: 0, size: 50, color: '#9e9e9e', appearance: '仅测试场出现', desc: '用于DPS测量的静止目标。', traits: ['固定生命值：100,000', '基础移动速度：0', '击杀后在测试场中重置生命值'] }
+    { type: 'normal', name: '裂隙游影', hpMult: 1, speed: 1.0, size: 10, color: '#bdbdbd', appearance: '第1—30波的基础来袭者', desc: '从裂隙边缘渗出的基础形态，会沿撤离路线稳定推进。', traits: ['基础生命值：按波次成长公式计算', '基础移动速度：×1.0', '击退后掉落可回收材料：5 + 波次奖励'] },
+    { type: 'fast', name: '疾行回声', hpMult: 0.8, speed: 2.5, size: 8, color: '#fff176', appearance: '第11波起出现', desc: '由白天行动轨迹折出的高速残影，生命值较低，但会抢先压迫防线缺口。', traits: ['本体生命值：裂隙游影的80%', '基础移动速度：×2.5', '不具备额外控制抗性'] },
+    { type: 'strong', name: '重壳裂兽', hpMult: 2.2, speed: 0.7, size: 20, color: '#ef5350', appearance: '第21波起出现', desc: '吞下碎墙和废料后形成的重装个体，缓慢但能拖住大量火力。', traits: ['本体生命值：裂隙游影的2.2倍', '基础移动速度：×0.7', '不具备额外控制抗性'] },
+    { type: 'shield', name: '覆膜裂体', hpMult: 1.7, speed: 0.85, size: 15, color: '#42a5f5', appearance: '第1波起出现；数量随波次提高', desc: '表层裹着裂隙护膜，护膜未破前会隔绝大多数控制和持续效果。', traits: ['本体生命值：裂隙游影的1.7倍', '护膜生命值：基础生命值的50%', '护膜存在时免疫减速、眩晕、冰封、燃烧、破防与干扰迷乱', '护膜击破后恢复正常受控'] },
+    { type: 'summoner', name: '唤潮者', hpMult: 3, speed: 0.5, size: 18, color: '#9c27b0', appearance: '第10、15、20、25波各出现1名，固定在队列末尾', desc: '像移动裂口一样缓慢前进，存活越久，拖出的增援越多。', traits: ['本体生命值：裂隙游影的3倍', '基础移动速度：×0.5', '每50秒在当前位置召来2名裂隙游影和1名覆膜裂体', '增援继承当前波次的生命值与奖励数值'] },
+    { type: 'boss', name: '裂隙主核', hpMult: 75, speed: 1.0, size: 25, color: '#ce93d8', appearance: '仅第30波单独出现', desc: '整场长夜的核心反扑，会以阶段性震荡压制防线，并对控制效果具有抗性。', traits: ['本体生命值：裂隙游影的75倍', '基础移动速度：×1.0', '减速与眩晕持续时间减半', '冰封阈值为40层，冻结持续2秒', '生命降至75% / 50% / 25%时释放全屏震荡波，使防御塔眩晕3.3秒；部署中的毁灭者免疫'] },
+    { type: 'dummy', name: '训练残影', hpMult: null, speed: 0, size: 50, color: '#9e9e9e', appearance: '仅测试场出现', desc: '由沙盘生成的静止残影，用于测量防线输出。', traits: ['固定生命值：100,000', '基础移动速度：0', '击杀后在测试场中重置生命值'] }
 ];
 
 function buildWikiTowers() {
-    let html = '<div class="wiki-section-title">防御塔图鉴</div>';
-    html += '<p class="wiki-note">射程单位为格（1格=40像素）；攻击间隔/装填等时间单位为秒。价格为首级建造或升级花费。EX级通常需满足特殊条件方可升级。</p>';
+    let html = '<div class="wiki-section-title">守夜器械</div>';
+    html += '<p class="wiki-note">射程单位为格（1格=40像素）；攻击间隔/装填等时间单位为秒。价格表示搭建或升级所需材料。EX级通常需满足特殊条件方可升级。</p>';
     html += '<div class="wiki-grid">';
     for (const key in TOWER_DATA) {
         const t = TOWER_DATA[key];
@@ -11591,7 +11722,7 @@ function buildWikiTowers() {
             html += `<p class="wiki-skill">主动技能「过载模式」（EX）：冷却60秒 → 攻击力+20%、连续发射50发导弹，每10发减少所有追击2秒装填时间。眩晕中的敌人仍会受迷乱反向移动。</p>`;
         }
         if (key === 'frostPunish') {
-            html += `<p class="wiki-skill">详细机制：发射冰霜弩箭对单体造成高额伤害并施加强力减速（减速与其它减速效果乘算叠加；目标处于燃烧状态时该减速减半）。<br>女神的惩戒：若命中前目标已存在≥40%的减速，或处于冻结状态，则本次伤害×2，并对目标周围2格范围造成该伤害60%的溅射，同时召来一道天雷。<br>冰寒刻印：每5次攻击为目标附加1层冰寒刻印，叠满15层时冻结敌人（普通4秒/首领2秒），层数与减速塔共享。<br>首领：对首领的减速效果减弱50%。</p>`;
+            html += `<p class="wiki-skill">详细机制：发射冰霜弩箭对单体造成高额伤害并施加强力减速（减速与其它减速效果乘算叠加；目标处于燃烧状态时该减速减半）。<br>寒誓惩戒：若命中前目标已存在≥40%的减速，或处于冻结状态，则本次伤害×2，并对目标周围2格范围造成该伤害60%的溅射，同时召来一道天雷。<br>冰寒刻印：每5次攻击为目标附加1层冰寒刻印，叠满15层时冻结敌人（普通4秒/裂隙主核2秒），层数与减速塔共享。<br>裂隙主核：对主核的减速效果减弱50%。</p>`;
         }
         html += `</div>`;
     }
@@ -11601,8 +11732,8 @@ function buildWikiTowers() {
 
 function buildWikiEnemies() {
     const waves = [1, 5, 10, 15, 20, 25, 30];
-    let html = '<div class="wiki-section-title">敌人图鉴</div>';
-    html += '<p class="wiki-note">速度为基础值（×地图倍率），1.0约等于每秒1格。血量为基础值（×敌人倍率×地图HP倍率）。首领于第30波登场。</p>';
+    let html = '<div class="wiki-section-title">裂隙来袭者</div>';
+    html += '<p class="wiki-note">速度为基础值（×防线倍率），1.0约等于每秒1格。血量为基础值（×来袭者倍率×防线HP倍率）。裂隙主核于第30波登场。</p>';
     html += '<div class="wiki-grid">';
     for (const e of WIKI_ENEMIES) {
         html += `<div class="wiki-card wiki-enemy-card" style="--card-accent:${e.color}">`;
@@ -11642,8 +11773,8 @@ function buildWikiEnemies() {
     html += `<div><span class="wiki-stat-key">护盾数量</span>≤10波:1 ≤15波:2 ≤20波:3 ≤30波:4</div>`;
     html += `<div><span class="wiki-stat-key">快速数量</span>≥11波: min(5, ⌊总数×0.25⌋)</div>`;
     html += `<div><span class="wiki-stat-key">强壮数量</span>≥21波: min(5, ⌊总数×0.25⌋)</div>`;
-    html += `<div><span class="wiki-stat-key">召唤者</span>第10/15/20/25波各1只（固定在队伍最尾部）</div>`;
-    html += `<div><span class="wiki-stat-key">首领</span>第30波（最终波）单独出现1只</div>`;
+    html += `<div><span class="wiki-stat-key">唤潮者</span>第10/15/20/25波各1只（固定在队伍最尾部）</div>`;
+    html += `<div><span class="wiki-stat-key">裂隙主核</span>第30波（最终波）单独出现1只</div>`;
     html += `<div><span class="wiki-stat-key">出生间隔</span>每0.5秒1只</div>`;
     html += `</div></div>`;
     // 控制抗性
@@ -11651,9 +11782,9 @@ function buildWikiEnemies() {
     html += '<div class="wiki-card" style="--card-accent:#ce93d8"><div class="wiki-stat-list">';
     html += `<div><span class="wiki-stat-key">眩晕</span>停止移动；若同时处于迷乱，仍会反向移动</div>`;
     html += `<div><span class="wiki-stat-key">迷乱(追击)</span>叠加80层干扰触发，沿路径反向移动3秒，每次触发+10%抗性</div>`;
-    html += `<div><span class="wiki-stat-key">冰封(减速塔EX)</span>普通15层冻结4秒/首领40层冻结2秒</div>`;
+    html += `<div><span class="wiki-stat-key">冰封(减速塔EX)</span>普通15层冻结4秒/裂隙主核40层冻结2秒</div>`;
     html += `<div><span class="wiki-stat-key">护盾免疫</span>护盾存在时免疫所有debuff</div>`;
-    html += `<div><span class="wiki-stat-key">首领抗性</span>减速/眩晕减半，冰封阈值更高</div>`;
+    html += `<div><span class="wiki-stat-key">主核抗性</span>减速/眩晕减半，冰封阈值更高</div>`;
     html += `</div></div>`;
     return html;
 }

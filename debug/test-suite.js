@@ -4181,11 +4181,15 @@ runner.test('Night Watch integration - should keep AI bridge and result update w
   const tower = readFileSync(new URL('../public/modes/tower-defense/index.html', import.meta.url), 'utf8');
   const game = readFileSync(new URL('../public/js/game.js', import.meta.url), 'utf8');
 
-  for (const token of ['requestNightWatchText', 'night_watch_wave', 'night_watch_settlement', 'latestWaveText', 'aiSettlement']) {
+  for (const token of ['requestNightWatchText', 'night_watch_wave', 'night_watch_settlement', 'night_watch_enemy_whisper', 'latestWaveText', 'aiSettlement']) {
     runner.assert(bridge.includes(token), `towerBridge.js should include ${token}`);
   }
   runner.assert(tower.includes('window.NightWatchBridge?.announceWave?.(wave'), 'tower mode should announce waves through the bridge');
   runner.assert(tower.includes('window.NightWatchBridge?.complete?.(isVictory'), 'tower mode should publish settlement through the bridge');
+  runner.assert(tower.includes('startRandomNightWatchMap()'), 'tower mode should skip manual map selection in Night Watch mode');
+  runner.assert(tower.includes('NightWatchDialogueEffect'), 'tower mode should render battlefield dialogue bubbles');
+  runner.assert(tower.includes('LOCAL_LEADERBOARD_KEY'), 'tower mode should keep Night Watch records local');
+  runner.assert(bridge.includes("document.getElementById('open-announcement-btn')?.remove()"), 'Night Watch bridge should remove update announcement chrome');
   runner.assert(tower.includes('for (const t of towers || [])'), 'resizeCanvas should tolerate pre-game resize');
   runner.assert(game.includes('processedNightWatchResults.has(result.id)'), 'game.js should dedupe Night Watch results');
   runner.assert(game.includes('event.payload = { ...event.payload, ...result }'), 'game.js should merge AI settlement updates into the world event payload');

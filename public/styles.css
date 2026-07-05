@@ -1112,15 +1112,28 @@ button.small {
 
 .test-jump-panel {
   margin-top: 12px;
-  padding: 12px;
+  padding: 8px 10px;
   border: 1px solid var(--line);
-  border-radius: 12px;
-  background: rgba(255, 255, 255, 0.055);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.test-jump-panel summary {
+  cursor: pointer;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  list-style-position: inside;
+}
+
+.test-jump-panel[open] summary {
+  margin-bottom: 8px;
+  color: var(--text);
 }
 
 .test-jump-grid {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 6px;
 }
 

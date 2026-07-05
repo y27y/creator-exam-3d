@@ -1110,6 +1110,20 @@ button.small {
   flex: 1;
 }
 
+.test-jump-panel {
+  margin-top: 12px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.055);
+}
+
+.test-jump-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 6px;
+}
+
 .wide {
   width: 100%;
   margin-top: 10px;

@@ -4191,6 +4191,22 @@ runner.test('Night Watch integration - should keep AI bridge and result update w
   runner.assert(game.includes('event.payload = { ...event.payload, ...result }'), 'game.js should merge AI settlement updates into the world event payload');
 });
 
+runner.test('Test jump UI - should expose all levels and mode buttons only', async () => {
+  const { readFileSync } = await import('node:fs');
+  const html = readFileSync(new URL('../public/index.html', import.meta.url), 'utf8');
+  const game = readFileSync(new URL('../public/js/game.js', import.meta.url), 'utf8');
+
+  for (let i = 0; i < LEVELS.length; i += 1) {
+    runner.assert(html.includes(`data-test-level="${i}"`), `test UI should include level ${i + 1}`);
+  }
+  runner.assert(html.includes('id="test-night-watch-btn"'), 'test UI should include tower-defense button');
+  runner.assert(html.includes('id="test-air-combat-btn"'), 'test UI should include air-combat button');
+  runner.assert(!html.includes('docs/superpowers/specs/2026-07-05-air-combat-integration-concept.md'), 'test UI should not expose internal doc paths');
+  runner.assert(game.includes('jumpToTestLevel(index)'), 'game.js should include test level jump handler');
+  runner.assert(game.includes('openNightWatchTestMode()'), 'game.js should include local tower-defense test handler');
+  runner.assert(game.includes('openAirCombatMode()'), 'game.js should include air-combat test handler');
+});
+
 runner.run().then(success => {
   process.exit(success ? 0 : 1);
 }).catch(error => {

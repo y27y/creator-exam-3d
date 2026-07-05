@@ -447,7 +447,7 @@ class CreatorExam3D extends GameEngine {
     document.querySelectorAll('[data-test-level]').forEach(btn => {
       btn.addEventListener('click', () => this.jumpToTestLevel(Number(btn.dataset.testLevel)));
     });
-    document.getElementById('test-night-watch-btn')?.addEventListener('click', () => this.openNightWatch());
+    document.getElementById('test-night-watch-btn')?.addEventListener('click', () => this.openNightWatchTestMode());
     document.getElementById('test-air-combat-btn')?.addEventListener('click', () => this.openAirCombatMode());
     this.ui.performRitualBtn?.addEventListener('click', () => this.handlePerformRitual());
 
@@ -1032,6 +1032,21 @@ class CreatorExam3D extends GameEngine {
     this.addLog(`【长夜守城】已开启 ${context.regionTitle} 的守夜防线。`, true);
     this.showToast(tab ? '长夜守城已打开。' : '浏览器拦截了新窗口，正在当前页打开。');
     if (!tab) window.location.href = url.toString();
+  }
+
+  openNightWatchTestMode() {
+    const context = this.buildNightWatchContext();
+    try {
+      localStorage.setItem('creatorExamNightWatchContext', JSON.stringify(context));
+    } catch (_error) {
+      this.showToast('无法写入守夜上下文。');
+      return;
+    }
+
+    const url = new URL('./modes/tower-defense/index.html', window.location.href);
+    url.searchParams.set('from', 'creator-exam');
+    url.searchParams.set('testEntry', '1');
+    window.location.href = url.toString();
   }
 
   consumeNightWatchResult() {

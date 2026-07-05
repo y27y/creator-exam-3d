@@ -193,6 +193,7 @@ function assertAirCombatIntegration() {
   assert.ok(bridgeSource.includes('function loreSignal()'), 'air bridge must turn discovered lore into route narrative');
   assert.ok(bridgeSource.includes('endingPressure: endingPressure()'), 'AI world state must include ending pressure');
   assert.ok(bridgeSource.includes('discoveredLore: discoveredLore()'), 'AI world state must include discovered lore');
+  assert.ok(bridgeSource.includes('creationDescription') && bridgeSource.includes('weaponSourceDescription') && bridgeSource.includes('造物原意'), 'air bridge must preserve original creation descriptions for AI and loadout text');
   assert.ok(bridgeSource.includes('pressure >= 0.82') && bridgeSource.includes("keys.push('armored')"), 'high final pressure must harden finite boss affixes');
   assert.ok(bridgeSource.includes('lore && index === BOSS_ROUTE.length - 1'), 'final boss memory must inherit discovered lore');
   assert.ok(bridgeSource.includes('最终压力') && bridgeSource.includes('传说：'), 'briefing/loadout must surface final pressure and lore signal');
@@ -370,6 +371,15 @@ function assertAirCombatRouteBalance() {
     assert.ok(['prism', 'ionStorm', 'ring', 'escort', 'repair', undefined].includes(boss.affix.attack), `unknown finite affix attack ${boss.affix.attack}`);
     assert.ok(boss.hp >= 300 && boss.hp <= 1100, `boss ${boss.title} hp is outside finite route bounds`);
   }
+
+  const describedCreationRoute = loadAirBridgeForContext({
+    entropy: 3,
+    endingPressure: 0.4,
+    rescuedResidents: [],
+    lostResidents: [],
+    recentCreations: [{ name: '会把洪水唱成星图的透明鲸鱼', ability: 'absorb_water', description: '玩家原句：它把水声筛成可以导航的星点', tags: ['水', '记忆'] }]
+  });
+  assert.equal(describedCreationRoute.weaponLoadout().sourceDescription, '玩家原句：它把水声筛成可以导航的星点', 'air weapon loadout should keep original creation description for AI');
 
   const repairOpening = loadAirBridgeForContext({
     entropy: 1,

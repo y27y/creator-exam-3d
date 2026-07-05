@@ -422,6 +422,24 @@
     return item && typeof item === 'object' ? item.ability || item.card?.ability || '' : '';
   }
 
+  function creationDescription(item) {
+    return item && typeof item === 'object' ? item.description || item.card?.description || '' : '';
+  }
+
+  function creationTags(item) {
+    const tags = item && typeof item === 'object' ? item.tags || item.card?.tags || [] : [];
+    return Array.isArray(tags) ? tags.filter(Boolean).slice(0, 5) : [];
+  }
+
+  function creationSummary(item) {
+    return {
+      name: creationName(item),
+      ability: creationAbility(item),
+      description: creationDescription(item),
+      tags: creationTags(item)
+    };
+  }
+
   function endingPressure() {
     const value = Number(context.endingPressure);
     return Number.isFinite(value) ? Math.max(0, Math.min(1, value)) : Math.max(0, Math.min(1, Number(context.entropy || 0) / 9));
@@ -484,6 +502,8 @@
     return {
       ...weapon,
       sourceCreation: creationName(creation || '白天留下的造物'),
+      sourceDescription: creationDescription(creation),
+      sourceTags: creationTags(creation),
       ability: ability || 'unknown'
     };
   }
@@ -702,7 +722,7 @@
       lost: lostCount(),
       rescuedResidents: residentNames(context.rescuedResidents).slice(0, 5),
       lostResidents: residentNames(context.lostResidents).slice(0, 5),
-      recentCreations: creations().map(creationName).filter(Boolean).slice(-5),
+      recentCreations: creations().map(creationSummary).filter(item => item.name).slice(-5),
       discoveredLore: discoveredLore(),
       towerDefenseResult: context.towerDefenseResult || null,
       playerStyle: context.playerStyle || '未知',
@@ -737,6 +757,8 @@
             result: '第七天裂隙空域正在把地面考核记忆清算成 Boss 航线。',
             weapon: weapon.name,
             weaponSource: weapon.sourceCreation,
+            weaponSourceDescription: weapon.sourceDescription,
+            weaponSourceTags: weapon.sourceTags,
             ...extraContext
           },
           worldState: worldState(extraContext.worldState || {})
@@ -789,6 +811,7 @@
       loadout.innerHTML = `
         <div><strong>${escapeHtml(weapon.name)}</strong> 来自「${escapeHtml(weapon.sourceCreation)}」</div>
         <div>${escapeHtml(weapon.description)}</div>
+        ${weapon.sourceDescription ? `<div>造物原意：${escapeHtml(weapon.sourceDescription)}</div>` : ''}
         <div>共鸣：<strong>${escapeHtml(resonance.name)}</strong> · ${escapeHtml(resonance.effect)}</div>
         <div>通讯：<strong>${escapeHtml(communicator().name)}</strong> · ${escapeHtml(communicator().role)}</div>
         ${loreSignal() ? `<div>传说：${escapeHtml(loreSignal())}</div>` : ''}

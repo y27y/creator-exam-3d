@@ -151,6 +151,14 @@ function assertAirCombatIntegration() {
   assert.ok(bridgeSource.includes('airspace_brief'), 'air bridge must generate a context-driven airspace briefing');
   assert.ok(bridgeSource.includes('briefingSlides'), 'air bridge must expose a multi-step airspace briefing before combat');
   assert.ok(bridgeSource.includes('worldState'), 'air bridge must send main-flow world state to AI narrative');
+  assert.ok(bridgeSource.includes('function endingPressure()'), 'air bridge must read final-flow ending pressure');
+  assert.ok(bridgeSource.includes('function discoveredLore()'), 'air bridge must read discovered lore from prior flow');
+  assert.ok(bridgeSource.includes('function loreSignal()'), 'air bridge must turn discovered lore into route narrative');
+  assert.ok(bridgeSource.includes('endingPressure: endingPressure()'), 'AI world state must include ending pressure');
+  assert.ok(bridgeSource.includes('discoveredLore: discoveredLore()'), 'AI world state must include discovered lore');
+  assert.ok(bridgeSource.includes('pressure >= 0.82') && bridgeSource.includes("keys.push('armored')"), 'high final pressure must harden finite boss affixes');
+  assert.ok(bridgeSource.includes('lore && index === BOSS_ROUTE.length - 1'), 'final boss memory must inherit discovered lore');
+  assert.ok(bridgeSource.includes('最终压力') && bridgeSource.includes('传说：'), 'briefing/loadout must surface final pressure and lore signal');
   assert.ok(bridgeSource.includes('BOSS_AFFIXES'), 'air bridge must adapt upstream boss affixes into finite route modifiers');
   assert.ok(bridgeSource.includes('contextualAffixKeys'), 'air bridge must derive boss affixes from main-game context');
   assert.ok(bridgeSource.includes('routeResonance'), 'air bridge must derive creation route resonance from prior player flow');

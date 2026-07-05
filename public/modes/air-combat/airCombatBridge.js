@@ -319,6 +319,25 @@
     return item && typeof item === 'object' ? item.ability || item.card?.ability || '' : '';
   }
 
+  function endingPressure() {
+    const value = Number(context.endingPressure);
+    return Number.isFinite(value) ? Math.max(0, Math.min(1, value)) : Math.max(0, Math.min(1, Number(context.entropy || 0) / 9));
+  }
+
+  function loreName(item) {
+    if (typeof item === 'string') return item;
+    return item?.title || item?.name || item?.summary || item?.id || '';
+  }
+
+  function discoveredLore() {
+    return Array.isArray(context.discoveredLore) ? context.discoveredLore.map(loreName).filter(Boolean).slice(-3) : [];
+  }
+
+  function loreSignal() {
+    const lore = discoveredLore();
+    return lore.length ? `传说「${lore[lore.length - 1]}」正在成为航线锚点。` : '';
+  }
+
   function residentName(item) {
     if (typeof item === 'string') return item;
     return item?.name || item?.unitName || item?.residentName || item?.id || '';
@@ -393,6 +412,7 @@
 
   function contextualAffixKeys() {
     const entropy = Number(context.entropy || 0);
+    const pressure = endingPressure();
     const defense = context.towerDefenseResult || null;
     const abilityText = creations().map(creationAbility).join(' ');
     const lightRoute = /illuminate|force_field|memory_beacon|guide/.test(abilityText);
@@ -400,6 +420,7 @@
     if (entropy >= 8 || lightRoute) keys.push('ionStorm');
     if (entropy >= 7) keys.push('prism');
     else if (entropy >= 4) keys.push('rapid');
+    if (pressure >= 0.82) keys.push('armored');
     if (lostCount() > 0) keys.push('phantom');
     if (residentsCount() >= 4 || /block|force_field/.test(abilityText)) keys.push('escort');
     if (defense && defense.victory === false) keys.push('breach', 'jammer');
@@ -417,9 +438,11 @@
 
   function route() {
     const entropy = Number(context.entropy || 0);
-    const pressure = Math.max(0, Math.min(3, Math.floor(entropy / 3)));
+    const pressure = Math.max(0, Math.min(3, Math.max(Math.floor(entropy / 3), Math.floor(endingPressure() * 3))));
+    const lore = loreSignal();
     return BOSS_ROUTE.map((boss, index) => ({
       ...boss,
+      memory: lore && index === BOSS_ROUTE.length - 1 ? `${boss.memory}${lore}` : boss.memory,
       affix: affixForStage(index),
       hp: boss.hp + pressure * 55 + index * 20,
       stage: index + 1
@@ -430,7 +453,8 @@
     const names = creations().map(creationName).filter(Boolean).slice(0, 2).join('、') || '白天留下的造物';
     const rescued = residentsCount();
     const comm = communicator();
-    return `第六关和长夜之后，${names}被压缩为空域载体。${rescued}名居民的回声在通讯里等待第七天清算；${comm.line}`;
+    const lore = loreSignal();
+    return `第六关和长夜之后，${names}被压缩为空域载体。${rescued}名居民的回声在通讯里等待第七天清算；${comm.line}${lore ? ` ${lore}` : ''}`;
   }
 
   function briefingSlides() {
@@ -439,7 +463,7 @@
     return [
       { kicker: '第六关之后', title: '第七天抵达', text: fallbackBrief() },
       { kicker: '造物压缩', title: weapon.name, text: `「${weapon.sourceCreation}」被压缩为空域武器。${weapon.description}` },
-      { kicker: '清算航线', title: resonance.name, text: `6 段 Boss 航线已锁定：${route().map(boss => `${boss.affix.name}·${boss.title}`).join(' / ')}。` }
+      { kicker: '清算航线', title: resonance.name, text: `6 段 Boss 航线已锁定：${route().map(boss => `${boss.affix.name}·${boss.title}`).join(' / ')}。最终压力 ${Math.round(endingPressure() * 100)}%。${loreSignal()}` }
     ];
   }
 
@@ -471,11 +495,13 @@
       currentLevel: context.regionId || 'final-exam',
       currentLevelTitle: context.regionTitle || '第七天裂隙空域',
       entropy: Number(context.entropy || 0),
+      endingPressure: endingPressure(),
       rescued: residentsCount(),
       lost: lostCount(),
       rescuedResidents: residentNames(context.rescuedResidents).slice(0, 5),
       lostResidents: residentNames(context.lostResidents).slice(0, 5),
       recentCreations: creations().map(creationName).filter(Boolean).slice(-5),
+      discoveredLore: discoveredLore(),
       towerDefenseResult: context.towerDefenseResult || null,
       playerStyle: context.playerStyle || '未知',
       routeResonance: routeResonance().name,
@@ -563,6 +589,7 @@
         <div>${escapeHtml(weapon.description)}</div>
         <div>共鸣：<strong>${escapeHtml(resonance.name)}</strong> · ${escapeHtml(resonance.effect)}</div>
         <div>通讯：<strong>${escapeHtml(communicator().name)}</strong> · ${escapeHtml(communicator().role)}</div>
+        ${loreSignal() ? `<div>传说：${escapeHtml(loreSignal())}</div>` : ''}
         <div>航线：6 段 Boss 清算 · 熵值 ${Number(context.entropy || 0)} · 词缀 ${escapeHtml(contextualAffixKeys().map(key => BOSS_AFFIXES[key].name).join(' / '))}</div>
       `;
     }
@@ -616,6 +643,8 @@
     weaponLoadout,
     routeResonance,
     communicator,
+    discoveredLore,
+    loreSignal,
     contextualAffixKeys,
     briefingSlides,
     lineFor,

@@ -170,6 +170,7 @@ function assertAirCombatIntegration() {
   assert.ok(bridgeSource.includes('jammerCloud') && bridgeSource.includes('扰频云层'), 'air bridge must adapt upstream jammer cloud as finite enemy-pressure affix');
   assert.ok(bridgeSource.includes('fieldRepair') && bridgeSource.includes('纳米修复'), 'air bridge must adapt upstream field repair as a prior-flow reward');
   assert.ok(bridgeSource.includes('damageTakenMult') && bridgeSource.includes('钛合装甲'), 'air bridge must adapt upstream armor plating as finite shield resonance');
+  assert.ok(bridgeSource.includes('钨芯重弹') && bridgeSource.includes('fireIntervalMult: 1.12'), 'air bridge must adapt upstream heavy rounds as finite cannon resonance');
   assert.ok(bridgeSource.includes('splitPairs') && bridgeSource.includes('分束棱镜'), 'air bridge must adapt upstream split laser as beam resonance');
   assert.ok(bridgeSource.includes('sidePairs') && bridgeSource.includes('侧翼炮塔'), 'air bridge must adapt upstream side cannons as cannon resonance');
 

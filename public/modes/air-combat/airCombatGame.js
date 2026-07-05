@@ -578,7 +578,7 @@
       const damage = (this.weapon.kind === 'cannon' ? 4 : 2) + (this.resonance.damageBonus || 0);
       const speed = this.weapon.kind === 'cannon' ? -760 : -900;
       const spread = this.weapon.kind === 'beam' ? [-5, 0, 5] : this.weapon.kind === 'cannon' ? [0] : [-11, 11];
-      for (const ox of spread) this.playerBullets.push({ x: p.x + ox, y: p.y - 18, vx: ox * 1.5, vy: speed, r: this.weapon.kind === 'cannon' ? 6 : 4, damage, color, dead: false });
+      for (const ox of spread) this.playerBullets.push({ x: p.x + ox, y: p.y - 18, vx: ox * 1.5, vy: speed, r: this.weapon.kind === 'cannon' ? 6 : 4, damage, color, main: true, dead: false });
       for (let i = 1; i <= Math.min(this.resonance.sidePairs || 0, 2); i += 1) {
         const offset = 20 * i;
         const sideDamage = Math.max(1, Math.round(damage * 0.55));
@@ -739,20 +739,25 @@
       return factor;
     },
 
+    playerBulletDamage(bullet, target) {
+      const minHp = this.resonance.armorPierceMinHp || 12;
+      return bullet.main && target?.maxHp >= minHp ? bullet.damage * (1 + (this.resonance.armorPierceMult || 0)) : bullet.damage;
+    },
+
     resolveCollisions() {
       for (const b of this.playerBullets) {
         if (b.dead) continue;
         for (const e of this.enemies) {
           if (!e.dead && hit(b, e)) {
             b.dead = true;
-            if (e.damage(b.damage)) this.killEnemy(e);
+            if (e.damage(this.playerBulletDamage(b, e))) this.killEnemy(e);
             else this.burst(b.x, b.y, '#eef3ec', 3);
             break;
           }
         }
         if (!b.dead && this.boss && hit(b, this.boss)) {
           b.dead = true;
-          if (this.boss.damage(b.damage)) this.defeatBoss();
+          if (this.boss.damage(this.playerBulletDamage(b, this.boss))) this.defeatBoss();
           else this.burst(b.x, b.y, '#eef3ec', 3);
         }
       }

@@ -256,11 +256,13 @@
     cannon: {
       key: 'cannon',
       name: '秩序共鸣',
-      effect: '钨芯重弹伤害提高、射速略慢，并展开一对侧翼炮塔斜向清场。',
+      effect: '钨芯重弹伤害提高、射速略慢，破甲弹芯对高生命目标增伤，并展开一对侧翼炮塔斜向清场。',
       color: '#f87171',
       damageBonus: 2,
       fireIntervalMult: 1.12,
       scoreMult: 1.06,
+      armorPierceMult: 0.35,
+      armorPierceMinHp: 12,
       sidePairs: 1
     }
   };
@@ -395,6 +397,8 @@
       scoreMult: 1,
       damageTakenMult: 1,
       lastStandShield: 0,
+      armorPierceMult: 0,
+      armorPierceMinHp: 12,
       sourceCreation: weapon.sourceCreation,
       ...base,
       towerDefenseRelief: !!defense.victory

@@ -145,6 +145,15 @@
       scoreMult: 1.13,
       line: 'Boss 正在扩散扰频圈，贴得太近会拖慢造物武器。'
     },
+    jammerCloud: {
+      key: 'jammerCloud',
+      name: '扰频云层',
+      color: '#15aabf',
+      enemyBias: ['jammer'],
+      spawnBias: 0.42,
+      scoreMult: 1.08,
+      line: '扰频云层正在聚集干扰机，先切开云层再贴近 Boss。'
+    },
     support: {
       key: 'support',
       name: '修复',
@@ -374,6 +383,7 @@
     if (lostCount() > 0) keys.push('phantom');
     if (residentsCount() >= 4 || /block|force_field/.test(abilityText)) keys.push('escort');
     if (defense && defense.victory === false) keys.push('breach', 'jammer');
+    if (entropy >= 6 || /memory_beacon|dream_link|guide/.test(abilityText)) keys.push('jammerCloud');
     if (/illuminate|memory_beacon|dream_link|guide/.test(abilityText)) keys.push('support');
     if (!keys.length) keys.push('armored');
     if (keys.length === 1) keys.push(residentsCount() >= 3 ? 'support' : 'rapid');

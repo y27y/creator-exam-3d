@@ -176,6 +176,16 @@
       scoreMult: 1.12,
       line: '狙击封锁让预警线提前咬住航道，别在红线里犹豫。'
     },
+    minefield: {
+      key: 'minefield',
+      name: '爆雷空域',
+      color: '#fab005',
+      enemyBias: ['detonator'],
+      spawnBias: 0.44,
+      bulletRateMult: 1.08,
+      scoreMult: 1.16,
+      line: '爆雷空域把导弹残骸改成自毁敌机，击杀后也要立刻转向。'
+    },
     support: {
       key: 'support',
       name: '修复',
@@ -434,8 +444,12 @@
       armorCaliberDamage: 0,
       armorCaliberHpPerDamage: 15,
       armorCaliberMaxDamage: 4,
+      vitalReactorDamageMult: 0,
+      vitalReactorHpPerDamageMult: 20,
+      vitalReactorMaxDamageMult: 0.2,
       painConverterCooldownPerHp: 0,
       painConverterMaxCooldown: 0,
+      pointDefenseRange: 0,
       sourceCreation: weapon.sourceCreation,
       ...base,
       towerDefenseRelief: !!defense.victory
@@ -461,11 +475,22 @@
     if (resonance.armorCaliberDamage > 0) {
       resonance.effect = `${resonance.effect} 装甲口径把前置流程的额外机体强度校准为主炮 +${resonance.armorCaliberDamage}。`;
     }
+    resonance.vitalReactorDamageMult = Math.min(
+      resonance.vitalReactorMaxDamageMult,
+      Math.floor(flowHpBonus / resonance.vitalReactorHpPerDamageMult) * 0.04
+    );
+    if (resonance.vitalReactorDamageMult > 0) {
+      resonance.effect = `${resonance.effect} 生命炉心把额外机体强度转成全武器增伤 ${Math.round(resonance.vitalReactorDamageMult * 100)}%。`;
+    }
     const painPressure = lostCount() + Math.max(0, Math.floor((endingPressure() - 0.76) * 10));
     if (painPressure > 0) {
       resonance.painConverterCooldownPerHp = Math.min(0.16, 0.08 + painPressure * 0.02);
       resonance.painConverterMaxCooldown = Math.min(4.2, 2.6 + painPressure * 0.4);
       resonance.effect = `${resonance.effect} 痛觉转换会把承伤回写为造物脉冲冷却。`;
+    }
+    if (residentsCount() >= 2 || weapon.kind === 'spear') {
+      resonance.pointDefenseRange = Math.min(190, 126 + residentsCount() * 12 + (weapon.kind === 'spear' ? 24 : 0));
+      resonance.effect = `${resonance.effect} 近防协议会在击杀点清除附近敌弹。`;
     }
     return resonance;
   }
@@ -487,6 +512,7 @@
     if (residentsCount() >= 4 || /block|force_field/.test(abilityText)) keys.push('escort');
     if (defense && defense.victory === false) keys.push('breach', 'jammer');
     if (defense?.victory && pressure >= 0.75) keys.push('repair');
+    if (entropy >= 6 || pressure >= 0.7 || /absorb_water|block|force_field/.test(abilityText)) keys.push('minefield');
     if (entropy >= 6 || /memory_beacon|dream_link|guide/.test(abilityText)) keys.push('jammerCloud');
     if (/illuminate|memory_beacon|dream_link|guide/.test(abilityText)) keys.push('support');
     if (!keys.length) keys.push('armored');
@@ -671,6 +697,7 @@
       damageTaken: Math.max(0, Math.round(result.damageTaken || 0)),
       creationOverload: result.creationOverload || 0,
       painConverted: Math.max(0, Math.round((result.painConverted || 0) * 10) / 10),
+      pointDefenseCleared: Math.max(0, Math.round(result.pointDefenseCleared || 0)),
       jammedTime: Math.max(0, Math.round(result.jammedTime || 0)),
       rescuedEchoes: result.rescuedEchoes || 0,
       endingModifier: result.endingModifier || (result.outcome === 'victory' ? 'airspace_cleansed' : 'airspace_scarred'),

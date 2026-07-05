@@ -165,6 +165,7 @@
         medium: { hp: 7, r: 21, speed: 95, score: 180, color: '#d8c58a', fire: 1.7 },
         gunner: { hp: 11, r: 24, speed: 82, score: 260, color: '#8bd3ff', fire: 1.2 },
         splitter: { hp: 8, r: 22, speed: 100, score: 220, color: '#72d6bd', fire: 0 },
+        detonator: { hp: 6, r: 23, speed: 112, score: 450, color: '#fab005', fire: 0, ringCount: 14, ringSpeed: 210, ringDamage: 9 },
         phantom: { hp: 6, r: 18, speed: 150, score: 260, color: '#f0a6ca', fire: 1.0 },
         sniper: { hp: 7, r: 20, speed: 72, score: 340, color: '#e64980', fire: 1.8, warn: 0.55, bulletSpeed: 520, damage: 13, shots: 1 },
         jammer: { hp: 10, r: 24, speed: 76, score: 300, color: '#75d7e6', fire: 1.6, jamRadius: 210, weaponSlow: 1.28 },
@@ -188,6 +189,9 @@
       this.bulletSpeed = data.bulletSpeed || 240;
       this.bulletDamage = data.damage || 8;
       this.shots = data.shots || 1;
+      this.ringCount = data.ringCount || 0;
+      this.ringSpeed = data.ringSpeed || 0;
+      this.ringDamage = data.ringDamage || 0;
       this.fireMult = 1;
       this.sniperWarn = 0;
       this.sniperAim = 0;
@@ -203,6 +207,7 @@
       if (this.type === 'phantom') this.x = this.baseX + Math.sin(this.t * 4) * 70;
       else if (this.type === 'gunner') this.x = this.baseX + Math.sin(this.t * 2.2) * 44;
       else if (this.type === 'splitter') this.x = this.baseX + Math.sin(this.t * 3) * 30;
+      else if (this.type === 'detonator') this.x = this.baseX + Math.sin(this.t * 5.2) * 24;
       else if (this.type === 'jammer') this.x = this.baseX + Math.sin(this.t * 2.8) * 52;
       else if (this.type === 'support') this.x = this.baseX + Math.sin(this.t * 1.8) * 34;
       this.fire -= dt;
@@ -279,6 +284,12 @@
         ctx.lineTo(-this.r * 0.75, this.r * 0.8);
         ctx.lineTo(0, this.r * 0.25);
         ctx.lineTo(this.r * 0.75, this.r * 0.8);
+      } else if (this.type === 'detonator') {
+        ctx.arc(0, 0, this.r * 0.78, 0, Math.PI * 2);
+        ctx.moveTo(-this.r, 0);
+        ctx.lineTo(this.r, 0);
+        ctx.moveTo(0, -this.r);
+        ctx.lineTo(0, this.r);
       } else if (this.type === 'jammer') {
         ctx.moveTo(0, -this.r);
         ctx.lineTo(-this.r * 0.86, 0);
@@ -298,6 +309,15 @@
         ctx.fillStyle = '#eef3ec';
         ctx.fillRect(-3, -this.r * 0.45, 6, this.r * 0.9);
         ctx.fillRect(-this.r * 0.45, -3, this.r * 0.9, 6);
+      } else if (this.type === 'detonator') {
+        ctx.strokeStyle = '#0c1114';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(-this.r * 0.52, 0);
+        ctx.lineTo(this.r * 0.52, 0);
+        ctx.moveTo(0, -this.r * 0.52);
+        ctx.lineTo(0, this.r * 0.52);
+        ctx.stroke();
       } else {
         ctx.fillRect(-this.r * 0.5, -2, this.r, 4);
       }
@@ -468,6 +488,7 @@
     damageTaken: 0,
     creationOverload: 0,
     painConverted: 0,
+    pointDefenseCleared: 0,
     lastStandTriggered: false,
     jammedTime: 0,
     resultId: '',
@@ -502,6 +523,7 @@
       this.damageTaken = 0;
       this.creationOverload = 0;
       this.painConverted = 0;
+      this.pointDefenseCleared = 0;
       this.lastStandTriggered = false;
       this.jammedTime = 0;
       this.resultId = '';
@@ -563,7 +585,7 @@
       const stage = this.segmentIndex + 1;
       const pool = stage < 2 ? ['small', 'small', 'medium']
         : stage < 4 ? ['small', 'medium', 'gunner', 'splitter']
-          : ['medium', 'gunner', 'splitter', 'sniper', 'phantom', 'phantom'];
+          : ['medium', 'gunner', 'splitter', 'sniper', 'detonator', 'phantom', 'phantom'];
       const affix = this.currentAffix();
       const biased = affix?.enemyBias && Math.random() < (affix.spawnBias || 0) ? affix.enemyBias : pool;
       const enemy = new Enemy(pick(biased), stage);
@@ -738,10 +760,10 @@
       } else {
         for (const e of this.enemies) {
           if (!e.dead && Math.abs(e.x - p.x) < 120) {
-            if (e.damage(12 + (this.resonance.damageBonus || 0))) this.killEnemy(e);
+            if (e.damage(this.playerDamage(12 + (this.resonance.damageBonus || 0), e))) this.killEnemy(e);
           }
         }
-        if (this.boss && Math.abs(this.boss.x - p.x) < 130 && this.boss.damage(38 + (this.resonance.damageBonus || 0) * 4)) this.defeatBoss();
+        if (this.boss && Math.abs(this.boss.x - p.x) < 130 && this.boss.damage(this.playerDamage(38 + (this.resonance.damageBonus || 0) * 4, this.boss))) this.defeatBoss();
       }
       this.burst(p.x, p.y, this.weapon.color, 28);
     },
@@ -750,6 +772,8 @@
       enemy.dead = true;
       this.score += Math.round(enemy.score * (this.resonance.scoreMult || 1));
       this.burst(enemy.x, enemy.y, enemy.color, 14);
+      if (enemy.type === 'detonator') this.fireRing(enemy.x, enemy.y, enemy.ringCount || 14, enemy.ringSpeed || 210, enemy.ringDamage || 9);
+      this.pointDefenseCleared += this.triggerPointDefense(enemy);
       if (enemy.type === 'splitter') {
         for (let i = 0; i < 2; i += 1) {
           const child = new Enemy('small', this.segmentIndex + 1);
@@ -759,6 +783,28 @@
         }
       }
       if (Math.random() < 0.08) this.powerups.push({ x: enemy.x, y: enemy.y, r: 12, kind: pick(['heal', 'shield', 'power']), dead: false });
+    },
+
+    clearEnemyBulletsNear(x, y, range, color) {
+      if (!range || range <= 0) return 0;
+      let cleared = 0;
+      for (const bullet of this.enemyBullets) {
+        if (bullet.dead) continue;
+        const dx = bullet.x - x;
+        const dy = bullet.y - y;
+        if (dx * dx + dy * dy > range * range) continue;
+        bullet.dead = true;
+        cleared += 1;
+        if (cleared <= 5) this.burst(bullet.x, bullet.y, color, 3);
+      }
+      if (cleared > 0) this.burst(x, y, color, 10);
+      return cleared;
+    },
+
+    triggerPointDefense(enemy) {
+      const range = Number(this.resonance.pointDefenseRange) || 0;
+      if (!enemy || range <= 0) return 0;
+      return this.clearEnemyBulletsNear(enemy.x, enemy.y, range, '#74c0fc');
     },
 
     repairNearbyEnemies(source) {
@@ -800,7 +846,12 @@
     },
 
     playerBulletDamage(bullet, target) {
-      return this.armorPierces(bullet, target) ? bullet.damage * (1 + this.resonance.armorPierceMult) : bullet.damage;
+      const damage = this.armorPierces(bullet, target) ? bullet.damage * (1 + this.resonance.armorPierceMult) : bullet.damage;
+      return this.playerDamage(damage, target);
+    },
+
+    playerDamage(amount, _target = null) {
+      return amount * (1 + (Number(this.resonance.vitalReactorDamageMult) || 0));
     },
 
     resolveCollisions() {
@@ -901,6 +952,7 @@
       else if (this.clearedLayers >= 3) tags.push('中段清算有效');
       if (this.creationOverload >= 3) tags.push('频繁脉冲');
       if (this.painConverted >= 2) tags.push('痛觉转译');
+      if (this.pointDefenseCleared >= 4) tags.push('近防协议');
       if (this.lastStandTriggered) tags.push('黑匣子保险');
       if (this.route.some(boss => boss.affix?.attack === 'prism')) tags.push('棱镜航线');
       if (this.route.some(boss => boss.affix?.attack === 'ionStorm')) tags.push('离子风暴');
@@ -925,6 +977,7 @@
         damageTaken: this.damageTaken,
         creationOverload: this.creationOverload,
         painConverted: Math.round(this.painConverted * 10) / 10,
+        pointDefenseCleared: this.pointDefenseCleared,
         jammedTime: Math.round(this.jammedTime),
         rescuedEchoes: victory ? this.difficulty.allyWings + this.clearedLayers : this.clearedLayers,
         endingModifier: victory ? 'airspace_cleansed' : 'airspace_scarred',
@@ -985,7 +1038,7 @@
         const cd = active?.affix?.attack ? ` · ${Math.max(0, active.affixTimer || 0).toFixed(1)}s` : '';
         hudAffix.textContent = boss?.affix ? `${boss.affix.line}${cd}` : '';
       }
-      hudWeapon.textContent = `${this.weapon.name} · ${this.resonance.name}${this.armorCaliberStatus()}${this.painConverterStatus()}${this.lastStandStatus()}${this.fieldRepairStatus()}${this.jamStatus()}`;
+      hudWeapon.textContent = `${this.weapon.name} · ${this.resonance.name}${this.armorCaliberStatus()}${this.vitalReactorStatus()}${this.painConverterStatus()}${this.pointDefenseStatus()}${this.lastStandStatus()}${this.fieldRepairStatus()}${this.jamStatus()}`;
       hudScore.textContent = String(Math.round(this.score));
       skillBtn.disabled = !this.player || this.player.skillCd > 0 || this.state !== 'playing';
       skillBtn.textContent = this.player && this.player.skillCd > 0 ? `${Math.ceil(this.player.skillCd)}s` : '造物脉冲';
@@ -1008,8 +1061,17 @@
       return damage > 0 ? ` · 装甲口径+${damage}` : '';
     },
 
+    vitalReactorStatus() {
+      const mult = Number(this.resonance.vitalReactorDamageMult) || 0;
+      return mult > 0 ? ` · 生命炉心+${Math.round(mult * 100)}%` : '';
+    },
+
     painConverterStatus() {
       return (this.resonance.painConverterCooldownPerHp || 0) > 0 ? ' · 痛觉转换' : '';
+    },
+
+    pointDefenseStatus() {
+      return (this.resonance.pointDefenseRange || 0) > 0 ? ' · 近防协议' : '';
     },
 
     jamStatus() {

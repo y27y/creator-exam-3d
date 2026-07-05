@@ -201,12 +201,13 @@
     beam: {
       key: 'beam',
       name: '光路共鸣',
-      effect: '主炮穿线更稳，造物脉冲冷却缩短。',
+      effect: '主炮穿线更稳，分束棱镜展开一对低伤害副束。',
       color: '#d8c58a',
       damageBonus: 1,
       fireIntervalMult: 0.9,
       skillCooldownMult: 0.86,
-      scoreMult: 1.04
+      scoreMult: 1.04,
+      splitPairs: 1
     },
     shield: {
       key: 'shield',
@@ -403,7 +404,10 @@
       playerHp: Math.max(70, 110 + residentsCount() * 4 - lostCount() * 6 + (defense.victory ? 12 : -8) + (resonance.hpBonus || 0)),
       allyWings: Math.min(4, Math.floor(residentsCount() / 2) + (resonance.allyWingsBonus || 0)),
       startingShield: Math.max(0, resonance.startingShield || 0),
-      lastStandShield: Math.max(0, resonance.lastStandShield || 0)
+      lastStandShield: Math.max(0, resonance.lastStandShield || 0),
+      fieldRepair: defense.victory && residentsCount() >= 4
+        ? { name: '纳米修复', healPct: 0.02, delay: 4, tick: 1 }
+        : null
     };
   }
 

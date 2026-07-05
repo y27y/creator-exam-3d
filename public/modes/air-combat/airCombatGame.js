@@ -78,6 +78,7 @@
     }
 
     takeDamage(amount) {
+      game.noHitT = 0;
       let rest = amount;
       if (this.shield > 0) {
         const blocked = Math.min(this.shield, rest);
@@ -417,6 +418,8 @@
     damageTaken: 0,
     creationOverload: 0,
     lastStandTriggered: false,
+    noHitT: 0,
+    fieldRepairT: 0,
     score: 0,
     time: 0,
     stars: Array.from({ length: 90 }, () => ({ x: Math.random() * W, y: Math.random() * H, s: 60 + Math.random() * 150, r: Math.random() < 0.8 ? 1 : 2 })),
@@ -446,6 +449,8 @@
       this.damageTaken = 0;
       this.creationOverload = 0;
       this.lastStandTriggered = false;
+      this.noHitT = 0;
+      this.fieldRepairT = 0;
       this.score = 0;
       menu.classList.add('hidden');
       resultPanel.classList.add('hidden');
@@ -503,6 +508,15 @@
       const speed = this.weapon.kind === 'cannon' ? -760 : -900;
       const spread = this.weapon.kind === 'beam' ? [-5, 0, 5] : this.weapon.kind === 'cannon' ? [0] : [-11, 11];
       for (const ox of spread) this.playerBullets.push({ x: p.x + ox, y: p.y - 18, vx: ox * 1.5, vy: speed, r: this.weapon.kind === 'cannon' ? 6 : 4, damage, color, dead: false });
+      if (this.weapon.kind === 'beam') {
+        const pairs = Math.min(this.resonance.splitPairs || 0, 3);
+        for (let i = 1; i <= pairs; i += 1) {
+          const offset = 34 * i;
+          const splitDamage = Math.max(1, Math.round(damage * 0.45));
+          this.playerBullets.push({ x: p.x - offset, y: p.y - 16, vx: -18, vy: speed, r: 3, damage: splitDamage, color: '#be4bdb', dead: false });
+          this.playerBullets.push({ x: p.x + offset, y: p.y - 16, vx: 18, vy: speed, r: 3, damage: splitDamage, color: '#be4bdb', dead: false });
+        }
+      }
       for (let i = 0; i < p.wings; i += 1) {
         const ox = (i - (p.wings - 1) / 2) * 36;
         this.playerBullets.push({ x: p.x + ox, y: p.y, vx: 0, vy: -820, r: 3, damage: 1, color: '#eef3ec', dead: false });
@@ -789,7 +803,7 @@
         const cd = active?.affix?.attack ? ` · ${Math.max(0, active.affixTimer || 0).toFixed(1)}s` : '';
         hudAffix.textContent = boss?.affix ? `${boss.affix.line}${cd}` : '';
       }
-      hudWeapon.textContent = `${this.weapon.name} · ${this.resonance.name}${this.lastStandStatus()}`;
+      hudWeapon.textContent = `${this.weapon.name} · ${this.resonance.name}${this.lastStandStatus()}${this.fieldRepairStatus()}`;
       hudScore.textContent = String(Math.round(this.score));
       skillBtn.disabled = !this.player || this.player.skillCd > 0 || this.state !== 'playing';
       skillBtn.textContent = this.player && this.player.skillCd > 0 ? `${Math.ceil(this.player.skillCd)}s` : '造物脉冲';
@@ -798,6 +812,13 @@
     lastStandStatus() {
       if (!this.player?.lastStandShield) return '';
       return ` · 黑匣子${this.player.lastStandReady ? '就绪' : '已触发'}`;
+    },
+
+    fieldRepairStatus() {
+      if (!this.difficulty.fieldRepair) return '';
+      if (!this.player || this.player.hp >= this.player.maxHp) return ' · 纳米修复';
+      const wait = Math.max(0, Math.ceil(this.difficulty.fieldRepair.delay - this.noHitT));
+      return ` · 纳米修复${wait > 0 ? wait + 's' : '中'}`;
     },
 
     update(dt) {
@@ -821,6 +842,7 @@
 
       this.segmentTime += dt;
       this.nearLineCd = Math.max(0, this.nearLineCd - dt);
+      this.updateFieldRepair(dt);
       this.player.update(dt);
       if (!this.boss && this.segmentTime > 8.5) this.spawnBoss();
       this.spawnTimer -= dt;
@@ -877,6 +899,22 @@
         }
         if (laser.t >= laser.dur) laser.dead = true;
       }
+    },
+
+    updateFieldRepair(dt) {
+      const repair = this.difficulty.fieldRepair;
+      if (!repair || !this.player) return;
+      this.noHitT += dt;
+      if (this.noHitT < repair.delay || this.player.hp <= 0 || this.player.hp >= this.player.maxHp) {
+        this.fieldRepairT = 0;
+        return;
+      }
+      this.fieldRepairT -= dt;
+      if (this.fieldRepairT > 0) return;
+      this.fieldRepairT = repair.tick || 1;
+      const before = this.player.hp;
+      this.player.hp = Math.min(this.player.maxHp, this.player.hp + Math.max(1, Math.round(this.player.maxHp * repair.healPct)));
+      if (this.player.hp > before) this.burst(this.player.x, this.player.y, '#69db7c', 6);
     },
 
     draw() {

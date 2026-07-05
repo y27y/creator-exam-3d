@@ -159,6 +159,8 @@ function assertAirCombatIntegration() {
   assert.ok(bridgeSource.includes('lastStandShield'), 'air bridge must turn prior night-watch success into finite last-stand protection');
   assert.ok(bridgeSource.includes('ionStorm') && bridgeSource.includes('离子风暴'), 'air bridge must adapt upstream ion storm as a finite boss-route affix');
   assert.ok(bridgeSource.includes('escort') && bridgeSource.includes('护卫'), 'air bridge must adapt upstream boss escort as a finite boss-route affix');
+  assert.ok(bridgeSource.includes('fieldRepair') && bridgeSource.includes('纳米修复'), 'air bridge must adapt upstream field repair as a prior-flow reward');
+  assert.ok(bridgeSource.includes('splitPairs') && bridgeSource.includes('分束棱镜'), 'air bridge must adapt upstream split laser as beam resonance');
 
   assert.ok(airGameSource.includes('class Boss'), 'air combat slice must include boss logic');
   assert.ok(airGameSource.includes('class Enemy'), 'air combat slice must include enemy logic');
@@ -177,6 +179,8 @@ function assertAirCombatIntegration() {
   assert.ok(airGameSource.includes('updateLasers') && airGameSource.includes('drawLasers'), 'ion storm laser lanes must have warning/update/draw logic');
   assert.ok(airGameSource.includes('lastStandStatus'), 'air combat HUD must expose last-stand readiness after upstream HUD update');
   assert.ok(airGameSource.includes('fireBossEscort'), 'air combat slice must apply upstream escort affix as finite add pressure');
+  assert.ok(airGameSource.includes('updateFieldRepair') && airGameSource.includes('fieldRepairStatus'), 'air combat slice must apply upstream field repair locally');
+  assert.ok(airGameSource.includes('splitDamage') && airGameSource.includes('#be4bdb'), 'air combat slice must fire finite split laser side beams for beam resonance');
   assert.ok(airGameSource.includes("finish('victory')"), 'air combat route must have a finite victory state');
   assert.ok(airGameSource.includes('CREATOR_EXAM_AIR_COMBAT_READY'), 'browser verification should have a readiness signal');
   assert.ok(airIndexSource.includes('id="hud-affix"'), 'air combat markup must expose an affix HUD line');

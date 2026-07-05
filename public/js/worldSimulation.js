@@ -253,14 +253,15 @@ export class WorldSimulation {
         residentName: dialogueEvent.residentName,
         playerText: dialogueEvent.playerText,
         residentText: dialogueEvent.residentText,
-        intent: dialogueEvent.intent
+        intent: dialogueEvent.intent,
+        grounded: dialogueEvent.grounded === true
       },
       importance: 0.7,
       tags: ['dialogue', 'resident']
     });
 
     const resident = this.residentRegistry.getResident(dialogueEvent.residentId);
-    if (resident) {
+    if (resident && dialogueEvent.grounded === true) {
       resident.memories.push({
         type: 'resident_dialogue',
         text: dialogueEvent.residentText || '',

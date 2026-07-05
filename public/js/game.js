@@ -18,6 +18,7 @@ import { buildAdvancedMechanicsViewModel } from './advancedMechanicsPresenter.js
 import { buildExplorationChoiceViewModel } from './explorationPresenter.js';
 import { buildKnownWorldFacts, filterKnownNarrativeMemories, getKnownRegionIdsFromProgress } from './worldKnowledge.js';
 import { ResidentDialogueSystem } from './residentDialogueSystem.js';
+import { findUnsupportedDialogueFacts, hasFabricatedPremisePrompt } from './dialogueGrounding.js';
 import { DebugSnapshot } from './debugSnapshot.js';
 import { SaveSlotManager } from './saveSlotManager.js';
 import { MemoryStore } from './memoryStore.js';
@@ -3017,6 +3018,7 @@ class CreatorExam3D extends GameEngine {
   }
 
   async submitNpcDialogue(prompt = null, options = {}) {
+    if (this.npcDialoguePending) return;
     const input = (prompt ?? this.ui.npcDialogueInput?.value ?? '').trim();
     if (!input) return;
     const dialogueAction = options.action || this.classifyDialogueAction(input);
@@ -3036,27 +3038,45 @@ class CreatorExam3D extends GameEngine {
 
     this.addNpcDialogueLine('player', '造物者', input);
     this.renderNpcDialoguePanel();
+    this.setNpcDialoguePending(true);
 
-    for (const responder of responders) {
-      const { unit, npc } = responder;
-      const reply = await this.generateNpcReply(unit, npc, input, {
-        groupMode: this.selectedDialogueGroup,
-        action: dialogueAction
-      });
-      this.addNpcDialogueLine('npc', unit.name, reply);
-      this.addLog(`【交流】你：${input} / ${unit.name}：${reply}`, true);
-      this.showToast(`${unit.name}：${reply}`);
+    try {
+      for (const responder of responders) {
+        const { unit, npc } = responder;
+        let reply;
+        try {
+          reply = await this.generateNpcReply(unit, npc, input, {
+            groupMode: this.selectedDialogueGroup,
+            action: dialogueAction
+          });
+        } catch (_error) {
+          reply = this.buildGroundedNpcReply(unit, input, npc, dialogueAction);
+        }
+        this.addNpcDialogueLine('npc', unit.name, reply);
+        this.addLog(`【交流】你：${input} / ${unit.name}：${reply}`, true);
+        this.showToast(`${unit.name}：${reply}`);
 
-      if (npc) {
-        this.npcManager.updateNPCMemory(npc.id, `造物者问："${input}"；回应："${reply}"`);
-        this.npcManager.playerBehavior.dialogues += 1;
-        if (this.npcManager.playerBehavior.dialogues >= this.npcManager.attitudeThresholds.dialogue.threshold) {
-          this.npcManager.updateNPCAttitude(npc.id, this.npcManager.attitudeThresholds.dialogue.delta);
+        if (npc) {
+          this.npcManager.updateNPCMemory(npc.id, `造物者问："${input}"；回应："${reply}"`);
+          this.npcManager.playerBehavior.dialogues += 1;
+          if (this.npcManager.playerBehavior.dialogues >= this.npcManager.attitudeThresholds.dialogue.threshold) {
+            this.npcManager.updateNPCAttitude(npc.id, this.npcManager.attitudeThresholds.dialogue.delta);
+          }
         }
       }
+    } finally {
+      this.setNpcDialoguePending(false);
+      this.renderNpcDialoguePanel();
     }
+  }
 
-    this.renderNpcDialoguePanel();
+  setNpcDialoguePending(pending) {
+    this.npcDialoguePending = Boolean(pending);
+    if (this.ui?.npcDialogueInput) this.ui.npcDialogueInput.disabled = this.npcDialoguePending;
+    if (this.ui?.npcDialogueSend) {
+      this.ui.npcDialogueSend.disabled = this.npcDialoguePending;
+      this.ui.npcDialogueSend.textContent = this.npcDialoguePending ? '回应中...' : '发送回应';
+    }
   }
 
   handleNpcDialogueSend() {
@@ -3162,6 +3182,10 @@ class CreatorExam3D extends GameEngine {
       currentNeed: this.describeUnitNeed(unit)
     };
 
+    if (hasFabricatedPremisePrompt(playerInput)) {
+      return this.buildGroundedNpcReply(unit, playerInput, npc, dialogueAction);
+    }
+
     if (npc) {
       const dialogueContext = this.npcManager.buildDialogueContext(npc.id, playerInput);
       const aiText = await this.fetchNarrative('dialogue', {
@@ -3170,7 +3194,7 @@ class CreatorExam3D extends GameEngine {
         npcId: npc.id,
         npcName: npc.name || unit.name
       });
-      const validated = this.validateNpcReply(unit, playerInput, aiText, { npc, action: dialogueAction });
+      const validated = this.validateNpcReply(unit, playerInput, aiText, { npc, action: dialogueAction, groundingContext: baseContext });
       if (validated) return validated;
 
       if (dialogueAction !== 'free') {
@@ -3182,7 +3206,7 @@ class CreatorExam3D extends GameEngine {
     }
 
     const aiText = await this.fetchNarrative('dialogue', baseContext);
-    const validated = this.validateNpcReply(unit, playerInput, aiText, { npc, action: dialogueAction });
+    const validated = this.validateNpcReply(unit, playerInput, aiText, { npc, action: dialogueAction, groundingContext: baseContext });
     if (validated) return validated;
 
     return this.buildGroundedNpcReply(unit, playerInput, npc, dialogueAction) || this.buildResidentDialogue(unit, npc);
@@ -3322,9 +3346,15 @@ class CreatorExam3D extends GameEngine {
     const looksLikeAtmosphereOnly = (text.length > 160 || needsDirectAnswer)
       && !hasDirectSignal
       && /涟漪|未完成|故事|青苔|鱼群|堂屋|水底|回响|七个雨季|指尖|被水吞没/.test(text);
+    const unsupportedFacts = findUnsupportedDialogueFacts(text, {
+      ...(options.groundingContext || {}),
+      unitName: unit.name,
+      residentName: unit.name
+    });
 
     if (this.hasUnsupportedActionTarget(text)) return this.buildGroundedNpcReply(unit, playerInput, options.npc, action);
     if (this.hasUnsupportedIdentityClaim(unit, playerInput, text)) return this.buildGroundedNpcReply(unit, playerInput, options.npc, action);
+    if (unsupportedFacts.length) return this.buildGroundedNpcReply(unit, playerInput, options.npc, action);
     if (asksIdentity && !hasName) return this.buildGroundedNpcReply(unit, playerInput, options.npc, action);
     if (asksRoute && !hasRouteSignal) return this.buildGroundedNpcReply(unit, playerInput, options.npc, action);
     if (asksNeed && !hasNeedSignal) return this.buildGroundedNpcReply(unit, playerInput, options.npc, action);
@@ -4094,7 +4124,7 @@ class CreatorExam3D extends GameEngine {
       let cls = 'log-item';
       if (entry.important) cls += ' important';
       if (entry.text.includes('共鸣')) cls += ' resonance';
-      let text = entry.text;
+      let text = this.normalizeLegacyDisplayText(entry.text);
       if (distortionLevel > 0.5) {
         text = this.cognitiveEffects.distortText(text, distortionLevel * 0.5);
       }
@@ -4103,9 +4133,13 @@ class CreatorExam3D extends GameEngine {
   }
 
   addLog(text, important = false) {
-    this.logs.unshift({ text, important });
+    this.logs.unshift({ text: this.normalizeLegacyDisplayText(text), important });
     this.logs = this.logs.slice(0, MAX_LOGS);
     if (this.ui?.logList) this.updateLogs();
+  }
+
+  normalizeLegacyDisplayText(text) {
+    return String(text || '').replace(/噬光之灯/g, '噬光黑核');
   }
 
   showToast(text) {
@@ -4492,21 +4526,26 @@ class CreatorExam3D extends GameEngine {
   renderResidentDialogueList() {
     if (!this.ui.residentDialogueList) return;
     const residents = this.worldSimulation?.residentRegistry?.getResidentsForRegion(this.level?.id) || [];
+    if (residents.length && !residents.some(resident => resident.residentId === this.selectedResidentId)) {
+      this.selectedResidentId = residents[0].residentId;
+    }
     this.ui.residentDialogueList.innerHTML = residents.map(resident => `
-      <div class="resident-card" data-resident-id="${resident.residentId}">
-        <strong>${resident.name}</strong> · ${resident.mood}
-        <br><em>${resident.currentGoal || 'No current goal'}</em>
-      </div>
+      <button class="resident-card ${resident.residentId === this.selectedResidentId ? 'active' : ''}" type="button" data-resident-id="${resident.residentId}" aria-pressed="${resident.residentId === this.selectedResidentId}">
+        <strong>${escapeHtml(resident.name)}</strong> · ${escapeHtml(resident.mood)}
+        <br><em>${escapeHtml(resident.currentGoal || resident.longTermGoal || '当前没有明确目标')}</em>
+      </button>
     `).join('');
     this.ui.residentDialogueList.querySelectorAll('.resident-card').forEach(card => {
       card.addEventListener('click', () => {
         this.selectedResidentId = card.dataset.residentId;
+        this.renderResidentDialogueList();
         this.addLog?.(`Selected resident: ${card.querySelector('strong')?.textContent || ''}`);
       });
     });
   }
 
   async sendResidentDialogue() {
+    if (this.residentDialoguePending) return;
     const text = this.ui.residentDialogueInput?.value?.trim();
     if (!text || !this.selectedResidentId) {
       this.addLog?.('Select a resident and type a message first.');
@@ -4518,55 +4557,76 @@ class CreatorExam3D extends GameEngine {
       return;
     }
 
+    this.setResidentDialoguePending(true);
+    const dialogueRegionLabel = this.level?.title || this.level?.id || '';
     const localResponse = this.residentDialogueSystem.generateLocalDialogue({
       resident,
       playerText: text,
-      regionId: this.level?.id
+      regionId: dialogueRegionLabel
     });
 
     let response = localResponse;
     try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 5000);
-      const fetchResponse = await fetch('/api/resident-dialogue', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          residentId: resident.residentId,
-          residentName: resident.name,
-          playerText: text,
-          memoryText: resident.memories?.slice(-1)?.[0]?.text || ''
-        }),
-        signal: controller.signal
-      });
-      clearTimeout(timeoutId);
-      if (fetchResponse.ok) {
-        const data = await fetchResponse.json();
-        if (data?.dialogue) {
-          response = this.residentDialogueSystem.sanitizeCandidate(data, { resident, playerText: text });
+      if (!hasFabricatedPremisePrompt(text)) {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 5000);
+        try {
+          const fetchResponse = await fetch('/api/resident-dialogue', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              residentId: resident.residentId,
+              residentName: resident.name,
+              playerText: text,
+              memoryText: resident.memories?.slice(-1)?.[0]?.text || '',
+              currentGoal: resident.currentGoal || resident.longTermGoal || '',
+              regionId: dialogueRegionLabel
+            }),
+            signal: controller.signal
+          });
+          if (fetchResponse.ok) {
+            const data = await fetchResponse.json();
+            if (data?.dialogue) {
+              response = this.residentDialogueSystem.sanitizeCandidate(data, { resident, playerText: text, regionId: dialogueRegionLabel });
+            }
+          }
+        } catch (_error) {
+          // Use local fallback
+        } finally {
+          clearTimeout(timeoutId);
         }
       }
-    } catch (_error) {
-      // Use local fallback
-    }
 
-    this.worldSimulation?.recordResidentDialogue?.({
-      residentId: resident.residentId,
-      residentName: resident.name,
-      regionId: this.level?.id,
-      playerText: text,
-      residentText: response.text,
-      intent: response.intent,
-      turn: this.turn || 0
-    });
+      this.worldSimulation?.recordResidentDialogue?.({
+        residentId: resident.residentId,
+        residentName: resident.name,
+        regionId: this.level?.id,
+        playerText: text,
+        residentText: response.text,
+        intent: response.intent,
+        turn: this.turn || 0,
+        grounded: response.grounded === true
+      });
 
-    this.addLog?.(`${resident.name}: ${response.text}`);
-    if (this.ui.residentDialogueLog) {
-      const entry = document.createElement('li');
-      entry.textContent = `${resident.name}: ${response.text}`;
-      this.ui.residentDialogueLog.appendChild(entry);
+      this.addLog?.(`${resident.name}: ${response.text}`);
+      if (this.ui.residentDialogueLog) {
+        const entry = document.createElement('li');
+        entry.textContent = `${resident.name}: ${response.text}`;
+        this.ui.residentDialogueLog.appendChild(entry);
+      }
+      this.ui.residentDialogueInput.value = '';
+    } finally {
+      this.setResidentDialoguePending(false);
     }
-    this.ui.residentDialogueInput.value = '';
+  }
+
+  setResidentDialoguePending(pending) {
+    this.residentDialoguePending = Boolean(pending);
+    if (this.ui?.residentDialogueInput) this.ui.residentDialogueInput.disabled = this.residentDialoguePending;
+    if (this.ui?.residentDialogueSend) {
+      this.ui.residentDialogueSend.disabled = this.residentDialoguePending;
+      this.ui.residentDialogueSend.textContent = this.residentDialoguePending ? '回应中...' : '发送';
+    }
   }
 
   animate(now) {

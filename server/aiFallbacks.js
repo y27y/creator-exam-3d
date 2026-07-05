@@ -1,3 +1,5 @@
+import { buildGroundedResidentDialogueText } from '../public/js/dialogueGrounding.js';
+
 export function fallbackRegionCandidate(input = {}) {
   const hooks = Array.isArray(input.hooks) ? input.hooks : [];
   const residentHook = hooks.find(h => h.type === 'resident_migration' && h.residentId);
@@ -46,10 +48,17 @@ export function fallbackResidentDialogue(input = {}) {
   const memory = String(input.memoryText || '').slice(0, 240);
   const player = String(input.playerText || '').slice(0, 240);
   return {
-    text: `${name}低声说：我记得，${memory}。`,
+    text: buildGroundedResidentDialogueText({
+      residentName: name,
+      memoryText: memory,
+      playerText: player,
+      currentGoal: input.currentGoal,
+      regionId: input.regionId
+    }),
     intent: { type: 'speak', confidence: 0.6 },
     memory,
-    playerText: player
+    playerText: player,
+    grounded: true
   };
 }
 

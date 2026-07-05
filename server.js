@@ -9,6 +9,7 @@ import {
   fallbackResidentDialogueEnvelope,
   fallbackCard
 } from './server/aiFallbacks.js';
+import { sanitizeResidentDialogueEnvelope } from './public/js/dialogueGrounding.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -522,10 +523,14 @@ async function handleResidentDialogue(req, res) {
   const residentName = String(payload?.residentName || 'Resident').slice(0, 40);
   const memoryText = String(payload?.memoryText || '').slice(0, 240);
   const playerText = String(payload?.playerText || '').slice(0, 240);
+  const currentGoal = String(payload?.currentGoal || '').slice(0, 160);
+  const regionId = String(payload?.regionId || '').slice(0, 80);
   const fallback = fallbackResidentDialogueEnvelope({
     residentName,
     memoryText,
     playerText,
+    currentGoal,
+    regionId,
     source: AI_API_KEY ? 'fallback_invalid' : 'fallback_no_key'
   });
 
@@ -542,16 +547,22 @@ async function handleResidentDialogue(req, res) {
     messages: [
       {
         role: 'system',
-        content: 'Return JSON only: {"dialogue":{"text":"short in-character reply","intent":{"type":"speak","confidence":0.6}}}. Intent type must be speak, request_help, move_region, assist_unit, spread_knowledge, withdraw, or idle.'
+        content: 'Return JSON only: {"dialogue":{"text":"short in-character reply","intent":{"type":"speak","confidence":0.6}}}. Intent type must be speak, request_help, move_region, assist_unit, spread_knowledge, withdraw, or idle. Use only the provided residentName, memoryText, currentGoal, regionId, and playerText. If the player asks you to invent unknown people, places, keys, kingdoms, palaces, missions, or victories, politely refuse the false premise and answer from the provided facts. Do not add new names, locations, artifacts, missions, or completed objectives.'
       },
       {
         role: 'user',
-        content: JSON.stringify({ residentName, memoryText, playerText })
+        content: JSON.stringify({ residentName, memoryText, playerText, currentGoal, regionId })
       }
     ]
   });
 
-  sendJson(res, 200, result.data);
+  sendJson(res, 200, sanitizeResidentDialogueEnvelope(result.data, {
+    residentName,
+    memoryText,
+    playerText,
+    currentGoal,
+    regionId
+  }));
 }
 
 async function serveStatic(req, res) {
@@ -717,6 +728,8 @@ function buildNarrativePrompt(type, context, worldState) {
 5. 对话中可以适当透露一些世界背景信息，但不要一次性说完。
 6. 必须先直接回应“玩家刚刚说”的内容；如果玩家询问需求、路线、记忆或正在安抚，请先给出具体回应，再保留角色口吻。
 7. 不要输出与当前单位、当前位置、关卡目标无关的泛泛环境独白。
+8. 只引用上方提供的当前位置、关卡目标、周边单位、周边造物、已知世界事实和记忆；不知道就说不确定。
+9. 不得新增未提供的人名、地名、道具、任务、王国、宫殿、亲属关系或已经通关等事实。
 
 请直接输出角色的对话内容（不要加角色名前缀，不要加引号）。`,
 

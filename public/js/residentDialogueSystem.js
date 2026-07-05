@@ -1,3 +1,8 @@
+import {
+  buildGroundedResidentDialogueText,
+  sanitizeResidentDialogueCandidate
+} from './dialogueGrounding.js'
+
 export const RESIDENT_DIALOGUE_INTENTS = [
   'speak',
   'request_help',
@@ -7,12 +12,6 @@ export const RESIDENT_DIALOGUE_INTENTS = [
   'withdraw',
   'idle'
 ]
-
-function clamp01(value) {
-  const number = Number(value)
-  if (!Number.isFinite(number)) return 0.6
-  return Math.max(0, Math.min(1, number))
-}
 
 function latestMemory(resident = {}) {
   const memories = Array.isArray(resident.memories) ? resident.memories : []
@@ -43,30 +42,18 @@ export class ResidentDialogueSystem {
 
   generateLocalDialogue(input = {}) {
     const context = this.buildContext(input)
-    const playerQuestion = context.playerText ? `You asked: "${context.playerText}". ` : ''
-    const text = `${context.residentName} remembers ${context.memoryText}. ${playerQuestion}They now want to ${context.currentGoal}.`
     return {
-      text,
+      text: buildGroundedResidentDialogueText(context),
       intent: {
-        type: context.memoryText.includes('lost') ? 'request_help' : 'speak',
+        type: /lost|失踪|遇难|求救|救/.test(context.memoryText) ? 'request_help' : 'speak',
         confidence: 0.65
       },
-      source: 'local'
+      source: 'local_grounded',
+      grounded: true
     }
   }
 
   sanitizeCandidate(candidate = {}, input = {}) {
-    const local = this.generateLocalDialogue(input)
-    const text = safeText(candidate.text || candidate.dialogue?.text || '', 360)
-    const rawIntent = candidate.intent || candidate.dialogue?.intent || {}
-    const type = RESIDENT_DIALOGUE_INTENTS.includes(rawIntent.type) ? rawIntent.type : 'speak'
-    return {
-      text: text || local.text,
-      intent: {
-        type,
-        confidence: clamp01(rawIntent.confidence)
-      },
-      source: candidate.source || 'sanitized'
-    }
+    return sanitizeResidentDialogueCandidate(candidate, input)
   }
 }

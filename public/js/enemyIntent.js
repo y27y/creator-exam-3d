@@ -214,7 +214,7 @@ export class EnemyIntentSystem {
         intentType: 'charge',
         ...INTENT_TYPES.beast.charge,
         position: { x: unit.x, y: unit.y },
-        targetPosition: unit.goal,
+        targetPosition: nextStep,
         predictedAction: `${unit.name} 即将抵达城市！`,
         turn,
         confidence: 0.85
@@ -229,7 +229,7 @@ export class EnemyIntentSystem {
       intentType: 'advance',
       ...INTENT_TYPES.beast.advance,
       position: { x: unit.x, y: unit.y },
-      targetPosition: unit.goal,
+      targetPosition: nextStep,
       predictedAction: `${unit.name} 向城市移动`,
       turn,
       confidence: 0.8
@@ -238,6 +238,7 @@ export class EnemyIntentSystem {
 
   // Predict civilian's next action
   predictCivilianIntent(unit, engine, turn) {
+    const nextStep = engine.nextStepToward(unit, unit.goal);
     const guided = unit.guidedTurns > 0 || engine.nearActiveAbility(unit.x, unit.y, ['guide', 'memory_beacon', 'illuminate']);
     const immuneChaos = unit.immuneChaos > 0;
     const hasDreamLink = unit.dreamLinked && engine.units.find(u => u.id === unit.dreamLinked && u.status === 'active');
@@ -251,7 +252,7 @@ export class EnemyIntentSystem {
         intentType: 'guided',
         ...INTENT_TYPES.civilian.guided,
         position: { x: unit.x, y: unit.y },
-        targetPosition: unit.goal,
+        targetPosition: nextStep,
         predictedAction: `${unit.name} 被造物引导，稳步向目标前进`,
         turn,
         confidence: 0.95
@@ -267,7 +268,7 @@ export class EnemyIntentSystem {
         intentType: 'dreamLinked',
         ...INTENT_TYPES.civilian.dreamLinked,
         position: { x: unit.x, y: unit.y },
-        targetPosition: unit.goal,
+        targetPosition: nextStep,
         predictedAction: `${unit.name} 通过梦境连接感知方向`,
         turn,
         confidence: 0.85
@@ -297,7 +298,7 @@ export class EnemyIntentSystem {
       intentType: 'advance',
       ...INTENT_TYPES.civilian.advance,
       position: { x: unit.x, y: unit.y },
-      targetPosition: unit.goal,
+      targetPosition: nextStep,
       predictedAction: `${unit.name} 向目标移动`,
       turn,
       confidence: 0.8
@@ -306,6 +307,7 @@ export class EnemyIntentSystem {
 
   // Predict messenger's next action
   predictMessengerIntent(unit, engine, turn) {
+    const nextStep = engine.nextStepToward(unit, unit.goal);
     const terrain = engine.getTerrain(unit.x, unit.y);
     const guided = unit.guidedTurns > 0 || engine.nearActiveAbility(unit.x, unit.y, ['calm', 'guide', 'memory_beacon']);
     const immuneChaos = unit.immuneChaos > 0;
@@ -334,7 +336,7 @@ export class EnemyIntentSystem {
         intentType: 'guided',
         ...INTENT_TYPES.messenger.guided,
         position: { x: unit.x, y: unit.y },
-        targetPosition: unit.goal,
+        targetPosition: nextStep,
         predictedAction: `${unit.name} 被引导向边境`,
         turn,
         confidence: 0.9
@@ -349,7 +351,7 @@ export class EnemyIntentSystem {
       intentType: 'advance',
       ...INTENT_TYPES.messenger.advance,
       position: { x: unit.x, y: unit.y },
-      targetPosition: unit.goal,
+      targetPosition: nextStep,
       predictedAction: `${unit.name} 向边境移动`,
       turn,
       confidence: 0.85

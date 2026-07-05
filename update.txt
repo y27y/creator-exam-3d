@@ -197,6 +197,7 @@
 
 **涉及文件**:
 - `public/js/game.js`
+- `public/js/enemyIntent.js`（修复 targetPosition 指向下一格而非终点）
 
 **主要变更**:
 - `CreatorExam3D` 构造中初始化 `intentArrowGroup` 并加入 `worldGroup`。
@@ -209,10 +210,12 @@
 - 在 `updateUi()` 末尾调用 `renderIntentArrows()`，保持与 UI 同步刷新。
 - 在 `animate()` 中对危险意图标记施加脉冲动画。
 - `loadLevel()` 中清空旧关卡箭头。
+- **修复**：`enemyIntent.js` 中野兽/平民/使者的 `targetPosition` 原错误指向 `unit.goal`（终点），现统一改为 `engine.nextStepToward(unit, unit.goal)`（下一格）。
 
 **验证**:
 - `node debug/test-suite.js` 171/171 通过
-- 浏览器中单位上方出现绿色行动箭头
+- 浏览器中单位上方出现绿色行动箭头，且箭头仅指向相邻下一格
+- 被阻挡/迷失单位头顶显示状态图标而非指向终点的长箭头
 - 控制台无新增错误
 
 **状态**: 已完成

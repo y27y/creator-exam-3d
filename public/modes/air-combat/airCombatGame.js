@@ -463,6 +463,7 @@
     creationOverload: 0,
     lastStandTriggered: false,
     jammedTime: 0,
+    resultId: '',
     noHitT: 0,
     fieldRepairT: 0,
     score: 0,
@@ -495,6 +496,7 @@
       this.creationOverload = 0;
       this.lastStandTriggered = false;
       this.jammedTime = 0;
+      this.resultId = '';
       this.noHitT = 0;
       this.fieldRepairT = 0;
       this.score = 0;
@@ -840,6 +842,11 @@
       return [...new Set(tags)].slice(0, 4);
     },
 
+    renderResultBody(result, victory) {
+      const jamText = result.jammedTime > 0 ? `，干扰 ${result.jammedTime}s` : '';
+      resultBody.textContent = `${result.notableMoment} 分数 ${result.score}，清算 ${result.clearedLayers}/6 段${jamText}。复盘：${this.reviewTags(victory).join(' · ')}。`;
+    },
+
     finish(outcome) {
       this.state = 'result';
       const victory = outcome === 'victory';
@@ -855,13 +862,17 @@
         endingModifier: victory ? 'airspace_cleansed' : 'airspace_scarred',
         affixes: this.route.map(boss => `${boss.affix.name}·${boss.title}`)
       });
+      this.resultId = result.id;
       resultTitle.textContent = victory ? '裂隙空域已清算' : '空域载体坠落';
-      const jamText = result.jammedTime > 0 ? `，干扰 ${result.jammedTime}s` : '';
-      resultBody.textContent = `${result.notableMoment} 分数 ${result.score}，清算 ${result.clearedLayers}/6 段${jamText}。复盘：${this.reviewTags(victory).join(' · ')}。`;
+      this.renderResultBody(result, victory);
       resultPanel.classList.remove('hidden');
       this.say(victory ? bridge.lineFor('victory') : bridge.lineFor('defeat'), 4, {
         eventType: victory ? 'airspace_victory' : 'airspace_defeat',
         context: { result }
+      }, aiText => {
+        if (this.state !== 'result' || this.resultId !== result.id) return;
+        const updated = bridge.publishResult({ ...result, notableMoment: aiText });
+        this.renderResultBody(updated, victory);
       });
     },
 

@@ -189,6 +189,8 @@ function assertAirCombatIntegration() {
   assert.ok(airGameSource.includes('this.sniperAim') && airGameSource.includes("['medium', 'gunner', 'splitter', 'sniper'"), 'sniper enemies must warn before entering late finite route pools');
   assert.ok(airGameSource.includes('hudAffix'), 'air combat HUD must show boss affix details');
   assert.ok(airGameSource.includes('reviewTags'), 'air combat result must adapt upstream run review tags to finite route review');
+  assert.ok(airGameSource.includes('renderResultBody'), 'air combat result panel must support late AI verdict updates');
+  assert.ok(airGameSource.includes('bridge.publishResult({ ...result, notableMoment: aiText })'), 'late AI verdict must update the stored air combat result payload');
   assert.ok(airGameSource.includes('lastStandReady'), 'air combat slice must apply upstream last-stand protection locally');
   assert.ok(airGameSource.includes('airspace_last_stand'), 'last-stand protection must be available to AI/local narrative hooks');
   assert.ok(airGameSource.includes('fireIonStormLane'), 'air combat slice must apply upstream ion storm as finite laser-lane pressure');

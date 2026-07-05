@@ -162,6 +162,7 @@
         gunner: { hp: 11, r: 24, speed: 82, score: 260, color: '#8bd3ff', fire: 1.2 },
         splitter: { hp: 8, r: 22, speed: 100, score: 220, color: '#72d6bd', fire: 0 },
         phantom: { hp: 6, r: 18, speed: 150, score: 260, color: '#f0a6ca', fire: 1.0 },
+        sniper: { hp: 7, r: 20, speed: 72, score: 340, color: '#e64980', fire: 1.8, warn: 0.55, bulletSpeed: 520, damage: 13, shots: 1 },
         jammer: { hp: 10, r: 24, speed: 76, score: 300, color: '#75d7e6', fire: 1.6, jamRadius: 210, weaponSlow: 1.28 },
         support: { hp: 12, r: 24, speed: 68, score: 320, color: '#72d6bd', fire: 0, repairRadius: 130, repairAmount: 2, repairInterval: 2.4 }
       }[type];
@@ -179,6 +180,12 @@
       this.fire = data.fire ? data.fire + Math.random() : 999;
       this.jamRadius = data.jamRadius || 0;
       this.weaponSlow = data.weaponSlow || 1;
+      this.warn = data.warn || 0;
+      this.bulletSpeed = data.bulletSpeed || 240;
+      this.bulletDamage = data.damage || 8;
+      this.shots = data.shots || 1;
+      this.sniperWarn = 0;
+      this.sniperAim = 0;
       this.repairRadius = data.repairRadius || 0;
       this.repairAmount = data.repairAmount || 0;
       this.repairTimer = data.repairInterval ? data.repairInterval * (0.55 + Math.random() * 0.4) : 0;
@@ -194,9 +201,20 @@
       else if (this.type === 'jammer') this.x = this.baseX + Math.sin(this.t * 2.8) * 52;
       else if (this.type === 'support') this.x = this.baseX + Math.sin(this.t * 1.8) * 34;
       this.fire -= dt;
-      if (this.fire <= 0 && game.player) {
-        this.fire = this.type === 'phantom' ? 1.0 : 1.45;
-        game.fireEnemyAt(this.x, this.y, 240 + game.segmentIndex * 12, 8);
+      if (this.sniperWarn > 0 && game.player) {
+        this.sniperWarn -= dt;
+        if (this.sniperWarn <= 0) {
+          this.fire = 1.8;
+          game.fireFan(this.x, this.y, this.sniperAim, 0, this.shots, this.bulletSpeed, this.bulletDamage);
+        }
+      } else if (this.fire <= 0 && game.player) {
+        if (this.type === 'sniper') {
+          this.sniperAim = Math.atan2(game.player.y - this.y, game.player.x - this.x);
+          this.sniperWarn = this.warn;
+        } else {
+          this.fire = this.type === 'phantom' ? 1.0 : 1.45;
+          game.fireEnemyAt(this.x, this.y, 240 + game.segmentIndex * 12, 8);
+        }
       }
       if (this.repairAmount > 0 && this.y > 0 && this.y < H * 0.75) {
         this.repairTimer -= dt;
@@ -220,6 +238,17 @@
     draw(ctx) {
       ctx.save();
       ctx.translate(this.x, this.y);
+      if (this.type === 'sniper' && this.sniperWarn > 0) {
+        ctx.save();
+        ctx.globalAlpha = 0.24 + 0.28 * Math.sin(this.t * 30) ** 2;
+        ctx.strokeStyle = this.color;
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        ctx.lineTo(Math.cos(this.sniperAim) * 900, Math.sin(this.sniperAim) * 900);
+        ctx.stroke();
+        ctx.restore();
+      }
       if (this.type === 'jammer' || this.type === 'support') {
         const rr = this.type === 'jammer' ? 70 : 58;
         ctx.strokeStyle = this.type === 'jammer' ? 'rgba(117,215,230,.36)' : 'rgba(114,214,189,.32)';
@@ -240,6 +269,11 @@
         ctx.lineTo(-this.r, -this.r);
         ctx.lineTo(0, -this.r * 0.35);
         ctx.lineTo(this.r, -this.r);
+      } else if (this.type === 'sniper') {
+        ctx.moveTo(0, -this.r);
+        ctx.lineTo(-this.r * 0.75, this.r * 0.8);
+        ctx.lineTo(0, this.r * 0.25);
+        ctx.lineTo(this.r * 0.75, this.r * 0.8);
       } else if (this.type === 'jammer') {
         ctx.moveTo(0, -this.r);
         ctx.lineTo(-this.r * 0.86, 0);
@@ -519,7 +553,7 @@
       const stage = this.segmentIndex + 1;
       const pool = stage < 2 ? ['small', 'small', 'medium']
         : stage < 4 ? ['small', 'medium', 'gunner', 'splitter']
-          : ['medium', 'gunner', 'splitter', 'phantom', 'phantom'];
+          : ['medium', 'gunner', 'splitter', 'sniper', 'phantom', 'phantom'];
       const affix = this.currentAffix();
       const biased = affix?.enemyBias && Math.random() < (affix.spawnBias || 0) ? affix.enemyBias : pool;
       this.enemies.push(new Enemy(pick(biased), stage));

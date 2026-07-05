@@ -155,7 +155,12 @@ function assertAirCombatIntegration() {
   assert.ok(bridgeSource.includes('contextualAffixKeys'), 'air bridge must derive boss affixes from main-game context');
   assert.ok(bridgeSource.includes('routeResonance'), 'air bridge must derive creation route resonance from prior player flow');
   assert.ok(bridgeSource.includes('airspaceAffixes'), 'AI world state must include airspace affix context');
+  assert.ok(bridgeSource.includes('communicator()'), 'air bridge must derive communicator identity from prior player flow');
+  assert.ok(bridgeSource.includes('residentNames(context.rescuedResidents)'), 'rescued residents must feed air combat communicator and AI context');
+  assert.ok(bridgeSource.includes('residentNames(context.lostResidents)'), 'lost residents must feed air combat hallucination fallback and AI context');
+  assert.ok(bridgeSource.includes('失踪幻听'), 'air combat must use lost residents as hallucinated comms when nobody was rescued');
   assert.ok(bridgeSource.includes('resonance: routeResonance()'), 'air combat result must return route resonance to main game');
+  assert.ok(bridgeSource.includes('communicator: communicator()'), 'air combat result must return communicator identity');
   assert.ok(bridgeSource.includes('affixes:'), 'air combat result must return finite boss affixes');
   assert.ok(bridgeSource.includes('jammedTime:'), 'air combat result must return jammer pressure to main game');
   assert.ok(bridgeSource.includes('lastStandShield'), 'air bridge must turn prior night-watch success into finite last-stand protection');
@@ -179,6 +184,8 @@ function assertAirCombatIntegration() {
   assert.ok(airGameSource.includes('jammedTime') && airGameSource.includes('updateJammerPressure'), 'air combat result must track finite jammer pressure');
   assert.ok(airGameSource.includes('repairNearbyEnemies'), 'air combat slice must apply support enemy depth locally');
   assert.ok(airGameSource.includes('jammer') && airGameSource.includes('support'), 'air combat enemy pool must include selected upstream enemy roles');
+  assert.ok(airGameSource.includes('sniper') && airGameSource.includes('sniperWarn'), 'air combat slice must adapt upstream sniper warning shots locally');
+  assert.ok(airGameSource.includes('this.sniperAim') && airGameSource.includes("['medium', 'gunner', 'splitter', 'sniper'"), 'sniper enemies must warn before entering late finite route pools');
   assert.ok(airGameSource.includes('hudAffix'), 'air combat HUD must show boss affix details');
   assert.ok(airGameSource.includes('reviewTags'), 'air combat result must adapt upstream run review tags to finite route review');
   assert.ok(airGameSource.includes('lastStandReady'), 'air combat slice must apply upstream last-stand protection locally');

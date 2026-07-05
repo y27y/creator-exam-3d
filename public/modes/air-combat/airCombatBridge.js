@@ -318,6 +318,23 @@
     return item && typeof item === 'object' ? item.ability || item.card?.ability || '' : '';
   }
 
+  function residentName(item) {
+    if (typeof item === 'string') return item;
+    return item?.name || item?.unitName || item?.residentName || item?.id || '';
+  }
+
+  function residentNames(value) {
+    return Array.isArray(value) ? value.map(residentName).filter(Boolean) : [];
+  }
+
+  function communicator() {
+    const rescued = residentNames(context.rescuedResidents);
+    if (rescued.length) return { kind: 'rescued', name: rescued[0], role: '居民通讯员', line: `${rescued[0]}把地面坐标接入空域通讯。` };
+    const lost = residentNames(context.lostResidents);
+    if (lost.length) return { kind: 'lost', name: lost[0], role: '失踪幻听', line: `${lost[0]}的幻听从裂隙噪声里反复靠近。` };
+    return { kind: 'echo', name: '无名回声', role: '裂隙回声', line: '没有居民接入，只剩裂隙回声替你报数。' };
+  }
+
   function primaryCreation() {
     return creations().find(item => WEAPON_MAP[creationAbility(item)]) || creations()[0] || null;
   }
@@ -410,7 +427,8 @@
   function fallbackBrief() {
     const names = creations().map(creationName).filter(Boolean).slice(0, 2).join('、') || '白天留下的造物';
     const rescued = residentsCount();
-    return `第六关和长夜之后，${names}被压缩为空域载体。${rescued}名居民的回声在通讯里等待第七天清算。`;
+    const comm = communicator();
+    return `第六关和长夜之后，${names}被压缩为空域载体。${rescued}名居民的回声在通讯里等待第七天清算；${comm.line}`;
   }
 
   function briefingSlides() {
@@ -446,17 +464,21 @@
   }
 
   function worldState(extra = {}) {
+    const comm = communicator();
     return {
       currentLevel: context.regionId || 'final-exam',
       currentLevelTitle: context.regionTitle || '第七天裂隙空域',
       entropy: Number(context.entropy || 0),
       rescued: residentsCount(),
       lost: lostCount(),
+      rescuedResidents: residentNames(context.rescuedResidents).slice(0, 5),
+      lostResidents: residentNames(context.lostResidents).slice(0, 5),
       recentCreations: creations().map(creationName).filter(Boolean).slice(-5),
       towerDefenseResult: context.towerDefenseResult || null,
       playerStyle: context.playerStyle || '未知',
       routeResonance: routeResonance().name,
       airspaceAffixes: route().map(boss => `${boss.affix.name}·${boss.title}`),
+      communicator: `${comm.name}（${comm.role}）`,
       ...extra
     };
   }
@@ -476,7 +498,11 @@
           playerInput: fallbackText,
           context: {
             eventType,
-            characters: Array.isArray(context.rescuedResidents) ? context.rescuedResidents.slice(0, 5) : [],
+            characters: [
+              ...residentNames(context.rescuedResidents).slice(0, 3),
+              ...residentNames(context.lostResidents).slice(0, 2)
+            ],
+            communicator: communicator(),
             location: context.regionTitle || '第七天裂隙空域',
             result: '第七天裂隙空域正在把地面考核记忆清算成 Boss 航线。',
             weapon: weapon.name,
@@ -498,11 +524,14 @@
 
   function lineFor(event, boss = null) {
     const weapon = weaponLoadout();
-    if (event === 'weapon') return `${weapon.name}发生副作用：${weapon.description}`;
-    if (event === 'near') return '裂隙残影贴近机翼，通讯里有人短促地吸了一口气。';
-    if (event === 'victory') return '第七天没有被消灭，它只是终于愿意让世界继续。';
-    if (event === 'defeat') return '空域载体坠回裂隙，世界还需要下一次清算。';
-    if (event === 'boss-defeated' && boss) return `${boss.title}被清算，${boss.memory}`;
+    const comm = communicator();
+    if (event === 'weapon') return `${comm.name}确认${weapon.name}副作用：${weapon.description}`;
+    if (event === 'near') return comm.kind === 'rescued'
+      ? `${comm.name}提醒：裂隙残影贴近机翼，立刻拉开。`
+      : `${comm.name}在噪声里重复：残影贴近机翼，别回头。`;
+    if (event === 'victory') return `${comm.name}记录：第七天没有被消灭，它只是终于愿意让世界继续。`;
+    if (event === 'defeat') return `${comm.name}失去信号：空域载体坠回裂隙，世界还需要下一次清算。`;
+    if (event === 'boss-defeated' && boss) return `${comm.name}记录${boss.title}被清算，${boss.memory}`;
     if (event === 'boss' && boss?.affix) return `${boss.affix.name}·${boss.title}进入航线。${boss.affix.line}`;
     if (event === 'boss-phase' && boss?.affix) return `${boss.title}换相，${boss.affix.line}`;
     if (boss) return boss.lines[Math.min(boss.lines.length - 1, Math.floor(Math.random() * boss.lines.length))];
@@ -531,6 +560,7 @@
         <div><strong>${escapeHtml(weapon.name)}</strong> 来自「${escapeHtml(weapon.sourceCreation)}」</div>
         <div>${escapeHtml(weapon.description)}</div>
         <div>共鸣：<strong>${escapeHtml(resonance.name)}</strong> · ${escapeHtml(resonance.effect)}</div>
+        <div>通讯：<strong>${escapeHtml(communicator().name)}</strong> · ${escapeHtml(communicator().role)}</div>
         <div>航线：6 段 Boss 清算 · 熵值 ${Number(context.entropy || 0)} · 词缀 ${escapeHtml(contextualAffixKeys().map(key => BOSS_AFFIXES[key].name).join(' / '))}</div>
       `;
     }
@@ -553,6 +583,7 @@
       endingModifier: result.endingModifier || (result.outcome === 'victory' ? 'airspace_cleansed' : 'airspace_scarred'),
       weapon: weaponLoadout(),
       resonance: routeResonance(),
+      communicator: communicator(),
       affixes: result.affixes || route().map(boss => `${boss.affix.name}·${boss.title}`),
       notableMoment: result.notableMoment || lineFor(result.outcome === 'victory' ? 'victory' : 'defeat')
     };
@@ -582,6 +613,7 @@
     difficulty,
     weaponLoadout,
     routeResonance,
+    communicator,
     contextualAffixKeys,
     briefingSlides,
     lineFor,

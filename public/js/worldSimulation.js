@@ -16,6 +16,7 @@ function eventText(event) {
   if (event.type === 'unit_rescued') return `${payload.unitName || '某位居民'}在${event.regionId}被玩家救下`;
   if (event.type === 'unit_lost') return `${payload.unitName || '某位居民'}在${event.regionId}失踪或遇难`;
   if (event.type === 'creation_placed') return `玩家在${event.regionId}创造了「${payload.creationName || '未命名造物'}」`;
+  if (event.type === 'defense_resolved') return `${event.regionId}完成长夜守城：守住${payload.survivedWaves || 0}波，裂隙变化${Number(payload.entropyDelta || 0) >= 0 ? '+' : ''}${payload.entropyDelta || 0}`;
   if (event.type === 'region_resolved') return `${event.regionId}的危机被解决`;
   if (event.type === 'region_lost') return `${event.regionId}的危机留下了伤痕`;
   return `${event.regionId}发生了${event.type}`;
@@ -49,7 +50,7 @@ export class WorldSimulation {
     const event = this.eventBus.emit(rawEvent);
     this.ensureResidentFromEvent(event);
     this.updateResidentMemories(event);
-    this.residentAgentSystem.observeEvent(event);
+    this.residentAgentSystem.observeEvent(event, { recordMemory: false });
     for (const hook of this.deriveFutureHooks(event)) {
       this.addFutureHook(event.regionId, hook);
     }
@@ -138,6 +139,17 @@ export class WorldSimulation {
         sourceRegionId: event.regionId,
         summary: `${event.regionId}失败后的后果会影响附近区域`,
         priority: 0.9
+      });
+    }
+
+    if (event.type === 'defense_resolved') {
+      hooks.push({
+        id: hookId('night_watch_legend', event.id),
+        type: 'night_watch_legend',
+        sourceEventId: event.id,
+        sourceRegionId: event.regionId,
+        summary: `长夜守城的结果会影响第七天的传说与裂隙压力`,
+        priority: event.payload?.victory ? 0.8 : 0.95
       });
     }
 

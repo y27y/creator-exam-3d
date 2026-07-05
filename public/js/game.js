@@ -155,6 +155,8 @@ class CreatorExam3D extends GameEngine {
     this.selectedDialogueNpc = null;
     this.selectedDialogueGroup = false;
     this.dialogueMessages = [];
+    this.lastNightWatchResult = null;
+    this.processedNightWatchResults = new Set();
 
     this.ui = this.collectUi();
     this.initScene();
@@ -236,6 +238,10 @@ class CreatorExam3D extends GameEngine {
       endTurnBtn: document.getElementById('end-turn-btn'),
       restartBtn: document.getElementById('restart-btn'),
       nextBtn: document.getElementById('next-btn'),
+      nightWatchPanel: document.getElementById('night-watch-panel'),
+      nightWatchTitle: document.getElementById('night-watch-title'),
+      nightWatchSummary: document.getElementById('night-watch-summary'),
+      nightWatchBtn: document.getElementById('night-watch-btn'),
       logList: document.getElementById('log-list'),
       toast: document.getElementById('toast'),
       modal: document.getElementById('modal'),
@@ -437,6 +443,7 @@ class CreatorExam3D extends GameEngine {
     this.ui.endTurnBtn.addEventListener('click', () => this.endTurn());
     this.ui.restartBtn.addEventListener('click', () => this.loadLevel(this.levelIndex));
     this.ui.nextBtn.addEventListener('click', () => this.nextLevel());
+    this.ui.nightWatchBtn?.addEventListener('click', () => this.openNightWatch());
     this.ui.performRitualBtn?.addEventListener('click', () => this.handlePerformRitual());
 
     // Ritual creation checkbox delegation
@@ -468,6 +475,10 @@ class CreatorExam3D extends GameEngine {
     this.ui.workshopDismantleBtn?.addEventListener('click', () => this.handleWorkshopDismantle());
     this.ui.workshopModifyBtn?.addEventListener('click', () => this.handleWorkshopModify());
     this.ui.workshopFuseBtn?.addEventListener('click', () => this.handleWorkshopFuse());
+    this.ui.advancedActionList?.addEventListener('click', (e) => {
+      const btn = e.target.closest('[data-advanced-action]');
+      if (btn && !btn.disabled) this.handleAdvancedAction(btn.dataset.advancedAction);
+    });
 
     // 高级机制面板折叠/展开
     const collapseToggles = document.querySelectorAll('.collapse-toggle');
@@ -540,10 +551,27 @@ class CreatorExam3D extends GameEngine {
     });
 
     this.ui.modalPrimary.addEventListener('click', () => {
+      if (this.gameState === 'won' && this.isFinalExam() && !this.lastNightWatchResult) {
+        this.ui.modal.classList.add('hidden');
+        this.openNightWatch();
+        return;
+      }
       if (this.gameState === 'won') this.nextLevel();
       else this.loadLevel(this.levelIndex);
     });
     this.ui.modalSecondary.addEventListener('click', () => this.loadLevel(this.levelIndex));
+
+    window.addEventListener('focus', () => this.consumeNightWatchResult());
+    window.addEventListener('pageshow', () => this.consumeNightWatchResult());
+    window.addEventListener('storage', (event) => {
+      if (event.key === 'creatorExamNightWatchResult') this.consumeNightWatchResult();
+    });
+    window.addEventListener('message', (event) => {
+      if (event.origin !== window.location.origin) return;
+      if (event.data?.type === 'creator_exam_night_watch_result') {
+        this.applyNightWatchResult(event.data.result);
+      }
+    });
 
     // Path visualization toggle with Shift key
     this.showPaths = false;
@@ -725,7 +753,10 @@ class CreatorExam3D extends GameEngine {
     this.applyChainReactions();
     this.moveUnits();
     this.applyTileHazardsToUnits();
+    this.enemyIntentSystem.generatePreviews(this.worldState, this);
+    this.cognitiveAbyss.update(this.entropy, this.level.entropyLimit || 7);
     this.decrementCreationDurations();
+    this.checkOathBetrayals();
     this.checkEndCondition(true);
     if (this.gameState === 'playing') {
       this.turn += 1;
@@ -879,7 +910,7 @@ class CreatorExam3D extends GameEngine {
     }
 
     this.ui.nextBtn.classList.toggle('hidden', isFinal);
-    this.showModal('考核通过', message + (isFinal ? ' 你完成了完整原型的全部关卡。' : ' 可以进入下一关。'), '继续', '重试');
+    this.showModal('考核通过', message + (isFinal ? ' 长夜守城已经解锁。' : ' 可以进入下一关。'), isFinal ? '开启守城' : '继续', '重试');
   }
 
   // Override failLevel for browser-specific effects
@@ -923,6 +954,128 @@ class CreatorExam3D extends GameEngine {
       return;
     }
     this.loadLevel(this.levelIndex + 1);
+  }
+
+  isFinalExam() {
+    return this.level?.id === 'final-exam' || this.levelIndex === LEVELS.length - 1;
+  }
+
+  buildNightWatchContext() {
+    const activeResidents = this.units
+      .filter(unit => this.isCivilian(unit) && unit.status !== 'lost')
+      .map(unit => unit.name);
+    const lostResidents = this.units
+      .filter(unit => this.isCivilian(unit) && unit.status === 'lost')
+      .map(unit => unit.name);
+    const recentCreations = this.creations
+      .map(creation => ({
+        name: creation.card?.name || '未命名造物',
+        ability: creation.card?.ability || 'unknown',
+        type: creation.card?.type || '奇迹',
+        remaining: creation.remaining || 0
+      }))
+      .slice(-7);
+
+    return {
+      id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
+      mode: 'night_watch',
+      day: 6,
+      regionId: this.level?.id || 'final-exam',
+      regionTitle: this.level?.title || '第七天之前',
+      entropy: this.entropy || 0,
+      rescuedResidents: activeResidents,
+      lostResidents,
+      recentCreations,
+      discoveredLore: this.worldState?.discoveredLore || [],
+      playerStyle: this.memorySystem?.getProfileSummary?.() || this.worldState?.playStyle || '未知'
+    };
+  }
+
+  openNightWatch() {
+    const context = this.buildNightWatchContext();
+    try {
+      localStorage.setItem('creatorExamNightWatchContext', JSON.stringify(context));
+    } catch (_error) {
+      this.showToast('无法写入守夜上下文。');
+      return;
+    }
+
+    const url = new URL('./modes/tower-defense/index.html', window.location.href);
+    url.searchParams.set('from', 'creator-exam');
+    const tab = window.open(url.toString(), 'creator_exam_night_watch');
+    this.addLog(`【长夜守城】已开启 ${context.regionTitle} 的守夜防线。`, true);
+    this.showToast(tab ? '长夜守城已打开。' : '浏览器拦截了新窗口，正在当前页打开。');
+    if (!tab) window.location.href = url.toString();
+  }
+
+  consumeNightWatchResult() {
+    let result = null;
+    try {
+      const raw = localStorage.getItem('creatorExamNightWatchResult');
+      if (raw) result = JSON.parse(raw);
+    } catch (_error) {
+      result = null;
+    }
+    if (!result) return;
+    this.applyNightWatchResult(result);
+    try { localStorage.removeItem('creatorExamNightWatchResult'); } catch (_error) {}
+  }
+
+  applyNightWatchResult(result) {
+    if (!result?.id) return;
+    if (this.processedNightWatchResults.has(result.id)) {
+      const previousMoment = this.lastNightWatchResult?.notableMoment || '';
+      this.lastNightWatchResult = { ...this.lastNightWatchResult, ...result };
+      const events = this.worldSession?.worldSimulation?.eventBus?.events || [];
+      const event = events.find(entry => entry.type === 'defense_resolved' && entry.payload?.id === result.id);
+      if (event) event.payload = { ...event.payload, ...result };
+      if (result.notableMoment && result.notableMoment !== previousMoment) {
+        this.addLog(`【守夜关键时刻】${result.notableMoment}`);
+      }
+      this.memoryStore?.saveWorld?.(this.worldSession.worldSimulation);
+      this.renderContinuity();
+      this.updateUi();
+      return;
+    }
+    this.processedNightWatchResults.add(result.id);
+    this.lastNightWatchResult = result;
+
+    const delta = Number(result.entropyDelta || 0);
+    if (Number.isFinite(delta) && this.level?.entropyLimit) {
+      this.entropy = Math.max(0, Math.min(this.level.entropyLimit, this.entropy + delta));
+    }
+
+    this.recordGameEvent({
+      type: 'defense_resolved',
+      levelId: result.regionId || this.level?.id || 'final-exam',
+      regionId: result.regionId || this.level?.id || 'final-exam',
+      turn: this.turn,
+      payload: result,
+      importance: 0.95,
+      tags: ['defense', 'night_watch', result.victory ? 'victory' : 'loss']
+    });
+
+    const outcome = result.victory ? '守住' : '失守';
+    this.addLog(`【长夜守城】${outcome} ${result.survivedWaves || 0} 波，裂隙变化 ${delta >= 0 ? '+' : ''}${delta}。`, true);
+    if (result.notableMoment) this.addLog(`【守夜传说】${result.notableMoment}`);
+    this.memoryStore?.saveWorld?.(this.worldSession.worldSimulation);
+    this.renderContinuity();
+    this.updateUi();
+  }
+
+  renderNightWatchPanel() {
+    if (!this.ui.nightWatchPanel) return;
+    const available = this.isFinalExam();
+    this.ui.nightWatchPanel.classList.toggle('hidden', !available);
+    if (!available) return;
+
+    const creations = this.creations.map(c => c.card?.name).filter(Boolean).slice(-3);
+    const result = this.lastNightWatchResult;
+    this.ui.nightWatchTitle.textContent = result ? `${result.theme || '长夜守城'} 已结算` : '第七天之前';
+    this.ui.nightWatchSummary.innerHTML = result
+      ? `<strong>${result.victory ? '防线守住' : '防线破损'} · ${result.survivedWaves || 0} 波</strong><span>居民保护 ${result.residentsProtected || 0}，裂隙变化 ${Number(result.entropyDelta || 0) >= 0 ? '+' : ''}${result.entropyDelta || 0}</span>`
+      : `<strong>熵值 ${this.entropy || 0} · 居民 ${this.rescued || 0}/${this.units.filter(unit => this.isCivilian(unit)).length}</strong><span>${creations.length ? `最近造物：${creations.join('、')}` : '最近造物会映射成守夜塔。'}</span>`;
+    this.ui.nightWatchBtn.textContent = result ? '再次守夜' : (this.gameState === 'won' ? '开启最终防线' : '预演守夜');
   }
 
   loadNextRegion(regionData) {
@@ -1223,7 +1376,7 @@ class CreatorExam3D extends GameEngine {
       this.addLog(`【工坊】${surviving.length} 个造物已存入跨关工坊。`, true);
     }
 
-    this.showModal('考核通过', message + (isFinal ? ' 你完成了完整原型的全部关卡。' : ' 可以进入下一关。'), '继续', '重试');
+    this.showModal('考核通过', message + (isFinal ? ' 长夜守城已经解锁。' : ' 可以进入下一关。'), isFinal ? '开启守城' : '继续', '重试');
   }
 
   handleLose(message) {
@@ -1614,7 +1767,8 @@ class CreatorExam3D extends GameEngine {
       house.castShadow = true;
       roof.castShadow = true;
       group.add(house, roof);
-      group.position.set(pos.x, 0.24, pos.z);
+      group.position.set(pos.x - 0.34, 0.24, pos.z - 0.28);
+      group.scale.setScalar(0.82);
       return group;
     }
     if (terrain === TILE.CITY) {
@@ -1973,8 +2127,291 @@ class CreatorExam3D extends GameEngine {
     this.renderCorruptionPanel();
     this.renderWorkshopPanel();
     this.renderPersistentPanel();
+    this.renderAdvancedMechanicsPanel();
     this.renderStorytellerPanel();
+    this.renderNightWatchPanel();
     this.renderIntentArrows();
+  }
+
+  getAdvancedMechanicsState() {
+    const placed = this.creations.filter(c => c.placed && c.remaining > 0);
+    const npcs = this.npcManager?.getNPCSummary?.() || [];
+    const selectedNpc = this.selectedDialogueNpc || npcs[0] || null;
+    const socialGraph = this.npcManager?.socialGraph || null;
+    const available = selectedNpc && this.oathManager
+      ? this.oathManager.getAvailableOathTypes(selectedNpc.id, socialGraph)
+      : [];
+
+    return {
+      workshop: {
+        inventory: this.workshopGetInventory?.() || [],
+        materials: this.workshopGetMaterials?.() || {},
+        workshopCreations: this.creatorWorkshop?.workshopCreations || []
+      },
+      ritual: {
+        suggestions: this.getRitualSuggestions?.() || [],
+        placedCreationCount: placed.length
+      },
+      oath: {
+        selectedNpc,
+        available,
+        activeOaths: this.oathManager?.getAllActiveOaths?.() || []
+      },
+      rift: {
+        entropyRatio: this.entropy / (this.level.entropyLimit || 7),
+        activeEchoes: []
+      },
+      abyss: {
+        state: this.getAbyssState?.() || { level: 'dormant', description: '深渊沉睡' },
+        currentRiddle: this.currentAbyssRiddle || this.cognitiveAbyss?.currentRiddle || null
+      },
+      story: {
+        summary: { activeArcs: this.storyteller?.eventHistory?.length ? 1 : 0, totalBeats: this.storyteller?.eventHistory?.length || 0 },
+        availableBeats: 1
+      },
+      resident: {
+        actions: this.worldSession?.worldSimulation?.residentAgentSystem?.recentActions || []
+      },
+      logs: this.logs
+    };
+  }
+
+  renderAdvancedMechanicsPanel() {
+    if (!this.ui.advancedMechanicList || !this.ui.advancedActionList) return;
+    const model = buildAdvancedMechanicsViewModel(this.getAdvancedMechanicsState());
+
+    this.ui.advancedMechanicList.innerHTML = model.systems.map(system => `
+      <div class="advanced-mechanic ${escapeHtml(system.tone || 'idle')}">
+        <strong>${escapeHtml(system.title)}</strong>
+        <span>${escapeHtml(system.status)}</span>
+      </div>
+    `).join('');
+
+    this.ui.advancedActionList.innerHTML = model.actions.map(action => `
+      <button type="button" class="${action.enabled ? 'secondary' : 'secondary muted'}" data-advanced-action="${escapeHtml(action.id)}" ${action.enabled ? '' : 'disabled'}>
+        ${escapeHtml(action.label)}
+        <span>${escapeHtml(action.hint || '')}</span>
+      </button>
+    `).join('') || '<div class="advanced-action-empty">暂无可执行机制</div>';
+
+    if (this.ui.advancedDetail) {
+      this.ui.advancedDetail.textContent = model.detail;
+    }
+    if (this.ui.advancedLog) {
+      this.ui.advancedLog.innerHTML = model.logs.slice(0, 5).map(entry =>
+        `<div>${escapeHtml(entry.text || '')}</div>`
+      ).join('');
+    }
+  }
+
+  handleAdvancedAction(actionId) {
+    switch (actionId) {
+      case 'trigger-story':
+      case 'advance-story':
+        this.triggerStorytellerDemo();
+        break;
+      case 'trigger-legend':
+        this.triggerLegendDemo();
+        break;
+      case 'prepare-chain':
+        this.triggerChainDemo();
+        break;
+      case 'prepare-ritual':
+      case 'perform-ritual':
+        this.triggerRitualDemo();
+        break;
+      case 'trigger-corruption':
+        this.triggerCorruptionDemo();
+        break;
+      case 'showcase-workshop':
+        this.triggerWorkshopDemo();
+        break;
+      case 'dismantle-workshop':
+        this.selectWorkshopItems(1);
+        this.handleWorkshopDismantle();
+        return;
+      case 'modify-workshop':
+        this.ensureWorkshopInventory(1);
+        this.seedWorkshopMaterials(1);
+        this.selectWorkshopItems(1);
+        this.handleWorkshopModify();
+        return;
+      case 'fuse-workshop':
+        this.ensureWorkshopInventory(2);
+        this.seedWorkshopMaterials(2);
+        this.selectWorkshopItems(2);
+        this.handleWorkshopFuse();
+        return;
+      case 'form-oath':
+        this.triggerOathDemo();
+        break;
+      case 'break-oath':
+        this.triggerOathBreakDemo();
+        break;
+      case 'record-legacy':
+        this.triggerLegacyDemo();
+        break;
+      case 'generate-riddle':
+        this.triggerAbyssDemo();
+        break;
+      case 'submit-riddle':
+        if (this.currentAbyssRiddle?.decoded && this.ui.abyssRiddleInput) {
+          this.ui.abyssRiddleInput.value = this.currentAbyssRiddle.decoded;
+          this.handleDecodeAbyss();
+          return;
+        }
+        break;
+    }
+    this.renderWorld();
+    this.updateUi();
+  }
+
+  demoCard(ability) {
+    const cards = {
+      illuminate: { name: '演示星灯', type: '光系', description: '为演示点亮黑暗的造物', range: 2, duration: 3, cost: 1, stabilityCost: 0, tags: ['demo'] },
+      absorb_water: { name: '演示潮瓶', type: '水系', description: '为演示吸纳水汽的造物', range: 2, duration: 3, cost: 1, stabilityCost: 0, tags: ['demo'] },
+      cleanse: { name: '演示净钟', type: '净化', description: '为演示净化污染的造物', range: 2, duration: 3, cost: 1, stabilityCost: 0, tags: ['demo'] },
+      grow_forest: { name: '演示种子', type: '地形', description: '为演示生长森林的造物', range: 1, duration: 3, cost: 1, stabilityCost: 0, tags: ['demo'] },
+      create_bridge: { name: '演示桥石', type: '通行', description: '为演示架桥的造物', range: 1, duration: 3, cost: 1, stabilityCost: 0, tags: ['demo'] },
+      memory_beacon: { name: '演示忆灯', type: '记忆', description: '为演示唤回记忆的造物', range: 2, duration: 3, cost: 1, stabilityCost: 0, tags: ['demo'] }
+    };
+    return { ability, ...(cards[ability] || cards.illuminate) };
+  }
+
+  addDemoCreation(ability, x, y) {
+    const card = this.demoCard(ability);
+    const creation = {
+      id: `demo-${ability}-${Date.now()}-${Math.random()}`,
+      card,
+      x,
+      y,
+      remaining: card.duration,
+      restores: [],
+      placed: true
+    };
+    this.creations.push(creation);
+    this.recordCreationPlacement(creation, x, y);
+    this.memorySystem?.recordCreation?.(card, this.level.id, this.turn, { x, y, demo: true });
+    return creation;
+  }
+
+  triggerChainDemo() {
+    this.setTerrain(2, 2, TILE.LAND);
+    this.addDemoCreation('illuminate', 1, 2);
+    this.addDemoCreation('absorb_water', 3, 2);
+    this.applyChainReactions();
+    this.showToast('已触发光+水连锁反应。');
+  }
+
+  triggerRitualDemo() {
+    this.miraclePoints = Math.max(this.miraclePoints, 3);
+    const a = this.addDemoCreation('absorb_water', 2, 2);
+    const b = this.addDemoCreation('cleanse', 3, 2);
+    this.selectedRitualCreations = new Set([a.id, b.id]);
+    this.handlePerformRitual();
+  }
+
+  triggerStorytellerDemo() {
+    const event = this.storyteller.generateAdaptiveEvent?.(this, this.memorySystem) || this.storyteller.selectEvent(this);
+    const narrative = this.storyteller.generateNarrative(event, this);
+    this.storyteller.eventHistory.push({ turn: this.turn, event: event.name, effect: event.effect, narrative, tension: this.storyteller.tension });
+    this.storyteller.lastEventTurn = this.turn;
+    this.addLog(`【叙事演示】${narrative}`, true);
+    this.applyStorytellerEvent(event);
+    this.storyteller.recordBehavior(this, 'demo_trigger');
+  }
+
+  triggerLegendDemo() {
+    const card = this.creations.find(c => c.placed)?.card || this.demoCard('illuminate');
+    const cause = this.recordLegendaryEvent('creation', '造物者', card.name, 'major');
+    const effect = this.recordLegendaryEvent('miracle', '造物者', this.level.title, 'world-shaking');
+    worldLegendSystem.causalGraph.linkCauseEffect(cause.id, effect.id, 'caused');
+    this.createArtifact(card, 'major');
+    const npc = this.npcManager?.getNPCSummary?.()[0];
+    if (npc) worldLegendSystem.enshrineNPC(npc, 'legendary_deed');
+    this.memorySystem?.addNarrativeMemory?.('lore', `传说记住了${card.name}与${this.level.title}的因果。`, ['造物者', card.name]);
+    this.addLog('【传说演示】世界传说、神器、封神者与因果链已写入。', true);
+  }
+
+  triggerAbyssDemo() {
+    this.entropy = Math.max(this.entropy, Math.ceil((this.level.entropyLimit || 7) * 0.9));
+    this.cognitiveAbyss.update(this.entropy, this.level.entropyLimit || 7);
+    this.currentAbyssRiddle = this.generateAbyssRiddle('instruction');
+    if (this.currentAbyssRiddle) {
+      this.addLog(`【深渊演示】谜题出现：${this.currentAbyssRiddle.displayed}`, true);
+      this.showToast('认知深渊已激活。');
+    }
+  }
+
+  triggerCorruptionDemo() {
+    const result = this.createParadoxCard('light_dark');
+    if (result.success && result.card) {
+      this.activeCard = result.card;
+      this.showCard(result.card);
+      this.addLog(`【腐化演示】${result.card.name} 已生成，腐化 +${result.corruption}。`, true);
+    } else {
+      this.addLog(`【腐化演示】${result.warnings?.join('；') || '生成失败'}`, true);
+    }
+  }
+
+  ensureWorkshopInventory(count = 1) {
+    const abilities = ['create_bridge', 'grow_forest', 'illuminate', 'absorb_water', 'memory_beacon'];
+    while ((this.workshopGetInventory?.() || []).length < count) {
+      const ability = abilities[(this.workshopGetInventory?.() || []).length % abilities.length];
+      this.workshopAddCreation(this.demoCard(ability));
+    }
+  }
+
+  seedWorkshopMaterials(count = 1) {
+    const current = Object.values(this.workshopGetMaterials?.() || {}).reduce((sum, item) => sum + (item.count || 0), 0);
+    if (current < count) {
+      this.creatorWorkshop.materials.set('wood', (this.creatorWorkshop.materials.get('wood') || 0) + (count - current));
+    }
+  }
+
+  selectWorkshopItems(count) {
+    this.ensureWorkshopInventory(count);
+    const ids = (this.workshopGetInventory?.() || []).slice(0, count).map(item => item.id);
+    this.selectedWorkshopItems = new Set(ids);
+  }
+
+  triggerWorkshopDemo() {
+    this.ensureWorkshopInventory(4);
+    this.selectWorkshopItems(1);
+    this.handleWorkshopDismantle();
+    this.selectWorkshopItems(1);
+    this.handleWorkshopDismantle();
+    this.ensureWorkshopInventory(2);
+    this.seedWorkshopMaterials(3);
+    this.selectWorkshopItems(1);
+    this.handleWorkshopModify();
+    this.selectWorkshopItems(2);
+    this.handleWorkshopFuse();
+    this.addLog('【工坊演示】拆解、改造、融合流程已完成。', true);
+  }
+
+  triggerOathDemo() {
+    const npc = this.npcManager?.getNPCSummary?.()[0];
+    if (!npc) return this.showToast('当前关卡没有可立誓 NPC。');
+    const type = this.oathManager.getAvailableOathTypes(npc.id, this.npcManager.socialGraph).find(o => o.canForm !== false)?.type || 'protection';
+    this.handleBindOath(npc.id, type);
+  }
+
+  triggerOathBreakDemo() {
+    const oath = this.oathManager.getAllActiveOaths()[0];
+    if (!oath) return this.triggerOathDemo();
+    this.handleBreakOath(oath.id);
+  }
+
+  triggerLegacyDemo() {
+    const unit = this.units.find(u => u.status === 'active') || this.units[0];
+    if (!unit) return;
+    const legacy = legacySystem.recordRescue(unit, this.level.id, {
+      turn: this.turn,
+      maxTurns: this.level.maxTurns,
+      lost: this.lost
+    });
+    this.addLog(`【传承演示】${legacy.name} 已写入传承，等级 ${legacy.tier}。`, true);
   }
 
   updateMissionDossier() {
@@ -2938,7 +3375,8 @@ class CreatorExam3D extends GameEngine {
 
     const result = this.workshopModify(ids[0], 'range_boost');
     if (result.success) {
-      this.showToast(`改造成功：${result.card.name}`);
+      const cardName = result.finalCard?.name || result.workshopItem?.baseCard?.name || '造物';
+      this.showToast(`改造成功：${cardName}`);
     } else {
       this.showToast(result.error || '改造失败');
     }
@@ -2960,7 +3398,8 @@ class CreatorExam3D extends GameEngine {
 
     const result = this.workshopFuse(ids[0], ids[1]);
     if (result.success) {
-      this.showToast(`融合成功：${result.creation.baseCard.name}`);
+      const cardName = result.finalCard?.name || result.workshopItem?.baseCard?.name || '融合造物';
+      this.showToast(`融合成功：${cardName}`);
     } else {
       this.showToast(result.error || '融合失败');
     }

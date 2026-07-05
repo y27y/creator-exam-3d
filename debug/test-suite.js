@@ -4120,6 +4120,22 @@ runner.test('WorldSimulation - 应包含rumorSystem序列化', async () => {
 })
 
 // 运行测试
+runner.test('Night Watch integration - should keep AI bridge and result update wiring', async () => {
+  const { readFileSync } = await import('node:fs');
+  const bridge = readFileSync(new URL('../public/modes/tower-defense/towerBridge.js', import.meta.url), 'utf8');
+  const tower = readFileSync(new URL('../public/modes/tower-defense/index.html', import.meta.url), 'utf8');
+  const game = readFileSync(new URL('../public/js/game.js', import.meta.url), 'utf8');
+
+  for (const token of ['requestNightWatchText', 'night_watch_wave', 'night_watch_settlement', 'latestWaveText', 'aiSettlement']) {
+    runner.assert(bridge.includes(token), `towerBridge.js should include ${token}`);
+  }
+  runner.assert(tower.includes('window.NightWatchBridge?.announceWave?.(wave'), 'tower mode should announce waves through the bridge');
+  runner.assert(tower.includes('window.NightWatchBridge?.complete?.(isVictory'), 'tower mode should publish settlement through the bridge');
+  runner.assert(tower.includes('for (const t of towers || [])'), 'resizeCanvas should tolerate pre-game resize');
+  runner.assert(game.includes('processedNightWatchResults.has(result.id)'), 'game.js should dedupe Night Watch results');
+  runner.assert(game.includes('event.payload = { ...event.payload, ...result }'), 'game.js should merge AI settlement updates into the world event payload');
+});
+
 runner.run().then(success => {
   process.exit(success ? 0 : 1);
 }).catch(error => {

@@ -513,6 +513,23 @@ h3 {
   flex-shrink: 0;
 }
 
+.night-watch-panel {
+  border-color: rgba(216, 197, 138, 0.34);
+  background: linear-gradient(180deg, rgba(31, 35, 48, 0.78), rgba(14, 16, 24, 0.82));
+}
+
+.night-watch-summary {
+  display: grid;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.night-watch-summary strong {
+  color: var(--text);
+}
+
 .continuity-panel.expanded .collapse-body {
   max-height: min(200px, 28vh);
   overflow: auto;

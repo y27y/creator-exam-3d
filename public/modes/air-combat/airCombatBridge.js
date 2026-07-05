@@ -104,6 +104,20 @@
       scoreMult: 1.14,
       line: '光被折成竖直裂缝，别停在同一条航线里。'
     },
+    ionStorm: {
+      key: 'ionStorm',
+      name: '离子风暴',
+      color: '#cc5de8',
+      attack: 'ionStorm',
+      every: 4.2,
+      warn: 0.72,
+      dur: 0.5,
+      width: 34,
+      damage: 7,
+      jitter: 190,
+      scoreMult: 1.16,
+      line: '离子风暴把航道切成周期镭射，预警亮起就横移脱离。'
+    },
     phantom: {
       key: 'phantom',
       name: '亡名',
@@ -130,6 +144,17 @@
       spawnBias: 0.42,
       hpMult: 0.06,
       line: '裂隙残机开始互相缝补，拖久了就会变硬。'
+    },
+    escort: {
+      key: 'escort',
+      name: '护卫',
+      color: '#51cf66',
+      attack: 'escort',
+      every: 7.5,
+      enemy: 'gunner',
+      maxAdds: 4,
+      scoreMult: 1.14,
+      line: 'Boss 正在投放重炮僚机，先处理护卫再回到主体。'
     }
   };
 
@@ -331,10 +356,13 @@
     const entropy = Number(context.entropy || 0);
     const defense = context.towerDefenseResult || null;
     const abilityText = creations().map(creationAbility).join(' ');
+    const lightRoute = /illuminate|force_field|memory_beacon|guide/.test(abilityText);
     const keys = [];
+    if (entropy >= 8 || lightRoute) keys.push('ionStorm');
     if (entropy >= 7) keys.push('prism');
     else if (entropy >= 4) keys.push('rapid');
     if (lostCount() > 0) keys.push('phantom');
+    if (residentsCount() >= 4 || /block|force_field/.test(abilityText)) keys.push('escort');
     if (defense && defense.victory === false) keys.push('breach');
     if (/illuminate|memory_beacon|dream_link|guide/.test(abilityText)) keys.push('support');
     if (!keys.length) keys.push('armored');

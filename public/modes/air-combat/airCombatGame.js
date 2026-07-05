@@ -297,11 +297,13 @@
     }
 
     updateAffix(dt) {
-      if (this.affix?.attack !== 'prism') return;
+      if (!this.affix?.attack) return;
       this.affixTimer -= dt;
       if (this.affixTimer > 0) return;
       this.affixTimer = this.affix.every || 5.6;
-      game.firePrismLane(this, this.affix);
+      if (this.affix.attack === 'prism') game.firePrismLane(this, this.affix);
+      else if (this.affix.attack === 'ionStorm') game.fireIonStormLane(this, this.affix);
+      else if (this.affix.attack === 'escort') game.fireBossEscort(this, this.affix);
     }
 
     attack() {
@@ -403,6 +405,7 @@
     enemies: [],
     playerBullets: [],
     enemyBullets: [],
+    lasers: [],
     powerups: [],
     particles: [],
     boss: null,
@@ -431,6 +434,7 @@
       this.enemies = [];
       this.playerBullets = [];
       this.enemyBullets = [];
+      this.lasers = [];
       this.powerups = [];
       this.particles = [];
       this.boss = null;
@@ -457,6 +461,7 @@
       this.segmentTime = 0;
       this.spawnTimer = 0.8;
       this.boss = null;
+      this.lasers.length = 0;
       const boss = this.route[this.segmentIndex];
       this.say(`${boss.title}正在靠近。${boss.memory}`, 3.6, {
         eventType: 'airspace_segment',
@@ -539,6 +544,41 @@
       }
       this.burst(x, boss.y + boss.r, affix.color, 10);
       this.say('棱镜词缀折出竖直裂线，立刻离开当前航道。', 1.8);
+    },
+
+    fireIonStormLane(boss, affix) {
+      const baseX = this.player?.x || boss.x;
+      const x = clamp(baseX + (Math.random() - 0.5) * (affix.jitter || 160), 36, W - 36);
+      this.lasers.push({
+        x,
+        warn: affix.warn || 0.72,
+        dur: affix.dur || 0.5,
+        width: affix.width || 34,
+        damage: affix.damage || 7,
+        color: affix.color || '#cc5de8',
+        t: 0,
+        phase: 'warn',
+        hit: false,
+        dead: false
+      });
+      this.burst(x, boss.y + boss.r, affix.color, 8);
+      this.say('离子风暴预警亮起，横移脱离紫色镭射航道。', 1.8);
+    },
+
+    fireBossEscort(boss, affix) {
+      const activeAdds = this.enemies.filter(enemy => !enemy.dead).length;
+      if (activeAdds >= (affix.maxAdds || 4)) return;
+      const side = Math.random() < 0.5 ? -1 : 1;
+      const escort = new Enemy(affix.enemy || 'gunner', boss.def.stage + 1);
+      escort.x = clamp(boss.x + side * (boss.r + escort.r + 28), escort.r + 12, W - escort.r - 12);
+      escort.baseX = escort.x;
+      escort.y = Math.max(28, boss.y + boss.r * 0.3);
+      escort.hp += 4;
+      escort.maxHp = escort.hp;
+      escort.score += 140;
+      this.enemies.push(escort);
+      this.burst(escort.x, escort.y, affix.color || escort.color, 10);
+      this.say('护卫词缀投放重炮僚机，先清掉侧翼高威胁目标。', 1.8);
     },
 
     useSkill() {
@@ -665,6 +705,7 @@
       this.boss = null;
       this.enemies.length = 0;
       this.enemyBullets.length = 0;
+      this.lasers.length = 0;
       setTimeout(() => {
         if (this.state === 'playing') this.nextSegment();
       }, 1100);
@@ -679,6 +720,8 @@
       if (this.creationOverload >= 3) tags.push('频繁脉冲');
       if (this.lastStandTriggered) tags.push('黑匣子保险');
       if (this.route.some(boss => boss.affix?.attack === 'prism')) tags.push('棱镜航线');
+      if (this.route.some(boss => boss.affix?.attack === 'ionStorm')) tags.push('离子风暴');
+      if (this.route.some(boss => boss.affix?.attack === 'escort')) tags.push('护卫僚机');
       if (!victory && this.bossDefeated.length === 0) tags.push('首段压力高');
       return [...new Set(tags)].slice(0, 4);
     },
@@ -746,10 +789,15 @@
         const cd = active?.affix?.attack ? ` · ${Math.max(0, active.affixTimer || 0).toFixed(1)}s` : '';
         hudAffix.textContent = boss?.affix ? `${boss.affix.line}${cd}` : '';
       }
-      hudWeapon.textContent = `${this.weapon.name} · ${this.resonance.name}`;
+      hudWeapon.textContent = `${this.weapon.name} · ${this.resonance.name}${this.lastStandStatus()}`;
       hudScore.textContent = String(Math.round(this.score));
       skillBtn.disabled = !this.player || this.player.skillCd > 0 || this.state !== 'playing';
       skillBtn.textContent = this.player && this.player.skillCd > 0 ? `${Math.ceil(this.player.skillCd)}s` : '造物脉冲';
+    },
+
+    lastStandStatus() {
+      if (!this.player?.lastStandShield) return '';
+      return ` · 黑匣子${this.player.lastStandReady ? '就绪' : '已触发'}`;
     },
 
     update(dt) {
@@ -796,6 +844,7 @@
         p.y += 95 * dt;
         if (p.y > H + 20) p.dead = true;
       }
+      this.updateLasers(dt);
       if (this.nearLineCd <= 0 && this.enemies.some(e => !e.dead && this.player && dist2(e, this.player) < 110 * 110)) {
         this.nearLineCd = 12;
         this.say(bridge.lineFor('near'), 2.6, { eventType: 'airspace_near' });
@@ -804,11 +853,30 @@
       this.enemies = this.enemies.filter(e => !e.dead);
       this.playerBullets = this.playerBullets.filter(b => !b.dead);
       this.enemyBullets = this.enemyBullets.filter(b => !b.dead);
+      this.lasers = this.lasers.filter(l => !l.dead);
       this.powerups = this.powerups.filter(p => !p.dead);
       if (this.player.hp <= 0) this.finish('defeat');
       if (Number(comm.dataset.until || 0) < this.time) comm.textContent = '';
       this.shake = Math.max(0, this.shake - dt * 24);
       this.updateHud();
+    },
+
+    updateLasers(dt) {
+      for (const laser of this.lasers) {
+        laser.t += dt;
+        if (laser.phase === 'warn') {
+          if (laser.t >= laser.warn) {
+            laser.phase = 'fire';
+            laser.t = 0;
+          }
+          continue;
+        }
+        if (!laser.hit && this.player && Math.abs(this.player.x - laser.x) <= laser.width / 2 + this.player.r) {
+          laser.hit = true;
+          this.player.takeDamage(laser.damage);
+        }
+        if (laser.t >= laser.dur) laser.dead = true;
+      }
     },
 
     draw() {
@@ -831,6 +899,7 @@
         ctx.stroke();
       }
       for (const p of this.powerups) this.drawPowerup(p);
+      this.drawLasers();
       for (const b of this.playerBullets) this.drawPlayerBullet(b);
       for (const b of this.enemyBullets) this.drawEnemyBullet(b);
       for (const e of this.enemies) e.draw(ctx);
@@ -873,6 +942,30 @@
       ctx.textBaseline = 'middle';
       ctx.fillText(p.kind === 'heal' ? '+' : p.kind === 'shield' ? 'S' : '*', p.x, p.y + 1);
       ctx.textAlign = 'left';
+    },
+
+    drawLasers() {
+      for (const laser of this.lasers) {
+        const half = laser.width / 2;
+        if (laser.phase === 'warn') {
+          const alpha = 0.14 + 0.18 * Math.abs(Math.sin(laser.t * 18));
+          ctx.fillStyle = `rgba(204, 93, 232, ${alpha})`;
+          ctx.fillRect(laser.x - half, 0, laser.width, H);
+          ctx.strokeStyle = 'rgba(238, 243, 236, .62)';
+          ctx.lineWidth = 1;
+        } else {
+          ctx.fillStyle = 'rgba(204, 93, 232, .46)';
+          ctx.fillRect(laser.x - half, 0, laser.width, H);
+          ctx.strokeStyle = laser.color;
+          ctx.lineWidth = 3;
+        }
+        ctx.beginPath();
+        ctx.moveTo(laser.x - half, 0);
+        ctx.lineTo(laser.x - half, H);
+        ctx.moveTo(laser.x + half, 0);
+        ctx.lineTo(laser.x + half, H);
+        ctx.stroke();
+      }
     },
 
     drawMeters() {

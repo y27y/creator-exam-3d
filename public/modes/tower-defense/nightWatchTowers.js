@@ -81,8 +81,14 @@
     return /^#[0-9a-f]{6}$/i.test(text) ? text : fallback;
   }
 
+  function normalizeCreationNameValue(name, ability = '') {
+    if (ability === 'consume_light') return '噬光黑核';
+    return String(name || '').replace(/噬光之灯/g, '噬光黑核');
+  }
+
   function creationName(item) {
-    return typeof item === 'string' ? item : item?.name || item?.creationName || item?.card?.name || '';
+    if (typeof item === 'string') return normalizeCreationNameValue(item);
+    return normalizeCreationNameValue(item?.name || item?.creationName || item?.card?.name, creationAbility(item));
   }
 
   function creationAbility(item) {

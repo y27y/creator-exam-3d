@@ -436,7 +436,11 @@ export class ParticleSystem {
       consume_light: 0xffd166,
       steam_burst: 0x9ec8d8,
       creation_burst: 0xff6b6b,
-      memory_loop: 0xa7f3d0
+      memory_loop: 0xa7f3d0,
+      cycle_life: 0x8bdc65,
+      temporal_rift: 0xb8a7ff,
+      paradox_barrier: 0x7de7ff,
+      chaos_guide: 0xffe07a
     };
     return colors[ability] || 0xffffff;
   }

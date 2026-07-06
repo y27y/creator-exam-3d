@@ -954,7 +954,8 @@ runner.test('能力策略模式 - 所有能力应有处理器', async () => {
     'absorb_water', 'illuminate', 'cleanse', 'calm', 'guide', 'slow_beast',
     'dream_link', 'time_dilation', 'reveal_path', 'memory_beacon',
     'haste', 'teleport', 'shield_units', 'redirect_hazard',
-    'consume_light', 'steam_burst', 'creation_burst', 'memory_loop'
+    'consume_light', 'steam_burst', 'creation_burst', 'memory_loop',
+    'cycle_life', 'temporal_rift', 'paradox_barrier', 'chaos_guide'
   ];
 
   for (const ability of abilities) {
@@ -1029,13 +1030,21 @@ runner.test('验证腐化能力 - 噬光之灯应熄灭光源并制造黑暗', (
 runner.test('验证腐化能力 - 噬光悖论应避免伪装成普通光源视觉', async () => {
   const { readFileSync } = await import('node:fs');
   const game = readFileSync(new URL('../public/js/game.js', import.meta.url), 'utf8');
+  const engine = readFileSync(new URL('../public/js/gameEngine.js', import.meta.url), 'utf8');
+  const display = readFileSync(new URL('../public/js/creationDisplay.js', import.meta.url), 'utf8');
   const particles = readFileSync(new URL('../public/js/particles.js', import.meta.url), 'utf8');
   const corruption = readFileSync(new URL('../public/js/verificationCorruption.js', import.meta.url), 'utf8');
+  const { normalizeCreationName, normalizeCreationDisplayText } = await import('../public/js/creationDisplay.js');
 
-  runner.assert(game.includes("card?.ability === 'consume_light'"), '旧存档里的噬光能力也应使用反光源显示名');
+  runner.assert(game.includes('normalizeCreationName(card)'), '旧存档里的噬光能力也应使用反光源显示名');
+  runner.assert(engine.includes('const creationName = normalizeCreationName(card)'), '世界事件里的噬光造物名也应归一化');
   runner.assert(game.includes('噬光黑核'), '噬光悖论在棋盘上应显示为反光源而不是普通灯');
-  runner.assert(game.includes("replace(/噬光之灯/g, '噬光黑核')"), '旧日志中的噬光之灯也应在展示时兼容成噬光黑核');
+  runner.assert(display.includes("replace(/噬光之灯/g, CONSUME_LIGHT_DISPLAY_NAME)"), '旧日志中的噬光之灯也应在展示时兼容成噬光黑核');
+  runner.assertEqual(normalizeCreationName({ name: '噬光之灯', ability: 'consume_light' }), '噬光黑核', 'consume_light 应始终显示为噬光黑核');
+  runner.assertEqual(normalizeCreationDisplayText('旧档：噬光之灯'), '旧档：噬光黑核', '旧文本应归一化为噬光黑核');
   runner.assert(game.includes('ringColor: 0xffd166'), '噬光悖论应有可见的琥珀警示环');
+  runner.assert(game.includes('absorption: true'), '噬光悖论应渲染为吸光暗核，而不是黑色灯光');
+  runner.assert(game.includes('anti-light-spark'), '噬光悖论应带有可见的警示火花');
   runner.assert(particles.includes('consume_light: 0xffd166'), '噬光悖论粒子应使用可见警示色');
   runner.assert(corruption.includes("name: '噬光黑核'"), '悖论模板名应避免继续叫普通灯');
   runner.assert(game.includes('illuminate: 0xfff39a'), '普通照明仍应保持暖黄色光源视觉');
@@ -1068,6 +1077,129 @@ runner.test('验证腐化能力 - 创灭之锤应同时修复和破坏地形', (
     .filter(cell => [TILE.SWAMP, TILE.POISON, TILE.DARK].includes(game.getTerrain(cell.x, cell.y))).length;
   runner.assert(game.getTerrain(2, 2) === TILE.LAND, '创灭之锤应先把目标危险地形修复为平地');
   runner.assert(fractured > 0, '创灭之锤应破坏周边地形');
+});
+
+runner.test('验证腐化能力 - 所有可见悖论卡都应有真实触发效果', async () => {
+  const { AbilityHandlers } = await import('../public/js/abilityHandlers.js');
+  const { verificationCorruption } = await import('../public/js/verificationCorruption.js');
+  const paradoxes = verificationCorruption.getAvailableParadoxes();
+
+  for (const paradox of paradoxes) {
+    const ability = paradox.illegalAbility;
+    runner.assert(
+      AbilityHandlers.immediate.has(ability) || AbilityHandlers.active.has(ability),
+      `可见悖论 ${paradox.type} 的能力 ${ability} 应有真实处理器`
+    );
+  }
+});
+
+runner.test('验证腐化能力 - 生死之种应同时生长与凋零', () => {
+  const game = new DebugGame();
+  game.reset();
+  game.terrain = Array.from({ length: 7 }, () => Array.from({ length: 7 }, () => TILE.LAND));
+  game.units[0].x = 3;
+  game.units[0].y = 4;
+
+  const card = {
+    id: 'paradox-cycle-life-test',
+    name: '测试生死之种',
+    ability: 'cycle_life',
+    range: 2,
+    duration: 2,
+    cost: 0,
+    stabilityCost: 0,
+    tags: ['illegal', 'paradox']
+  };
+  game.creations.push({ id: card.id, card, x: -1, y: -1, remaining: 2, restores: [], placed: false });
+
+  const placed = game.place(card.id, 3, 3);
+  const changed = game.tilesWithin(3, 3, 2).filter(cell => [TILE.FOREST, TILE.SWAMP].includes(game.getTerrain(cell.x, cell.y))).length;
+  const effect = game.creations.find(c => c.id === card.id).corruptionEffect;
+  runner.assert(placed.success === true, '生死之种应能被放置');
+  runner.assert(changed > 0, '生死之种应真实改变地形');
+  runner.assert(effect.type === 'cycle_life', '生死之种应记录腐化效果');
+  runner.assert((game.units[0].shieldTurns || 0) > 0 || (game.units[0].witherTurns || 0) > 0, '生死之种应影响附近单位');
+});
+
+runner.test('验证腐化能力 - 静时之沙应制造时间裂隙', () => {
+  const game = new DebugGame();
+  game.reset();
+  game.terrain = Array.from({ length: 7 }, () => Array.from({ length: 7 }, () => TILE.LAND));
+  game.units[0].x = 3;
+  game.units[0].y = 4;
+  const previousMaxTurns = game.level.maxTurns;
+
+  const card = {
+    id: 'paradox-temporal-test',
+    name: '测试静时之沙',
+    ability: 'temporal_rift',
+    range: 2,
+    duration: 2,
+    cost: 0,
+    stabilityCost: 0,
+    tags: ['illegal', 'paradox']
+  };
+  game.creations.push({ id: card.id, card, x: -1, y: -1, remaining: 2, restores: [], placed: false });
+
+  game.place(card.id, 3, 3);
+  const fields = game.tilesWithin(3, 3, 2).filter(cell => game.getTerrain(cell.x, cell.y) === TILE.FIELD).length;
+  runner.assert(fields > 0, '静时之沙应制造凝固力场地形');
+  runner.assert((game.units[0].stasisTurns || 0) > 0, '静时之沙应定格附近单位');
+  runner.assert((game.temporalDebt || 0) > 0, '静时之沙应写入时间债');
+  runner.assert(game.level.maxTurns === previousMaxTurns + 1, '静时之沙应延展回合上限');
+});
+
+runner.test('验证腐化能力 - 矛盾之盾应保护并牵制单位', () => {
+  const game = new DebugGame();
+  game.reset();
+  game.terrain = Array.from({ length: 7 }, () => Array.from({ length: 7 }, () => TILE.LAND));
+  game.units[0].x = 3;
+  game.units[0].y = 4;
+
+  const card = {
+    id: 'paradox-barrier-test',
+    name: '测试矛盾之盾',
+    ability: 'paradox_barrier',
+    range: 2,
+    duration: 2,
+    cost: 0,
+    stabilityCost: 0,
+    tags: ['illegal', 'paradox']
+  };
+  game.creations.push({ id: card.id, card, x: -1, y: -1, remaining: 2, restores: [], placed: false });
+
+  game.place(card.id, 3, 3);
+  const fields = game.tilesWithin(3, 3, 2).filter(cell => game.getTerrain(cell.x, cell.y) === TILE.FIELD).length;
+  runner.assert(fields > 0, '矛盾之盾应制造屏障地形');
+  runner.assert((game.units[0].shieldTurns || 0) > 0, '矛盾之盾应保护附近单位');
+  runner.assert(game.units[0].stunned === true, '矛盾之盾也应牵制附近单位');
+});
+
+runner.test('验证腐化能力 - 迷途之灯应引导并误导单位', () => {
+  const game = new DebugGame();
+  game.reset();
+  game.terrain = Array.from({ length: 7 }, () => Array.from({ length: 7 }, () => TILE.LAND));
+  game.setTerrain(2, 3, TILE.FOG);
+  game.units[0].x = 3;
+  game.units[0].y = 4;
+
+  const card = {
+    id: 'paradox-guide-test',
+    name: '测试迷途之灯',
+    ability: 'chaos_guide',
+    range: 2,
+    duration: 2,
+    cost: 0,
+    stabilityCost: 0,
+    tags: ['illegal', 'paradox']
+  };
+  game.creations.push({ id: card.id, card, x: -1, y: -1, remaining: 2, restores: [], placed: false });
+
+  game.place(card.id, 3, 3);
+  const effect = game.creations.find(c => c.id === card.id).corruptionEffect;
+  runner.assert(effect.type === 'chaos_guide', '迷途之灯应记录腐化效果');
+  runner.assert(effect.guideLights > 0, '迷途之灯应真实改变引导地形');
+  runner.assert((game.units[0].guidedTurns || 0) > 0 || (game.units[0].chaosGuideTurns || 0) > 0, '迷途之灯应影响附近单位');
 });
 
 runner.test('movement - haste should grant real extra steps', () => {

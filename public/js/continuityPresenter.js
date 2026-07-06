@@ -1,6 +1,4 @@
-function normalizeContinuityText(text) {
-  return String(text || '').replace(/噬光之灯/g, '噬光黑核');
-}
+import { normalizeCreationDisplayText } from './creationDisplay.js';
 
 export function buildContinuityViewModel(worldSimulation, options = {}) {
   const currentRegionId = options.currentRegionId || 'unknown';
@@ -10,14 +8,14 @@ export function buildContinuityViewModel(worldSimulation, options = {}) {
     mood: resident.mood,
     currentGoal: resident.currentGoal,
     memoryCount: resident.memories.length,
-    latestMemory: normalizeContinuityText(resident.memories[resident.memories.length - 1]?.text || '暂无关键记忆')
+    latestMemory: normalizeCreationDisplayText(resident.memories[resident.memories.length - 1]?.text || '暂无关键记忆')
   }));
 
   const futureHooks = worldSimulation.getFutureHooks(currentRegionId).map(hook => ({
     id: hook.id,
     type: hook.type,
     priority: hook.priority || 0,
-    summary: normalizeContinuityText(hook.summary || hook.type),
+    summary: normalizeCreationDisplayText(hook.summary || hook.type),
     residentId: hook.residentId || null,
     sourceRegionId: hook.sourceRegionId || currentRegionId
   })).sort((a, b) => b.priority - a.priority);

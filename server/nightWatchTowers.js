@@ -92,17 +92,23 @@ function cleanText(value, fallback, max = 90) {
   return (text || fallback).slice(0, max);
 }
 
+function normalizeCreationNameValue(name, ability = '') {
+  if (ability === 'consume_light') return '噬光黑核';
+  return String(name || '').replace(/噬光之灯/g, '噬光黑核');
+}
+
 function cleanHex(value, fallback) {
   const text = String(value || '').trim();
   return /^#[0-9a-f]{6}$/i.test(text) ? text : fallback;
 }
 
 function normalizeCreation(item) {
-  if (typeof item === 'string') return { name: item.slice(0, 30), ability: 'unknown', type: '造物' };
+  if (typeof item === 'string') return { name: normalizeCreationNameValue(item).slice(0, 30), ability: 'unknown', type: '造物' };
   const card = item?.card || item || {};
+  const ability = cleanText(card.ability, 'unknown', 32);
   return {
-    name: cleanText(card.name || card.creationName || item?.creationName, '未命名造物', 30),
-    ability: cleanText(card.ability, 'unknown', 32),
+    name: cleanText(normalizeCreationNameValue(card.name || card.creationName || item?.creationName, ability), '未命名造物', 30),
+    ability,
     type: cleanText(card.type, '造物', 18),
     description: cleanText(card.description, '', 80),
     tags: Array.isArray(card.tags) ? card.tags.map(tag => cleanText(tag, '', 14)).filter(Boolean).slice(0, 4) : []

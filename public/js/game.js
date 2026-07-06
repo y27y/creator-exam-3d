@@ -24,6 +24,7 @@ import { SaveSlotManager } from './saveSlotManager.js';
 import { MemoryStore } from './memoryStore.js';
 import { WorldSession } from './worldSession.js';
 import { RiftEchoSystem } from './riftEchoes.js';
+import { normalizeCreationDisplayText, normalizeCreationName } from './creationDisplay.js';
 
 const TILE_SIZE = 1.55;
 const BOARD_SIZE = 7;
@@ -74,7 +75,11 @@ const ABILITY_COLORS = {
   consume_light: 0xffd166,
   steam_burst: 0x9ec8d8,
   creation_burst: 0xff6b6b,
-  memory_loop: 0xa7f3d0
+  memory_loop: 0xa7f3d0,
+  cycle_life: 0x8bdc65,
+  temporal_rift: 0xb8a7ff,
+  paradox_barrier: 0x7de7ff,
+  chaos_guide: 0xffe07a
 };
 
 class CreatorExam3D extends GameEngine {
@@ -649,7 +654,8 @@ class CreatorExam3D extends GameEngine {
       const card = await compileCreation(text, this.getGameContext());
       this.activeCard = card;
       this.showCard(card);
-      this.addLog(`造物编译完成：${card.name}。${card.source === 'ai' ? 'AI 已生成结构化卡牌。' : '使用本地兜底编译器。'}`, true);
+      const displayName = this.getCreationDisplayName(card);
+      this.addLog(`造物编译完成：${displayName}。${card.source === 'ai' ? 'AI 已生成结构化卡牌。' : '使用本地兜底编译器。'}`, true);
       this.ui.aiMode.textContent = card.source === 'ai'
         ? '当前使用后端 AI 接口编译。'
         : '当前使用本地兜底编译器；配置 .env 后可切换为真实 AI。';
@@ -670,7 +676,7 @@ class CreatorExam3D extends GameEngine {
   showCard(card) {
     this.ui.cardPanel.classList.remove('hidden');
     this.ui.cardType.textContent = card.type;
-    this.ui.cardName.textContent = card.name;
+    this.ui.cardName.textContent = this.getCreationDisplayName(card);
     this.ui.cardCost.textContent = card.cost;
     this.ui.cardDesc.textContent = card.description;
     this.ui.cardAbility.textContent = abilityLabel(card.ability);
@@ -733,7 +739,8 @@ class CreatorExam3D extends GameEngine {
     this.ui.cardPanel.classList.add('hidden');
 
     this.applyImmediatePlacement(creation);
-    this.addLog(`你在 ${this.tileName(x, y)} 创造了「${card.name}」：${card.description}`, true);
+    const displayName = this.getCreationDisplayName(card);
+    this.addLog(`你在 ${this.tileName(x, y)} 创造了「${displayName}」：${card.description}`, true);
     if (card.stabilityCost > 0) {
       this.addLog(`副作用触发：${card.side_effect} 世界裂隙 +${card.stabilityCost}。`);
     }
@@ -852,7 +859,7 @@ class CreatorExam3D extends GameEngine {
         if (activeCreations.length >= 1) {
           const target = activeCreations[Math.floor(Math.random() * activeCreations.length)];
           target.remaining += 1;
-          this.addLog(`【事件】「${target.card.name}」的持续时间延长了`);
+          this.addLog(`【事件】「${this.getCreationDisplayName(target.card)}」的持续时间延长了`);
         }
         break;
       }
@@ -1006,7 +1013,7 @@ class CreatorExam3D extends GameEngine {
       .map(unit => unit.name);
     const recentCreations = this.creations
       .map(creation => ({
-        name: creation.card?.name || '未命名造物',
+        name: this.getCreationDisplayName(creation.card),
         ability: creation.card?.ability || 'unknown',
         type: creation.card?.type || '奇迹',
         remaining: creation.remaining || 0
@@ -1069,7 +1076,7 @@ class CreatorExam3D extends GameEngine {
       .map(unit => unit.name);
     const recentCreations = this.creations
       .map(creation => ({
-        name: creation.card?.name || '未命名造物',
+        name: this.getCreationDisplayName(creation.card),
         ability: creation.card?.ability || 'unknown',
         type: creation.card?.type || '奇迹',
         description: creation.card?.description || '',
@@ -1081,7 +1088,7 @@ class CreatorExam3D extends GameEngine {
       .slice(-12)
       .map(event => {
         const payload = event.payload || {};
-        if (event.type === 'creation_placed') return `在${event.regionId}放置了「${payload.creationName || '未命名造物'}」，能力${payload.ability || 'unknown'}。`;
+        if (event.type === 'creation_placed') return `在${event.regionId}放置了「${normalizeCreationName({ name: payload.creationName, ability: payload.ability })}」，能力${payload.ability || 'unknown'}。`;
         if (event.type === 'unit_rescued') return `${payload.unitName || '居民'}在${event.regionId}被救下。`;
         if (event.type === 'unit_lost') return `${payload.unitName || '居民'}在${event.regionId}失踪或遇难。`;
         if (event.type === 'region_resolved') return `${event.regionId}危机被解决。`;
@@ -2141,20 +2148,22 @@ class CreatorExam3D extends GameEngine {
   }
 
   getCreationDisplayName(card) {
-    if (card?.ability === 'consume_light') return '噬光黑核';
-    return card?.name || '未命名造物';
+    return normalizeCreationName(card);
   }
 
   getCreationVisualStyle(card) {
     const baseColor = ABILITY_COLORS[card?.ability] || 0xffffff;
     if (card?.ability === 'consume_light') {
       return {
-        coreColor: 0x24132c,
+        coreColor: 0x4b275d,
         ringColor: 0xffd166,
-        coreEmissive: 0x8b3dff,
+        coreEmissive: 0x14051d,
         ringEmissive: 0xffa64d,
-        coreEmissiveIntensity: 0.38,
-        ringEmissiveIntensity: 0.55
+        coreEmissiveIntensity: 0.08,
+        ringEmissiveIntensity: 0.95,
+        accentColor: 0xfff0a8,
+        shadowColor: 0x09040d,
+        absorption: true
       };
     }
     return {
@@ -2174,6 +2183,7 @@ class CreatorExam3D extends GameEngine {
     group.position.set(pos.x, 0.45, pos.z);
 
     const visual = this.getCreationVisualStyle(card);
+    const range = Math.max(0, card.range || 0);
     const core = new THREE.Mesh(
       new THREE.IcosahedronGeometry(0.25, 1),
       this.material(visual.coreColor, { emissive: visual.coreEmissive, emissiveIntensity: visual.coreEmissiveIntensity, roughness: 0.45 })
@@ -2183,12 +2193,45 @@ class CreatorExam3D extends GameEngine {
     group.add(core);
 
     const ring = new THREE.Mesh(
-      new THREE.TorusGeometry(0.38 + card.range * 0.08, 0.025, 8, 32),
+      new THREE.TorusGeometry(0.38 + range * 0.08, 0.025, 8, 32),
       this.material(visual.ringColor, { transparent: true, opacity: 0.72, emissive: visual.ringEmissive, emissiveIntensity: visual.ringEmissiveIntensity })
     );
     ring.rotation.x = Math.PI / 2;
     ring.position.y = 0.02;
     group.add(ring);
+
+    if (visual.absorption) {
+      const warningRing = new THREE.Mesh(
+        new THREE.TorusGeometry(0.48 + range * 0.08, 0.018, 8, 40),
+        this.material(visual.accentColor, { transparent: true, opacity: 0.86, emissive: visual.accentColor, emissiveIntensity: 0.75, roughness: 0.35 })
+      );
+      warningRing.rotation.x = Math.PI / 2;
+      warningRing.position.y = 0.16;
+      group.add(warningRing);
+
+      const shadowPool = new THREE.Mesh(
+        new THREE.CircleGeometry(0.32 + range * 0.04, 32),
+        this.material(visual.shadowColor, { transparent: true, opacity: 0.5, depthWrite: false, roughness: 1, side: THREE.DoubleSide })
+      );
+      shadowPool.rotation.x = -Math.PI / 2;
+      shadowPool.position.y = -0.04;
+      group.add(shadowPool);
+
+      for (let i = 0; i < 3; i += 1) {
+        const angle = (Math.PI * 2 * i) / 3 + 0.4;
+        group.add(this.createVoxelBlock(
+          `anti-light-spark-${i}`,
+          0.05,
+          0.11,
+          0.05,
+          visual.accentColor,
+          Math.cos(angle) * 0.32,
+          0.28,
+          Math.sin(angle) * 0.32,
+          { emissive: visual.accentColor, emissiveIntensity: 0.7 }
+        ));
+      }
+    }
 
     const timer = this.createLabel(`${this.getCreationDisplayName(card)} · ${remaining}`);
     timer.position.y = 0.62;
@@ -2569,6 +2612,7 @@ class CreatorExam3D extends GameEngine {
 
   triggerLegendDemo() {
     const card = this.creations.find(c => c.placed)?.card || this.demoCard('illuminate');
+    const creationName = this.getCreationDisplayName(card);
     const currentLevel = this.level?.title || this.level?.id || '当前关卡';
     const previousLevel = this.levelIndex > 0
       ? LEVELS[this.levelIndex - 1]?.title
@@ -2576,10 +2620,10 @@ class CreatorExam3D extends GameEngine {
     const source = worldLegendSystem.recordLegendaryEvent({
       type: 'creation',
       actor: '造物者',
-      target: card.name,
+      target: creationName,
       level: previousLevel,
       turn: Math.max(1, this.turn - 1),
-      description: `造物者在${previousLevel}用${card.name}留下光与记忆的微小选择`,
+      description: `造物者在${previousLevel}用${creationName}留下光与记忆的微小选择`,
       impact: 'major'
     });
     const effect = worldLegendSystem.recordLegendaryEvent({
@@ -2588,7 +2632,7 @@ class CreatorExam3D extends GameEngine {
       target: currentLevel,
       level: currentLevel,
       turn: this.turn,
-      description: `${card.name}的光与记忆在${currentLevel}再次改变道路`,
+      description: `${creationName}的光与记忆在${currentLevel}再次改变道路`,
       impact: 'world-shaking',
       causeId: source.id
     });
@@ -2597,7 +2641,7 @@ class CreatorExam3D extends GameEngine {
     const npc = this.npcManager?.getNPCSummary?.()[0];
     if (npc) worldLegendSystem.enshrineNPC(npc, 'legendary_deed');
     const butterflyCount = worldLegendSystem.causalGraph.getButterflyEffectsForLevel(currentLevel).length;
-    this.memorySystem?.addNarrativeMemory?.('lore', `传说记住了${card.name}与${currentLevel}的因果。`, ['造物者', card.name]);
+    this.memorySystem?.addNarrativeMemory?.('lore', `传说记住了${creationName}与${currentLevel}的因果。`, ['造物者', creationName]);
     this.addLog(`【传说演示】世界传说、神器、封神者与因果链已写入；蝴蝶效应 ${butterflyCount} 条。`, true);
   }
 
@@ -2618,7 +2662,8 @@ class CreatorExam3D extends GameEngine {
     this.cognitiveAbyss.update(this.entropy, limit);
 
     const card = this.demoCard('memory_beacon');
-    const memory = this.memorySystem?.vectorMemory?.addMemory?.(`${card.name}：${card.description}`, {
+    const creationName = this.getCreationDisplayName(card);
+    const memory = this.memorySystem?.vectorMemory?.addMemory?.(`${creationName}：${card.description}`, {
       type: 'creation',
       level: this.level.id,
       turn: this.turn,
@@ -2629,7 +2674,7 @@ class CreatorExam3D extends GameEngine {
       text: card.description,
       metadata: { type: 'creation', level: this.level.id, turn: this.turn, ability: card.ability }
     };
-    memory.name = card.name;
+    memory.name = creationName;
     memory.ability = card.ability;
     memory.card = card;
 
@@ -2644,8 +2689,8 @@ class CreatorExam3D extends GameEngine {
 
     if (result.success) {
       this.addLog(`【裂隙回响】${result.narrative}`, true);
-      this.addLog(`【回响状态】${card.name} 在 (${result.echo.x + 1}, ${result.echo.y + 1}) 显现，剩余 ${result.echo.remainingTurns} 回合。`);
-      this.showToast(`裂隙回响显现：${card.name}`);
+      this.addLog(`【回响状态】${creationName} 在 (${result.echo.x + 1}, ${result.echo.y + 1}) 显现，剩余 ${result.echo.remainingTurns} 回合。`);
+      this.showToast(`裂隙回响显现：${creationName}`);
     } else {
       this.addLog(`【裂隙回响】${result.error || result.reason || '显现失败'}`, true);
       this.showToast(result.error || result.reason || '回响显现失败');
@@ -2712,9 +2757,9 @@ class CreatorExam3D extends GameEngine {
         this.miraclePoints = Math.max(this.miraclePoints, result.card.cost || 0);
         this.placeCreation(target.x, target.y);
         const effect = this.creations.find(c => c.id === result.card.id)?.corruptionEffect || {};
-        this.addLog(`【腐化演示】${result.card.name} 已在 (${target.x + 1}, ${target.y + 1}) 触发，腐化 +${result.corruption}，棋盘效果 ${JSON.stringify(effect)}。`, true);
+        this.addLog(`【腐化演示】${this.getCreationDisplayName(result.card)} 已在 (${target.x + 1}, ${target.y + 1}) 触发，腐化 +${result.corruption}，棋盘效果 ${JSON.stringify(effect)}。`, true);
       } else {
-        this.addLog(`【腐化演示】${result.card.name} 已生成，腐化 +${result.corruption}。`, true);
+        this.addLog(`【腐化演示】${this.getCreationDisplayName(result.card)} 已生成，腐化 +${result.corruption}。`, true);
       }
     } else {
       this.addLog(`【腐化演示】${result.warnings?.join('；') || '生成失败'}`, true);
@@ -2726,7 +2771,11 @@ class CreatorExam3D extends GameEngine {
       consume_light: [TILE.LAND, TILE.FOG, TILE.FOREST, TILE.VILLAGE, TILE.HIGH],
       steam_burst: [TILE.WATER, TILE.LAND, TILE.SWAMP, TILE.BRIDGE],
       creation_burst: [TILE.WATER, TILE.SWAMP, TILE.DARK, TILE.FOG, TILE.POISON],
-      memory_loop: [TILE.FOG, TILE.DARK]
+      memory_loop: [TILE.FOG, TILE.DARK],
+      cycle_life: [TILE.LAND, TILE.FOREST, TILE.VILLAGE, TILE.HIGH],
+      temporal_rift: [TILE.LAND, TILE.FOG, TILE.DARK, TILE.SWAMP, TILE.WATER],
+      paradox_barrier: [TILE.LAND, TILE.FOG, TILE.DARK, TILE.SWAMP, TILE.WATER, TILE.BRIDGE],
+      chaos_guide: [TILE.LAND, TILE.FOREST, TILE.FOG, TILE.DARK]
     };
     const preferred = preferredByAbility[ability] || [TILE.LAND, TILE.FOG, TILE.WATER, TILE.SWAMP, TILE.DARK];
     const candidates = [
@@ -3607,7 +3656,7 @@ class CreatorExam3D extends GameEngine {
       return `
         <label class="ritual-creation-item">
           <input type="checkbox" class="ritual-creation-checkbox" data-creation-id="${escapeHtml(c.id)}" ${checked}>
-          <span><strong>${escapeHtml(c.card.name)}</strong> · ${escapeHtml(c.card.ability)}</span>
+          <span><strong>${escapeHtml(this.getCreationDisplayName(c.card))}</strong> · ${escapeHtml(c.card.ability)}</span>
         </label>
       `;
     }).join('');
@@ -3806,7 +3855,7 @@ class CreatorExam3D extends GameEngine {
       this.ui.workshopInventoryList.innerHTML = inventory.map(item => `
         <label class="continuity-item workshop-item">
           <input type="checkbox" class="workshop-select" data-inv-id="${escapeHtml(item.id)}">
-          <span><strong>${escapeHtml(item.card.name)}</strong> · ${escapeHtml(item.card.ability)}</span>
+          <span><strong>${escapeHtml(this.getCreationDisplayName(item.card))}</strong> · ${escapeHtml(item.card.ability)}</span>
         </label>
       `).join('');
       // 保持重新渲染后的选中状态
@@ -3937,7 +3986,7 @@ class CreatorExam3D extends GameEngine {
     if (result.success && result.card) {
       this.activeCard = result.card;
       this.showCard(result.card);
-      this.addLog(`【腐化】生成悖论造物「${result.card.name}」，腐化值 +${result.corruption}。`, true);
+      this.addLog(`【腐化】生成悖论造物「${this.getCreationDisplayName(result.card)}」，腐化值 +${result.corruption}。`, true);
       if (result.narrative) this.addLog(result.narrative);
     } else {
       const warning = result.warnings?.join('；') || result.narrative || '腐化造物生成失败';
@@ -3985,7 +4034,7 @@ class CreatorExam3D extends GameEngine {
 
     const result = this.workshopModify(ids[0], 'range_boost');
     if (result.success) {
-      const cardName = result.finalCard?.name || result.workshopItem?.baseCard?.name || '造物';
+      const cardName = normalizeCreationName(result.finalCard || result.workshopItem?.baseCard, '造物');
       this.showToast(`改造成功：${cardName}`);
     } else {
       this.showToast(result.error || '改造失败');
@@ -4008,7 +4057,7 @@ class CreatorExam3D extends GameEngine {
 
     const result = this.workshopFuse(ids[0], ids[1]);
     if (result.success) {
-      const cardName = result.finalCard?.name || result.workshopItem?.baseCard?.name || '融合造物';
+      const cardName = normalizeCreationName(result.finalCard || result.workshopItem?.baseCard, '融合造物');
       this.showToast(`融合成功：${cardName}`);
     } else {
       this.showToast(result.error || '融合失败');
@@ -4154,7 +4203,7 @@ class CreatorExam3D extends GameEngine {
   }
 
   normalizeLegacyDisplayText(text) {
-    return String(text || '').replace(/噬光之灯/g, '噬光黑核');
+    return normalizeCreationDisplayText(text);
   }
 
   showToast(text) {

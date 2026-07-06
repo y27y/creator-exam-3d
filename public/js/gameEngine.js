@@ -11,6 +11,7 @@ import { VerificationCorruption } from './verificationCorruption.js';
 import { CreatorWorkshop, WorkshopCreation } from './creatorWorkshop.js';
 import { EnemyIntentSystem } from './enemyIntent.js';
 import { applyAbility, hasAbilityHandler } from './abilityHandlers.js';
+import { normalizeCreationDisplayText, normalizeCreationName } from './creationDisplay.js';
 
 const BOARD_SIZE = 7;
 const MAX_LOGS = 100;
@@ -353,16 +354,20 @@ class GameEngine {
   // ========== World State Management ==========
 
   updateWorldState(action) {
+    const detail = normalizeCreationDisplayText(action.detail);
+    const creationName = action.creationName
+      ? normalizeCreationName({ name: action.creationName, ability: action.ability })
+      : '';
     this.worldState.actions.push({
       turn: this.turn,
       type: action.type,
-      detail: action.detail,
+      detail,
       timestamp: Date.now()
     });
     this.analyzePlayStyle();
     if (action.type === 'creation_placed') {
-      this.worldState.storySeeds.creationsUsed.push(action.creationName);
-      this.worldState.creations.push(action.creationName);
+      this.worldState.storySeeds.creationsUsed.push(creationName);
+      this.worldState.creations.push(creationName);
     }
     if (action.type === 'unit_rescued') {
       this.worldState.storySeeds.livesSaved += 1;
@@ -417,18 +422,19 @@ class GameEngine {
 
   recordCreationPlacement(creation, x, y) {
     const card = creation.card;
-    this.updateWorldState({ type: 'creation_placed', detail: card.name, creationName: card.name });
+    const creationName = normalizeCreationName(card);
+    this.updateWorldState({ type: 'creation_placed', detail: creationName, creationName, ability: card.ability });
 
     // Record legendary event for high-impact or rare creations
     const isRare = card.tags?.some(tag => ['legendary', 'epic', 'sacred', 'forbidden'].includes(tag));
     const isHighCost = (card.cost || 0) >= 3 || (card.stabilityCost || 0) >= 2;
     if (isRare || isHighCost) {
-      this.recordLegendaryEvent('creation', '造物者', card.name, isHighCost ? 'major' : 'minor');
+      this.recordLegendaryEvent('creation', '造物者', creationName, isHighCost ? 'major' : 'minor');
     }
 
     return this.emitWorldEvent('creation_placed', {
       creationId: creation.id,
-      creationName: card.name,
+      creationName,
       ability: card.ability,
       x,
       y,
@@ -738,7 +744,8 @@ class GameEngine {
       placed: false
     };
     this.creations.push(creation);
-    this.log(`造物编译完成：${card.name} (${card.type})`, true);
+    const creationName = normalizeCreationName(card);
+    this.log(`造物编译完成：${creationName} (${card.type})`, true);
     this.log(`  能力: ${card.ability} | 范围: ${card.range} | 持续: ${card.duration} | 消耗: ${card.cost} | 裂隙: ${card.stabilityCost}`);
     this.log(`  ${card.description}`);
     this.log(`  副作用: ${card.side_effect}`);
@@ -762,7 +769,7 @@ class GameEngine {
     creation.placed = true;
 
     this.applyImmediatePlacement(creation);
-    this.log(`你在 ${this.tileName(x, y)} 放置了「${card.name}」`, true);
+    this.log(`你在 ${this.tileName(x, y)} 放置了「${normalizeCreationName(card)}」`, true);
     if (card.stabilityCost > 0) {
       this.log(`副作用触发：世界裂隙 +${card.stabilityCost}`);
     }
@@ -1782,7 +1789,7 @@ class GameEngine {
         if (activeCreations.length >= 2) {
           const target = activeCreations[Math.floor(Math.random() * activeCreations.length)];
           target.remaining += 1;
-          this.log(`【随机事件】${event.name}！「${target.card.name}」的持续时间意外延长了`, true);
+          this.log(`【随机事件】${event.name}！「${normalizeCreationName(target.card)}」的持续时间意外延长了`, true);
         }
         break;
       }
@@ -2137,11 +2144,12 @@ class GameEngine {
   // ========== Logging ==========
 
   log(text, important = false) {
-    this.logs.unshift({ text, important, turn: this.turn });
+    const displayText = normalizeCreationDisplayText(text);
+    this.logs.unshift({ text: displayText, important, turn: this.turn });
     if (this.logs.length > MAX_LOGS) {
       this.logs = this.logs.slice(0, MAX_LOGS);
     }
-    this.hooks.onLog(text, important, this.turn);
+    this.hooks.onLog(displayText, important, this.turn);
   }
 
   addLog(text, important = false) {
@@ -2221,7 +2229,7 @@ class GameEngine {
     this.log(`【仪式】${result.narrative}`, true);
     this.emitWorldEvent('ritual_performed', {
       recipeId: result.ritual?.id || 'emergent',
-      creationNames: creations.map(c => c.card.name)
+      creationNames: creations.map(c => normalizeCreationName(c.card))
     }, { importance: 0.8, tags: ['ritual'] });
 
     return result;

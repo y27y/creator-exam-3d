@@ -569,6 +569,147 @@ AbilityHandlers.active.set('memory_loop', (game, creation) => {
   });
 });
 
+AbilityHandlers.immediate.set('cycle_life', (game, creation) => {
+  const { card, x, y } = creation;
+  const range = Math.max(1, card.range || 1);
+  let bloomed = 0;
+  let withered = 0;
+  for (const cell of game.tilesWithin(x, y, range)) {
+    const terrain = game.getTerrain(cell.x, cell.y);
+    if (bloomed <= withered && [TILE.LAND, TILE.HIGH, TILE.VILLAGE].includes(terrain)) {
+      if (rewriteTerrain(game, cell.x, cell.y, TILE.FOREST)) bloomed += 1;
+    } else if ([TILE.FOREST, TILE.BRIDGE, TILE.LAND].includes(terrain)) {
+      if (rewriteTerrain(game, cell.x, cell.y, TILE.SWAMP)) withered += 1;
+    }
+  }
+  if (!bloomed && rewriteTerrain(game, x, y, TILE.FOREST)) bloomed = 1;
+
+  let revived = 0;
+  let marked = 0;
+  affectNearbyUnits(game, x, y, range + 1, (unit) => {
+    const key = String(unit.id || unit.name || '').length + unit.x + unit.y;
+    if (key % 2 === 0) {
+      unit.shieldTurns = Math.max(unit.shieldTurns || 0, 1);
+      unit.guidedTurns = Math.max(unit.guidedTurns || 0, 1);
+      revived += 1;
+    } else {
+      unit.witherTurns = Math.max(unit.witherTurns || 0, 2);
+      marked += 1;
+    }
+  });
+
+  creation.corruptionEffect = { type: 'cycle_life', bloomed, withered, revived, marked };
+  logGame(game, `「${card.name}」让生长与枯萎同环：${bloomed} 格萌生，${withered} 格化为沼泽，${revived} 个单位被护住，${marked} 个单位被凋零标记。`, true);
+});
+
+AbilityHandlers.active.set('cycle_life', (game, creation) => {
+  affectNearbyUnits(game, creation.x, creation.y, Math.max(1, creation.card.range || 1) + 1, (unit) => {
+    if (unit.witherTurns > 0) unit.witherTurns -= 1;
+    else unit.shieldTurns = Math.max(unit.shieldTurns || 0, 1);
+  });
+});
+
+AbilityHandlers.immediate.set('temporal_rift', (game, creation) => {
+  const { card, x, y } = creation;
+  const range = Math.max(1, card.range || 1);
+  let frozenTiles = 0;
+  for (const cell of game.tilesWithin(x, y, range)) {
+    if (frozenTiles >= 5) break;
+    const terrain = game.getTerrain(cell.x, cell.y);
+    if ([TILE.LAND, TILE.FOG, TILE.DARK, TILE.SWAMP, TILE.WATER].includes(terrain)) {
+      setTempTerrain(game, creation, cell.x, cell.y, TILE.FIELD);
+      frozenTiles += 1;
+    }
+  }
+
+  const frozenUnits = affectNearbyUnits(game, x, y, range + 1, (unit) => {
+    unit.stasisTurns = Math.max(unit.stasisTurns || 0, 1);
+    unit.revealedPath = Math.max(unit.revealedPath || 0, 1);
+  });
+  game.temporalDebt = Math.max(game.temporalDebt || 0, 1);
+  if (Number.isFinite(game.level?.maxTurns)) game.level.maxTurns += 1;
+  else if (Number.isFinite(game.maxTurns)) game.maxTurns += 1;
+
+  creation.corruptionEffect = { type: 'temporal_rift', frozenTiles, frozenUnits, temporalDebt: game.temporalDebt };
+  logGame(game, `「${card.name}」撕开静止裂隙：${frozenTiles} 格时间凝固，${frozenUnits} 个单位被定格，回合上限暂时延展。`, true);
+});
+
+AbilityHandlers.active.set('temporal_rift', (game, creation) => {
+  if (creation.corruptionEffect?.tickLogged) return;
+  creation.corruptionEffect = { ...(creation.corruptionEffect || {}), tickLogged: true };
+  affectNearbyUnits(game, creation.x, creation.y, Math.max(1, creation.card.range || 1) + 1, (unit) => {
+    if (unit.stasisTurns > 0) unit.stasisTurns -= 1;
+    unit.revealedPath = Math.max(unit.revealedPath || 0, 1);
+  });
+});
+
+AbilityHandlers.immediate.set('paradox_barrier', (game, creation) => {
+  const { card, x, y } = creation;
+  const range = Math.max(1, card.range || 1);
+  let barriers = 0;
+  for (const cell of game.tilesWithin(x, y, range)) {
+    if (barriers >= 6) break;
+    if (game.unitAt?.(cell.x, cell.y)) continue;
+    const terrain = game.getTerrain(cell.x, cell.y);
+    if ([TILE.LAND, TILE.FOG, TILE.DARK, TILE.SWAMP, TILE.WATER, TILE.BRIDGE].includes(terrain)) {
+      setTempTerrain(game, creation, cell.x, cell.y, TILE.FIELD);
+      barriers += 1;
+    }
+  }
+
+  const trapped = affectNearbyUnits(game, x, y, range + 1, (unit) => {
+    unit.shieldTurns = Math.max(unit.shieldTurns || 0, 2);
+    unit.stunned = true;
+  });
+
+  creation.corruptionEffect = { type: 'paradox_barrier', barriers, trapped };
+  logGame(game, `「${card.name}」立起矛盾结界：${barriers} 格被屏障封锁，${trapped} 个单位同时被保护与牵制。`, true);
+});
+
+AbilityHandlers.active.set('paradox_barrier', (game, creation) => {
+  affectNearbyUnits(game, creation.x, creation.y, Math.max(1, creation.card.range || 1) + 1, (unit) => {
+    unit.shieldTurns = Math.max(unit.shieldTurns || 0, 1);
+  });
+});
+
+AbilityHandlers.immediate.set('chaos_guide', (game, creation) => {
+  const { card, x, y } = creation;
+  const range = Math.max(1, card.range || 1);
+  let guideLights = 0;
+  for (const cell of game.tilesWithin(x, y, range)) {
+    if (guideLights >= 4) break;
+    const terrain = game.getTerrain(cell.x, cell.y);
+    if ([TILE.LAND, TILE.FOREST, TILE.FOG, TILE.DARK].includes(terrain)) {
+      if (rewriteTerrain(game, cell.x, cell.y, guideLights % 2 === 0 ? TILE.FOG : TILE.LAND)) guideLights += 1;
+    }
+  }
+
+  let guided = 0;
+  let misled = 0;
+  affectNearbyUnits(game, x, y, range + 2, (unit) => {
+    const key = String(unit.id || unit.name || '').length + unit.x + unit.y;
+    if (key % 2 === 0) {
+      unit.guidedTurns = Math.max(unit.guidedTurns || 0, 2);
+      unit.revealedPath = Math.max(unit.revealedPath || 0, 1);
+      guided += 1;
+    } else {
+      unit.chaosGuideTurns = Math.max(unit.chaosGuideTurns || 0, 2);
+      unit.guidedTurns = 0;
+      unit.revealedPath = 0;
+      misled += 1;
+    }
+  });
+
+  creation.corruptionEffect = { type: 'chaos_guide', guideLights, guided, misled };
+  logGame(game, `「${card.name}」点亮迷途光标：${guided} 个单位看见路，${misled} 个单位被假路牵走。`, true);
+});
+
+AbilityHandlers.active.set('chaos_guide', (game, creation) => {
+  affectNearbyUnits(game, creation.x, creation.y, Math.max(1, creation.card.range || 1) + 2, (unit) => {
+    if (unit.chaosGuideTurns > 0) unit.chaosGuideTurns -= 1;
+  });
+});
+
 // Apply a handler by ability name
 export function applyAbility(game, creation, phase) {
   const handler = AbilityHandlers[phase].get(creation.card.ability);

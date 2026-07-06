@@ -1010,7 +1010,7 @@ runner.test('能力策略模式 - 所有能力应有处理器', async () => {
 
   const abilities = [
     'create_bridge', 'block', 'force_field', 'transform_land', 'freeze_water',
-    'raise_earth', 'grow_forest', 'trap', 'sun_blessing',
+    'raise_earth', 'grow_forest', 'dig_channel', 'trap', 'sun_blessing',
     'absorb_water', 'illuminate', 'cleanse', 'calm', 'guide', 'slow_beast',
     'dream_link', 'time_dilation', 'reveal_path', 'memory_beacon',
     'haste', 'teleport', 'shield_units', 'redirect_hazard',
@@ -1280,6 +1280,21 @@ runner.test('movement - haste should grant real extra steps', () => {
   const moved = game.moveUnitTowardGoal(unit, game.getUnitMoveSteps(unit));
   runner.assertEqual(moved, 2, 'haste should move two tiles in one turn');
   runner.assertEqual(unit.x, 2, 'unit should consume the extra action on the path');
+});
+
+runner.test('movement - units should not step into newly occupied tiles', () => {
+  const game = new GameEngine();
+  game.reset();
+  game.terrain = Array.from({ length: 7 }, () => Array.from({ length: 7 }, () => TILE.LAND));
+  game.units = [
+    { id: 'lead', type: 'villager', name: 'Lead', x: 3, y: 4, goal: { x: 5, y: 4 }, status: 'active' },
+    { id: 'follower', type: 'villager', name: 'Follower', x: 4, y: 3, goal: { x: 4, y: 5 }, status: 'active' }
+  ];
+
+  game.moveUnits();
+  const occupied = game.units.filter(unit => unit.status === 'active').map(unit => `${unit.x},${unit.y}`);
+  runner.assertEqual(new Set(occupied).size, occupied.length, 'active units should end movement on distinct tiles');
+  runner.assert(!(game.units[1].x === 4 && game.units[1].y === 4), 'second mover should not step into the first mover occupied tile');
 });
 
 runner.test('movement - placed haste card should grant real extra steps in core and debug games', () => {
@@ -5031,6 +5046,21 @@ runner.test('Test jump UI - should expose all levels and mode buttons only', asy
   runner.assert(game.includes('window.__creatorExam3D = this'), 'browser game should expose the live instance for behavior verification');
   runner.assert(game.includes('updateDebugDataset()') && game.includes('dataset.debugState'), 'browser game should expose compact DOM debug state for behavior verification');
   runner.assert(game.includes('return super.moveCivilian(unit)') && game.includes('return super.moveMessenger(unit)'), 'browser movement should reuse core movement rules');
+  runner.assert(game.includes('occupant && occupant !== unit'), 'browser passability should reject occupied tiles during movement');
+});
+
+runner.test('NPC runtime - residentId should resolve to the same NPC memory record', () => {
+  const game = new DebugGame();
+  game.reset();
+  const units = game.units.filter(candidate => candidate.residentId && (game.isCivilian(candidate) || game.isMessenger(candidate)));
+  runner.assert(units.length > 0, 'test level should include talkable units with residentId');
+
+  for (const unit of units) {
+    const npc = game.npcManager.getNPC(unit.residentId);
+    runner.assert(npc, `${unit.name} should resolve through residentId`);
+    game.npcManager.updateNPCMemory(unit.residentId, 'unverified external rumor');
+    runner.assertEqual(npc.memories[npc.memories.length - 1].text, 'unverified external rumor', 'memory should write to the resolved NPC record');
+  }
 });
 
 runner.run().then(success => {

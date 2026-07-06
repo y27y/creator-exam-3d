@@ -834,7 +834,7 @@ class GameEngine {
   applyImmediatePlacement(creation) {
     const { card, x, y } = creation;
     const cardName = normalizeCreationName(card);
-    const immediateAbilities = ['create_bridge', 'block', 'force_field', 'transform_land', 'freeze_water', 'raise_earth', 'grow_forest', 'dig_channel', 'trap', 'time_dilation', 'reveal_path', 'sun_blessing', 'dream_link'];
+    const immediateAbilities = ['create_bridge', 'block', 'force_field', 'transform_land', 'freeze_water', 'raise_earth', 'grow_forest', 'trap', 'time_dilation', 'reveal_path', 'sun_blessing', 'dream_link'];
     if (!immediateAbilities.includes(card.ability) && hasAbilityHandler(card.ability, 'immediate')) {
       applyAbility(this, creation, 'immediate');
       return;
@@ -1906,6 +1906,8 @@ class GameEngine {
   isPassable(x, y, unit) {
     const terrain = this.getTerrain(x, y);
     if (terrain === TILE.MOUNTAIN || terrain === TILE.WALL) return false;
+    const occupant = this.unitAt(x, y);
+    if (occupant && occupant !== unit) return false;
     if (unit.type === 'beast') {
       return ![TILE.WATER, TILE.FIELD, TILE.WALL].includes(terrain);
     }

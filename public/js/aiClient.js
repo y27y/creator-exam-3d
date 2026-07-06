@@ -16,6 +16,7 @@ const ABILITY_SET = new Set([
   'sun_blessing',
   'raise_earth',
   'grow_forest',
+  'dig_channel',
   'trap',
   'dream_link',
   'time_dilation',
@@ -43,6 +44,7 @@ const ABILITY_LABELS = {
   sun_blessing: '日华祝福',
   raise_earth: '抬升地面',
   grow_forest: '种植森林',
+  dig_channel: '挖掘水渠',
   trap: '设置陷阱',
   dream_link: '梦境链接',
   time_dilation: '时间延缓',
@@ -70,6 +72,7 @@ const TYPE_BY_ABILITY = {
   sun_blessing: '仪式',
   raise_earth: '地形',
   grow_forest: '生物',
+  dig_channel: '地形',
   trap: '机械',
   dream_link: '仪式',
   time_dilation: '奇迹',
@@ -97,6 +100,7 @@ const NAME_SEEDS = {
   sun_blessing: ['日华轮', '光暖树', '阳炎蝶', '晨曦钟'],
   raise_earth: ['地隆笋', '土丘芽', '石升藤', '隆地根'],
   grow_forest: ['速生林', '木灵种', '森罗籽', '树界芽'],
+  dig_channel: ['引洪渠', '分水沟', '伏流犁', '导潮槽'],
   trap: ['缚兽藤', '陷地阵', '迟步网', '缠根索'],
   dream_link: ['同梦蛛', '共感茧', '心桥蛾', '识海丝'],
   time_dilation: ['时漏沙', '缓时花', '凝刻钟', '延流晶'],
@@ -124,6 +128,7 @@ const TAGS_BY_ABILITY = {
   sun_blessing: ['光', '恢复', '大范围'],
   raise_earth: ['地形', '高地', '防御'],
   grow_forest: ['植物', '阻挡', '持续'],
+  dig_channel: ['水渠', '导流', '洪水'],
   trap: ['控制', '巨兽', '临时'],
   dream_link: ['精神', '连接', '共享'],
   time_dilation: ['时间', '延缓', '紧急'],
@@ -151,6 +156,7 @@ const KEYWORDS = [
   { ability: 'sun_blessing', words: ['太阳', '日', '光', '温暖', '祝福', '治愈', '恢复', '大范围'] },
   { ability: 'raise_earth', words: ['抬', '升', '高', '地', '土', '丘', '隆', '地面'] },
   { ability: 'grow_forest', words: ['森林', '树', '木', '林', '种', '植物', '生长', '芽'] },
+  { ability: 'dig_channel', words: ['水渠', '沟渠', '渠道', '开渠', '挖沟', '导流'] },
   { ability: 'trap', words: ['陷阱', '坑', '网', '索', '绊', '捕', '捉', '机关'] },
   { ability: 'dream_link', words: ['梦', '链接', '连接', '共享', '心', '精神', '同梦', '共感'] },
   { ability: 'time_dilation', words: ['时间', '缓', '慢', '延', '钟', '沙漏', '凝', '延缓'] },
@@ -243,14 +249,14 @@ export function localCompile(text, gameContext = {}) {
     grow_forest: 2, trap: 2, dream_link: 2,
     reveal_path: 1, freeze_water: 1, raise_earth: 1,
     time_dilation: 0, haste: 1, teleport: 2, shield_units: 2,
-    redirect_hazard: 2, slow_beast: 2, absorb_water: 2, cleanse: 2
+    redirect_hazard: 2, dig_channel: 1, slow_beast: 2, absorb_water: 2, cleanse: 2
   };
   const range = ability === 'haste' ? inferHasteRange(text) : (rangeMap[ability] ?? 1);
 
   const durationMap = {
     create_bridge: 3, freeze_water: 2, trap: 2, time_dilation: 1,
     grow_forest: 4, raise_earth: 3, force_field: 2, sun_blessing: 2, calm: 1,
-    haste: 2, teleport: 2, shield_units: 3, redirect_hazard: 3
+    haste: 2, teleport: 2, shield_units: 3, redirect_hazard: 3, dig_channel: 3
   };
   const duration = isTooStrong ? 2 : (durationMap[ability] ?? 3);
 
@@ -258,7 +264,7 @@ export function localCompile(text, gameContext = {}) {
     guide: 2, reveal_path: 1, block: 1,
     absorb_water: 2, illuminate: 2, gale: 2, cleanse: 2, calm: 2, slow_beast: 2,
     create_bridge: 2, freeze_water: 2, raise_earth: 2, grow_forest: 2,
-    trap: 2, dream_link: 2, memory_beacon: 2,
+    dig_channel: 2, trap: 2, dream_link: 2, memory_beacon: 2,
     force_field: 2, sun_blessing: 2, transform_land: 3, time_dilation: 4,
     haste: 2, teleport: 3, shield_units: 2, redirect_hazard: 2
   };
@@ -268,7 +274,7 @@ export function localCompile(text, gameContext = {}) {
     guide: 1, reveal_path: 0, block: 0,
     absorb_water: 1, illuminate: 1, gale: 1, cleanse: 1, calm: 1, slow_beast: 1,
     create_bridge: 1, freeze_water: 1, raise_earth: 1, grow_forest: 1,
-    trap: 1, dream_link: 1, memory_beacon: 1,
+    dig_channel: 1, trap: 1, dream_link: 1, memory_beacon: 1,
     force_field: 1, sun_blessing: 1, transform_land: 1, time_dilation: 2,
     haste: 1, teleport: 2, shield_units: 1, redirect_hazard: 1
   };
@@ -295,6 +301,12 @@ export function localCompile(text, gameContext = {}) {
 }
 
 function inferAbility(text, gameContext) {
+  if (wantsDigChannel(text)) return 'dig_channel';
+  if (wantsShield(text)) return 'shield_units';
+  if (wantsBridge(text)) return 'create_bridge';
+  if (wantsCleanse(text)) return 'cleanse';
+  if (wantsDreamLink(text)) return 'dream_link';
+  if (wantsGale(text)) return 'gale';
   if (wantsHazardRedirect(text)) return 'redirect_hazard';
   if (wantsHaste(text)) return 'haste';
 
@@ -322,6 +334,32 @@ function wantsHazardRedirect(text) {
   const hasHazardTarget = /洪|水|灾害|迷雾|雾|污染|毒|黑暗|flood|hazard|poison|dark/.test(clean);
   const isDiggingChannel = /挖|开渠|水渠|沟渠|渠道/.test(clean);
   return hasRedirectIntent && hasHazardTarget && !isDiggingChannel;
+}
+
+function wantsDigChannel(text) {
+  const clean = String(text || '').toLowerCase();
+  return /水渠|沟渠|渠道|开渠|挖沟|导流|排水沟|引洪渠/.test(clean);
+}
+
+function wantsBridge(text) {
+  return /桥|浮石|木板|渡水|临时通行|水面.*浮|bridge/.test(String(text || '').toLowerCase());
+}
+
+function wantsShield(text) {
+  return /护盾|庇护|保护伞|护身|罩住|挡灾害|挡危险|shield/.test(String(text || '').toLowerCase());
+}
+
+function wantsCleanse(text) {
+  return /净化|清除污染|清毒|解毒|瘟疫|污染|poison/.test(String(text || '').toLowerCase());
+}
+
+function wantsDreamLink(text) {
+  const clean = String(text || '').toLowerCase();
+  return /同梦|共感|梦境.*(相遇|连接|链接|共享|同一)|梦.*(相遇|连接|链接|共享)/.test(clean);
+}
+
+function wantsGale(text) {
+  return /吹散.*雾|雾.*吹散|驱散.*雾|雾.*驱散|清除.*雾|散雾|gale/.test(String(text || '').toLowerCase());
 }
 
 function wantsHaste(text) {
@@ -385,6 +423,7 @@ function buildDescription(ability, isTooStrong, needsPlacement) {
     sun_blessing: '大范围光照驱散黑暗，并恢复单位体力使其免疫混乱。',
     raise_earth: '抬升附近地面形成临时高地，可躲避洪水。',
     grow_forest: '种植森林，阻挡灾害扩散并作为天然屏障。',
+    dig_channel: '挖出水渠，把附近洪水或污染导走并露出可通行地面。',
     trap: '设置陷阱，使进入的巨兽迟缓2回合。',
     dream_link: '连接两个单位，使其共享视野和方向感。',
     time_dilation: '延缓局部时间，增加2回合（消耗大量奇迹点）。',
@@ -416,6 +455,7 @@ function buildSideEffect(ability, isTooStrong) {
     sun_blessing: '',
     raise_earth: '抬升的地面不稳定，可能塌陷。',
     grow_forest: '森林可能阻挡己方单位的移动。',
+    dig_channel: '水渠会留下新的水路，放错位置可能切断通行。',
     trap: '陷阱对村民同样有效。',
     dream_link: '',
     time_dilation: '操控时间会严重撕裂世界稳定性。',
@@ -440,7 +480,13 @@ function buildResolvedDescription(ability, range, isTooStrong = false) {
 function sanitizeCard(raw, playerText, source) {
   const card = raw && typeof raw === 'object' ? raw : {};
   let ability = ABILITY_SET.has(card.ability) ? card.ability : 'transform_land';
-  if (wantsHazardRedirect(playerText)) ability = 'redirect_hazard';
+  if (wantsDigChannel(playerText)) ability = 'dig_channel';
+  else if (wantsShield(playerText)) ability = 'shield_units';
+  else if (wantsBridge(playerText)) ability = 'create_bridge';
+  else if (wantsCleanse(playerText)) ability = 'cleanse';
+  else if (wantsDreamLink(playerText)) ability = 'dream_link';
+  else if (wantsGale(playerText)) ability = 'gale';
+  else if (wantsHazardRedirect(playerText)) ability = 'redirect_hazard';
   else if (wantsHaste(playerText)) ability = 'haste';
   else if (wantsPathReveal(playerText)) ability = 'reveal_path';
   const tags = Array.isArray(card.tags) ? card.tags.map(String).filter(Boolean).slice(0, 4) : [];

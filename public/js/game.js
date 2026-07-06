@@ -65,6 +65,7 @@ const ABILITY_COLORS = {
   absorb_water: 0x54c7ff,
   create_bridge: 0xffc46b,
   illuminate: 0xfff39a,
+  gale: 0xb8ecff,
   block: 0xaeb7c8,
   calm: 0xd4a6ff,
   guide: 0x80f0a5,
@@ -73,6 +74,19 @@ const ABILITY_COLORS = {
   memory_beacon: 0x8cb5ff,
   force_field: 0x64f3ff,
   transform_land: 0xb4e66e,
+  freeze_water: 0xa8e6ff,
+  reveal_path: 0xffdb82,
+  sun_blessing: 0xfff5a0,
+  raise_earth: 0xd4a574,
+  grow_forest: 0x6bd48a,
+  dig_channel: 0x3aa7d8,
+  trap: 0xffa070,
+  dream_link: 0xc8a8ff,
+  time_dilation: 0xffe6a8,
+  haste: 0x7dff9a,
+  teleport: 0x9f8cff,
+  shield_units: 0x8de8ff,
+  redirect_hazard: 0x6bd6c8,
   consume_light: 0xffd166,
   steam_burst: 0x9ec8d8,
   creation_burst: 0xff6b6b,
@@ -212,7 +226,7 @@ class CreatorExam3D extends GameEngine {
     this.clearIntentArrows();
 
     // Initialize NPC manager for this level
-    this.npcManager = new NPCManager(this.level);
+    this.npcManager = new NPCManager({ ...this.level, units: this.units });
     this.applyPendingSocialGraph(this.npcManager);
 
     // Add legacy NPCs from previous rescues
@@ -1571,6 +1585,8 @@ class CreatorExam3D extends GameEngine {
   isPassable(x, y, unit) {
     const terrain = this.getTerrain(x, y);
     if (terrain === TILE.MOUNTAIN || terrain === TILE.WALL) return false;
+    const occupant = this.unitAt(x, y);
+    if (occupant && occupant !== unit) return false;
     if (unit.type === 'beast') {
       return ![TILE.WATER, TILE.FIELD].includes(terrain);
     }
@@ -4497,6 +4513,7 @@ class CreatorExam3D extends GameEngine {
         absorb_water: '水面上泛起涟漪，仿佛大地在深呼吸。',
         create_bridge: '一道光芒连接了两岸，断裂的世界重新找到了通路。',
         illuminate: '光芒刺破黑暗，连空气都变得清澈起来。',
+        gale: '风从裂隙间穿过，迷雾被卷成细碎的白线。',
         block: '屏障升起的那一刻，周围的风都静止了。',
         calm: '一种难以言喻的宁静蔓延开来，连巨兽的呼吸都变得缓慢。',
         guide: '微风中传来低语，为迷失者指引方向。',
@@ -4508,6 +4525,7 @@ class CreatorExam3D extends GameEngine {
         freeze_water: '冰霜蔓延，水面凝固成镜，倒映着天空。',
         raise_earth: '地面隆隆作响，新的高地从大地深处升起。',
         grow_forest: '种子在瞬间发芽，树木以肉眼可见的速度生长。',
+        dig_channel: '水声顺着新开的沟渠低低奔走，危险被引向别处。',
         trap: '藤蔓悄然生长，编织出等待的网。',
         dream_link: '两个梦境开始交织，现实与幻象的边界变得模糊。',
         time_dilation: '周围的一切都变得缓慢，唯有你的心跳如常。',

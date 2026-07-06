@@ -49,6 +49,8 @@ function affectNearbyUnits(game, x, y, range, updater) {
   return affected;
 }
 
+const HAZARD_TILES = [TILE.WATER, TILE.SWAMP, TILE.FOG, TILE.DARK, TILE.POISON];
+
 // ========== Immediate Handlers ==========
 
 AbilityHandlers.immediate.set('create_bridge', (game, creation) => {
@@ -63,6 +65,21 @@ AbilityHandlers.immediate.set('create_bridge', (game, creation) => {
     }
   }
   if (!changed) setTempTerrain(game, creation, x, y, TILE.BRIDGE);
+});
+
+AbilityHandlers.immediate.set('dig_channel', (game, creation) => {
+  const { card, x, y } = creation;
+  let channeled = 0;
+  if (!game.unitAt(x, y) && canRewriteTerrain(game.getTerrain(x, y))) {
+    game.setTerrain(x, y, TILE.WATER);
+  }
+  for (const cell of game.tilesWithin(x, y, Math.max(1, card.range) + 1)) {
+    if (channeled >= 3) break;
+    if (cell.x === x && cell.y === y) continue;
+    if (!HAZARD_TILES.includes(game.getTerrain(cell.x, cell.y))) continue;
+    if (rewriteTerrain(game, cell.x, cell.y, TILE.LAND)) channeled += 1;
+  }
+  logGame(game, `${card.name} digs a channel and redirects ${channeled} hazard tile(s).`);
 });
 
 AbilityHandlers.immediate.set('block', (game, creation) => {
@@ -192,6 +209,18 @@ AbilityHandlers.active.set('gale', (game, creation) => {
     }
   }
   if (changed) game.addLog(`「${card.name}」吹散了 ${changed} 格迷雾。`);
+});
+
+AbilityHandlers.active.set('dig_channel', (game, creation) => {
+  const { card, x, y } = creation;
+  let channeled = 0;
+  for (const cell of game.tilesWithin(x, y, Math.max(1, card.range) + 1)) {
+    if (channeled >= 1) break;
+    if (cell.x === x && cell.y === y) continue;
+    if (!HAZARD_TILES.includes(game.getTerrain(cell.x, cell.y))) continue;
+    if (rewriteTerrain(game, cell.x, cell.y, TILE.LAND)) channeled += 1;
+  }
+  if (channeled) logGame(game, `${card.name} channels away ${channeled} spreading hazard tile.`);
 });
 
 AbilityHandlers.active.set('cleanse', (game, creation) => {

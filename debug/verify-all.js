@@ -6,6 +6,7 @@ const suites = [
   { label: 'current-code-reality', command: 'node', args: ['debug/current-code-reality-tests.js'] },
   { label: 'ai-reliability', command: 'node', args: ['debug/ai-reliability-tests.js'] },
   { label: 'compile-reliability', command: 'node', args: ['debug/compile-reliability-tests.js'] },
+  { label: 'creation-placement-reliability', command: 'node', args: ['debug/creation-placement-reliability-tests.js'] },
   { label: 'turn-reliability', command: 'node', args: ['debug/turn-reliability-tests.js'] },
   { label: 'advanced-mechanisms-reliability', command: 'node', args: ['debug/advanced-mechanisms-reliability-tests.js'] },
   { label: 'npc-dialogue-reliability', command: 'node', args: ['debug/npc-dialogue-reliability-tests.js'] },

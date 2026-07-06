@@ -274,6 +274,7 @@ export class NPCManager {
         (unit.residentId && (npc.id === unit.residentId || npc.residentId === unit.residentId))
       ));
       if (existing) {
+        if (unit.residentId) existing.residentId ||= unit.residentId;
         existing.personality ||= unitNpc.personality;
         existing.dialogueStyle ||= unitNpc.dialogueStyle;
         existing.lore ||= unitNpc.lore;

@@ -15,7 +15,7 @@ import { EnemyIntentSystem } from '../public/js/enemyIntent.js';
 class DebugGame extends GameEngine {
   constructor(options = {}) {
     super(options);
-    this.npcManager = new NPCManager(this.level || { id: 'default', title: '默认关卡', map: [], units: [] });
+    this.npcManager = new NPCManager({ ...(this.level || { id: 'default', title: '默认关卡', map: [], units: [] }), units: this.units || [] });
     this.ritualForge = new RitualForge();
     this.cognitiveAbyss = new CognitiveAbyss();
     this.verificationCorruption = new VerificationCorruption();
@@ -27,7 +27,7 @@ class DebugGame extends GameEngine {
 
   reset() {
     super.reset();
-    this.npcManager = new NPCManager(this.level || { id: 'default', title: '默认关卡', map: [], units: [] });
+    this.npcManager = new NPCManager({ ...(this.level || { id: 'default', title: '默认关卡', map: [], units: [] }), units: this.units || [] });
     this.ritualForge = new RitualForge();
     this.cognitiveAbyss = new CognitiveAbyss();
     this.verificationCorruption = new VerificationCorruption();

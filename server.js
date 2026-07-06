@@ -216,9 +216,20 @@ function adjustCardByCreativity(card, playerText) {
 function sanitizeCard(raw, playerText) {
   const card = raw && typeof raw === 'object' ? raw : {};
   let ability = ABILITIES.has(card.ability) ? card.ability : 'transform_land';
+  if (playerText && wantsDigChannel(playerText)) {
+    ability = 'dig_channel';
+  } else if (playerText && wantsShield(playerText)) {
+    ability = 'shield_units';
+  } else if (playerText && wantsBridge(playerText)) {
+    ability = 'create_bridge';
+  } else if (playerText && wantsCleanse(playerText)) {
+    ability = 'cleanse';
+  } else if (playerText && wantsDreamLink(playerText)) {
+    ability = 'dream_link';
+  }
   // 兜底纠错：玩家明确要"驱散/吹散/清除迷雾"但 AI 误判为不处理 FOG 的能力时，强制归 gale
   // 不含单纯"迷雾"，避免误伤"改道迷雾""迷雾中导航"等场景
-  if (playerText && /驱散迷雾|驱雾|吹散迷雾|清除迷雾|散雾|驱散.{0,2}雾|吹散.{0,2}雾/.test(playerText) && ability !== 'gale') {
+  else if (playerText && wantsGale(playerText) && ability !== 'gale') {
     ability = 'gale';
   }
   const name = typeof card.name === 'string' && card.name.trim()
@@ -319,6 +330,31 @@ function extractJson(text) {
   return null;
 }
 
+function wantsDigChannel(text) {
+  return /水渠|沟渠|渠道|开渠|挖沟|导流|排水沟|引洪渠/.test(String(text || '').toLowerCase());
+}
+
+function wantsBridge(text) {
+  return /桥|浮石|木板|渡水|临时通行|水面.*浮|bridge/.test(String(text || '').toLowerCase());
+}
+
+function wantsShield(text) {
+  return /护盾|庇护|保护伞|护身|罩住|挡灾害|挡危险|shield/.test(String(text || '').toLowerCase());
+}
+
+function wantsCleanse(text) {
+  return /净化|清除污染|清毒|解毒|瘟疫|污染|poison/.test(String(text || '').toLowerCase());
+}
+
+function wantsDreamLink(text) {
+  const clean = String(text || '').toLowerCase();
+  return /同梦|共感|梦境.*(相遇|连接|链接|共享|同一)|梦.*(相遇|连接|链接|共享)/.test(clean);
+}
+
+function wantsGale(text) {
+  return /驱散迷雾|驱雾|吹散迷雾|迷雾.*吹散|清除迷雾|散雾|驱散.{0,2}雾|吹散.{0,2}雾|gale/.test(String(text || '').toLowerCase());
+}
+
 function buildResolvedDescription(ability, range) {
   if (ability === 'haste') {
     const steps = range >= 2 ? 3 : 2;
@@ -371,7 +407,12 @@ function buildFallbackCreation(text, fallbackReason = 'no_key') {
   const reason = normalizeCompileFallbackReason(fallbackReason);
   const ability = /teleport|portal|传送|星门|瞬移|空间门/.test(clean) ? 'teleport'
     : /行动力|加一|加二|多走|快跑|疾行|冲刺|移动力|speed|move|action/.test(clean) ? 'haste'
-    : /shield|护盾|庇护|保护伞|雨伞|罩住/.test(clean) ? 'shield_units'
+    : wantsShield(clean) || /shield|护盾|庇护|保护伞|雨伞|罩住/.test(clean) ? 'shield_units'
+    : wantsDigChannel(clean) ? 'dig_channel'
+    : wantsBridge(clean) ? 'create_bridge'
+    : wantsCleanse(clean) ? 'cleanse'
+    : wantsDreamLink(clean) ? 'dream_link'
+    : wantsGale(clean) ? 'gale'
     : /redirect|改道|转向|引流|分洪|风向|吹走/.test(clean) ? 'redirect_hazard'
     : /water|flood|river|雨|水|洪/.test(clean) ? 'absorb_water'
     : /light|lamp|sun|光|灯|照/.test(clean) ? 'illuminate'

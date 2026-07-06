@@ -100,20 +100,8 @@ AbilityHandlers.immediate.set('grow_forest', (game, creation) => {
   if (!changed) setTempTerrain(game, creation, x, y, TILE.FOREST);
 });
 
-AbilityHandlers.immediate.set('dig_channel', (game, creation) => {
-  const { card, x, y } = creation;
-  let changed = 0;
-  for (const cell of game.tilesWithin(x, y, card.range)) {
-    if (game.getTerrain(cell.x, cell.y) === TILE.LAND) {
-      setTempTerrain(game, creation, cell.x, cell.y, TILE.WATER);
-      changed += 1;
-    }
-  }
-  if (!changed) setTempTerrain(game, creation, x, y, TILE.WATER);
-});
-
 AbilityHandlers.immediate.set('trap', (game, creation) => {
-  setTempTerrain(game, creation, creation.x, creation.y, TILE.WALL);
+  // Trap doesn't change terrain - triggers on beast entry (see moveBeast)
 });
 
 AbilityHandlers.immediate.set('sun_blessing', (game, creation) => {
@@ -126,8 +114,8 @@ AbilityHandlers.immediate.set('sun_blessing', (game, creation) => {
   }
   for (const unit of game.units.filter((u) => game.isCivilian(u) && u.status === 'active')) {
     if (game.distance(unit.x, unit.y, x, y) <= card.range + 1) {
-      unit.immuneChaos = true;
-      unit.guidedTurns = Math.max(unit.guidedTurns, 2);
+      unit.immuneChaos = 3;
+      unit.guidedTurns = Math.max(unit.guidedTurns, 1);
     }
   }
   game.addLog(`「${card.name}」降下日华，大范围驱散黑暗并庇佑生灵。`);
@@ -155,12 +143,26 @@ AbilityHandlers.active.set('illuminate', (game, creation) => {
   let changed = 0;
   for (const cell of cells) {
     const terrain = game.getTerrain(cell.x, cell.y);
-    if (terrain === TILE.DARK || terrain === TILE.FOG) {
+    if (terrain === TILE.DARK) {
       game.setTerrain(cell.x, cell.y, TILE.LAND);
       changed += 1;
     }
   }
-  if (changed) game.addLog(`「${card.name}」照亮了 ${changed} 格黑暗或迷雾。`);
+  if (changed) game.addLog(`「${card.name}」照亮了 ${changed} 格黑暗。`);
+});
+
+AbilityHandlers.active.set('gale', (game, creation) => {
+  const { card, x, y } = creation;
+  const cells = game.tilesWithin(x, y, card.range);
+  let changed = 0;
+  for (const cell of cells) {
+    const terrain = game.getTerrain(cell.x, cell.y);
+    if (terrain === TILE.FOG) {
+      game.setTerrain(cell.x, cell.y, TILE.LAND);
+      changed += 1;
+    }
+  }
+  if (changed) game.addLog(`「${card.name}」吹散了 ${changed} 格迷雾。`);
 });
 
 AbilityHandlers.active.set('cleanse', (game, creation) => {
@@ -168,7 +170,7 @@ AbilityHandlers.active.set('cleanse', (game, creation) => {
   const cells = game.tilesWithin(x, y, card.range);
   let changed = 0;
   for (const cell of cells) {
-    if ([TILE.DARK, TILE.FOG, TILE.SWAMP, TILE.POISON].includes(game.getTerrain(cell.x, cell.y))) {
+    if ([TILE.SWAMP, TILE.POISON].includes(game.getTerrain(cell.x, cell.y))) {
       game.setTerrain(cell.x, cell.y, TILE.LAND);
       changed += 1;
     }
@@ -186,7 +188,7 @@ AbilityHandlers.active.set('calm', (game, creation) => {
   for (const unit of game.units.filter((u) => u.type === 'beast' && u.status === 'active')) {
     if (game.distance(unit.x, unit.y, x, y) <= card.range + 1) {
       unit.anger = Math.max(0, (unit.anger || 0) - 1);
-      unit.stunned = true;
+      unit.stunnedTurns = 2;
       game.addLog(`「${card.name}」安抚了 ${unit.name}，怒气降至 ${unit.anger}。`);
     }
   }
@@ -208,8 +210,8 @@ AbilityHandlers.active.set('slow_beast', (game, creation) => {
   const { card, x, y } = creation;
   for (const unit of game.units.filter((u) => u.type === 'beast' && u.status === 'active')) {
     if (game.distance(unit.x, unit.y, x, y) <= card.range + 1) {
-      unit.stunned = true;
-      game.addLog(`「${card.name}」牵制了 ${unit.name}。`);
+        unit.stunnedTurns = 2;
+        game.addLog(`「${card.name}」牵制了 ${unit.name}。`);
     }
   }
 });
@@ -255,42 +257,19 @@ AbilityHandlers.active.set('grow_forest', (game, creation) => {
   if (changed) game.addLog(`「${card.name}」种植了 ${changed} 格森林，阻挡灾害扩散。`);
 });
 
-AbilityHandlers.active.set('dig_channel', (game, creation) => {
-  const { card, x, y } = creation;
-  const cells = game.tilesWithin(x, y, card.range);
-  let changed = 0;
-  for (const cell of cells) {
-    if (game.getTerrain(cell.x, cell.y) === TILE.LAND) {
-      setTempTerrain(game, creation, cell.x, cell.y, TILE.WATER);
-      changed += 1;
-    }
-  }
-  if (changed) game.addLog(`「${card.name}」挖掘了 ${changed} 格水渠，引导洪水流向。`);
-});
-
-AbilityHandlers.active.set('trap', (game, creation) => {
-  const { card, x, y } = creation;
-  for (const unit of game.units.filter((u) => u.type === 'beast' && u.status === 'active')) {
-    if (game.distance(unit.x, unit.y, x, y) <= card.range + 1) {
-      unit.stunned = true;
-      unit.anger = Math.max(0, (unit.anger || 0) - 1);
-      game.addLog(`「${card.name}」困住了 ${unit.name}，使其迟缓并降低怒气。`);
-    }
-  }
-});
-
 AbilityHandlers.active.set('dream_link', (game, creation) => {
   const { card, x, y } = creation;
-  const civilians = game.units.filter((u) => game.isCivilian(u) && u.status === 'active');
-  if (civilians.length >= 2) {
-    for (let i = 0; i < civilians.length; i++) {
-      const unit = civilians[i];
-      if (game.distance(unit.x, unit.y, x, y) <= card.range + 1) {
-        unit.guidedTurns = 3;
-        unit.immuneChaos = true;
-      }
+  const targets = game.units.filter((u) => (game.isCivilian(u) || game.isMessenger(u)) && u.status === 'active' && game.distance(u.x, u.y, x, y) <= card.range + 1);
+  if (targets.length >= 2) {
+    for (let i = 0; i + 1 < targets.length; i += 2) {
+      const a = targets[i];
+      const b = targets[i + 1];
+      a.dreamLinked = b.id;
+      b.dreamLinked = a.id;
+      a.guidedTurns = Math.max(a.guidedTurns, 2);
+      b.guidedTurns = Math.max(b.guidedTurns, 2);
     }
-    game.addLog(`「${card.name}」连接了迷失者的梦境，使他们找到方向并免疫混乱。`);
+    game.addLog(`「${card.name}」连接了 ${targets.length} 个单位的梦境，共享视野与方向。`);
   }
 });
 
@@ -326,8 +305,8 @@ AbilityHandlers.active.set('sun_blessing', (game, creation) => {
   }
   for (const unit of game.units.filter((u) => game.isCivilian(u) && u.status === 'active')) {
     if (game.distance(unit.x, unit.y, x, y) <= card.range + 1) {
-      unit.immuneChaos = true;
-      unit.guidedTurns = Math.max(unit.guidedTurns, 2);
+      unit.immuneChaos = 3;
+      unit.guidedTurns = Math.max(unit.guidedTurns, 1);
     }
   }
   if (changed) game.addLog(`「${card.name}」大范围驱散黑暗，赋予单位免疫与指引。`);
@@ -335,10 +314,11 @@ AbilityHandlers.active.set('sun_blessing', (game, creation) => {
 
 AbilityHandlers.active.set('memory_beacon', (game, creation) => {
   const { card, x, y } = creation;
+  if (game.getTerrain(x, y) === TILE.FOG) return;
   const cells = game.tilesWithin(x, y, card.range);
   let changed = 0;
   for (const cell of cells) {
-    if (game.getTerrain(cell.x, cell.y) === TILE.FOG || game.getTerrain(cell.x, cell.y) === TILE.DARK) {
+    if (game.getTerrain(cell.x, cell.y) === TILE.DARK) {
       game.setTerrain(cell.x, cell.y, TILE.LAND);
       changed += 1;
     }
@@ -348,7 +328,7 @@ AbilityHandlers.active.set('memory_beacon', (game, creation) => {
       unit.guidedTurns = 2;
     }
   }
-  if (changed) game.addLog(`「${card.name}」唤回记忆，驱散 ${changed} 格迷雾。`);
+  if (changed) game.addLog(`「${card.name}」唤回记忆，驱散 ${changed} 格黑暗。`);
 });
 
 AbilityHandlers.active.set('haste', (game, creation) => {

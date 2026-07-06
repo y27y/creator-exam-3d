@@ -813,7 +813,7 @@ class CreatorExam3D extends GameEngine {
       case 'beastStunned': {
         const beast = this.units.find(u => u.type === 'beast' && u.status === 'active');
         if (beast) {
-          beast.stunned = true;
+          beast.stunnedTurns = 2;
           this.addLog(`【事件】${beast.name} 被神秘力量牵制`);
         }
         break;
@@ -1173,6 +1173,20 @@ class CreatorExam3D extends GameEngine {
       return;
     }
     const guided = unit.guidedTurns > 0 || this.nearActiveAbility(unit.x, unit.y, ['guide', 'memory_beacon', 'illuminate']);
+    const hasRevealPath = unit.revealedPath > 0;
+    const hasDreamLink = unit.dreamLinked && this.units.find(u => u.id === unit.dreamLinked && u.status === 'active');
+
+    if (hasDreamLink) {
+      const linkedUnit = this.units.find(u => u.id === unit.dreamLinked);
+      if (linkedUnit) {
+        const myDist = this.distance(unit.x, unit.y, unit.goal.x, unit.goal.y);
+        const linkedDist = this.distance(linkedUnit.x, linkedUnit.y, unit.goal.x, unit.goal.y);
+        if (linkedDist < myDist) {
+          unit.guidedTurns = 1;
+        }
+      }
+    }
+
     let next = null;
     if (this.level.memoryChaos && !guided && Math.random() < 0.45) {
       next = this.randomPassableNeighbor(unit);
@@ -1182,14 +1196,23 @@ class CreatorExam3D extends GameEngine {
     if (next) {
       unit.x = next.x;
       unit.y = next.y;
+      if (hasRevealPath && !this.isGoalReached(unit)) {
+        const extraStep = this.nextStepToward(unit, unit.goal);
+        if (extraStep) {
+          unit.x = extraStep.x;
+          unit.y = extraStep.y;
+        }
+      }
     }
     if (unit.guidedTurns > 0) unit.guidedTurns -= 1;
+    if (unit.revealedPath > 0) unit.revealedPath -= 1;
+    if (unit.immuneChaos > 0) unit.immuneChaos -= 1;
     if (this.isGoalReached(unit)) {
       this.rescueUnit(unit);
     }
   }
 
-  // Override moveMessenger for simpler browser version (no revealedPath)
+  // Override moveMessenger with full revealedPath/immuneChaos support
   moveMessenger(unit) {
     if (this.isGoalReached(unit)) {
       unit.met = true;
@@ -1197,7 +1220,9 @@ class CreatorExam3D extends GameEngine {
     }
     const terrain = this.getTerrain(unit.x, unit.y);
     const guided = unit.guidedTurns > 0 || this.nearActiveAbility(unit.x, unit.y, ['calm', 'guide', 'memory_beacon']);
-    if ((terrain === TILE.FOG || terrain === TILE.DARK) && !guided) {
+    const immuneChaos = unit.immuneChaos > 0;
+    const hasRevealPath = unit.revealedPath > 0;
+    if ((terrain === TILE.FOG || terrain === TILE.DARK) && !guided && !immuneChaos) {
       this.warMeter = Math.min(this.level.hazard?.warLimit || 9, this.warMeter + 1);
       this.addLog(`${unit.name} 在迷雾中误判形势，战争值 +1。`);
       return;
@@ -1206,24 +1231,33 @@ class CreatorExam3D extends GameEngine {
     if (next) {
       unit.x = next.x;
       unit.y = next.y;
+      if (hasRevealPath && !this.isGoalReached(unit)) {
+        const extraStep = this.nextStepToward(unit, unit.goal);
+        if (extraStep) {
+          unit.x = extraStep.x;
+          unit.y = extraStep.y;
+        }
+      }
     }
     if (unit.guidedTurns > 0) unit.guidedTurns -= 1;
+    if (unit.revealedPath > 0) unit.revealedPath -= 1;
+    if (unit.immuneChaos > 0) unit.immuneChaos -= 1;
     if (this.isGoalReached(unit)) {
       unit.met = true;
       this.addLog(`${unit.name} 抵达边境会谈点。`, true);
     }
   }
 
-  // Override moveBeast for simpler browser version (no trap check)
+  // Override moveBeast with trap trigger support
   moveBeast(unit) {
     if (unit.tamed) {
       this.addLog(`${unit.name} 已被驯服，安静地停留在原地。`);
       return;
     }
-    if (unit.stunned) {
-      unit.stunned = false;
-      unit.anger = Math.min(this.level.beastAngerLimit || 5, (unit.anger || 0) + 0);
-      this.addLog(`${unit.name} 本回合被牵制，没有前进。`);
+    if (unit.stunnedTurns > 0) {
+      unit.stunnedTurns -= 1;
+      unit.anger = Math.min(this.level.beastAngerLimit || 5, (unit.anger || 0) + 1);
+      this.addLog(`${unit.name} 本回合被牵制，怒气上升到 ${unit.anger}。`);
       return;
     }
     const next = this.nextStepToward(unit, unit.goal);
@@ -1234,6 +1268,13 @@ class CreatorExam3D extends GameEngine {
     }
     unit.x = next.x;
     unit.y = next.y;
+    const trapHere = this.creations.find(c => c.placed && c.remaining > 0 && c.card.ability === 'trap' && c.x === unit.x && c.y === unit.y);
+    if (trapHere) {
+      unit.stunnedTurns = 2;
+      trapHere.remaining = 0;
+      this.addLog(`「${trapHere.card.name}」触发！${unit.name} 被困住`);
+      return;
+    }
     if (this.isGoalReached(unit)) {
       this.failLevel(`${unit.name} 抵达了城市，考核失败。`);
     }
@@ -1880,7 +1921,7 @@ class CreatorExam3D extends GameEngine {
       if (unit.met) group.add(this.createHalo(0xd4a6ff));
     } else if (unit.type === 'beast') {
       group.add(this.createVoxelBeast(unit));
-      if (unit.stunned) group.add(this.createHalo(0xfff39a, 0.54));
+      if (unit.stunnedTurns > 0) group.add(this.createHalo(0xfff39a, 0.54));
     }
 
     const labelSprite = this.createLabel(unit.name);
@@ -3769,7 +3810,6 @@ class CreatorExam3D extends GameEngine {
         freeze_water: '冰霜蔓延，水面凝固成镜，倒映着天空。',
         raise_earth: '地面隆隆作响，新的高地从大地深处升起。',
         grow_forest: '种子在瞬间发芽，树木以肉眼可见的速度生长。',
-        dig_channel: '水流找到了新的方向，大地被重新雕刻。',
         trap: '藤蔓悄然生长，编织出等待的网。',
         dream_link: '两个梦境开始交织，现实与幻象的边界变得模糊。',
         time_dilation: '周围的一切都变得缓慢，唯有你的心跳如常。',

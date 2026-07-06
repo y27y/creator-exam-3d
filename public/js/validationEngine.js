@@ -11,7 +11,6 @@ const TERRAIN_ABILITY_COMPATIBILITY = {
     absorb_water: 1.0,
     create_bridge: 1.0,
     freeze_water: 1.0,
-    dig_channel: 1.0,
     illuminate: 0.5,
     transform_land: 0.3,
     grow_forest: 0.1,
@@ -33,7 +32,6 @@ const TERRAIN_ABILITY_COMPATIBILITY = {
   swamp: {
     transform_land: 1.0,
     grow_forest: 0.8,
-    dig_channel: 0.8,
     absorb_water: 0.7,
     freeze_water: 0.5,
     create_bridge: 0.5,
@@ -218,7 +216,7 @@ export class ValidationEngine {
     // Define style-ability alignment
     const styleAbilities = {
       creative: ['transform_land', 'dream_link', 'time_dilation', 'grow_forest'],
-      strategic: ['guide', 'reveal_path', 'dig_channel', 'trap'],
+      strategic: ['guide', 'reveal_path', 'trap'],
       aggressive: ['block', 'slow_beast', 'trap', 'force_field'],
       careful: ['force_field', 'calm', 'memory_beacon', 'cleanse'],
       balanced: [] // All abilities aligned
@@ -276,8 +274,7 @@ export class ValidationEngine {
       'grow_forest': ['sun_blessing', 'cleanse'],
       'sun_blessing': ['grow_forest', 'illuminate'],
       'calm': ['memory_beacon', 'dream_link'],
-      'force_field': ['block', 'raise_earth'],
-      'dig_channel': ['absorb_water', 'create_bridge']
+      'force_field': ['block', 'raise_earth']
     };
 
     const myResonances = resonancePairs[card.ability] || [];

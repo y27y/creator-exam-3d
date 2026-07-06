@@ -425,7 +425,6 @@ export class ParticleSystem {
       sun_blessing: 0xfff5a0,
       raise_earth: 0xd4a574,
       grow_forest: 0x6bd48a,
-      dig_channel: 0x7ec8e6,
       trap: 0xffa070,
       dream_link: 0xc8a8ff,
       time_dilation: 0xffe6a8,

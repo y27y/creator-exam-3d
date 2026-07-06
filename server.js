@@ -53,6 +53,7 @@ const ABILITIES = new Set([
   'absorb_water',
   'create_bridge',
   'illuminate',
+  'gale',
   'block',
   'calm',
   'guide',
@@ -206,7 +207,12 @@ function adjustCardByCreativity(card, playerText) {
 
 function sanitizeCard(raw, playerText) {
   const card = raw && typeof raw === 'object' ? raw : {};
-  const ability = ABILITIES.has(card.ability) ? card.ability : 'transform_land';
+  let ability = ABILITIES.has(card.ability) ? card.ability : 'transform_land';
+  // 兜底纠错：玩家明确要"驱散/吹散/清除迷雾"但 AI 误判为不处理 FOG 的能力时，强制归 gale
+  // 不含单纯"迷雾"，避免误伤"改道迷雾""迷雾中导航"等场景
+  if (playerText && /驱散迷雾|驱雾|吹散迷雾|清除迷雾|散雾|驱散.{0,2}雾|吹散.{0,2}雾/.test(playerText) && ability !== 'gale') {
+    ability = 'gale';
+  }
   const name = typeof card.name === 'string' && card.name.trim()
     ? card.name.trim().slice(0, 14)
     : '未命名造物';
@@ -345,11 +351,12 @@ function buildFallbackCreation(text) {
     : /redirect|改道|转向|引流|分洪|风向|吹走/.test(clean) ? 'redirect_hazard'
     : /water|flood|river|雨|水|洪/.test(clean) ? 'absorb_water'
     : /light|lamp|sun|光|灯|照/.test(clean) ? 'illuminate'
+    : /gale|大风|吹散|驱散迷雾|迷雾|清风|狂风|暴风|岚/.test(clean) ? 'gale'
     : /bridge|road|path|桥|路/.test(clean) ? 'create_bridge'
     : /calm|peace|talk|安抚|沟通/.test(clean) ? 'calm'
     : 'guide';
   const strong = ability === 'teleport';
-  const range = ability === 'haste' ? inferHasteRange(clean) : (['illuminate', 'shield_units', 'redirect_hazard', 'teleport'].includes(ability) ? 2 : 1);
+  const range = ability === 'haste' ? inferHasteRange(clean) : (['illuminate', 'gale', 'shield_units', 'redirect_hazard', 'teleport'].includes(ability) ? 2 : 1);
   return {
     name: clean.slice(0, 12) || 'Local Gift',
     type: '奇迹',
@@ -409,10 +416,11 @@ async function handleCompileCreation(req, res) {
 - absorb_water：吸收/转移水、洪水、雨云
 - create_bridge：生成桥梁、道路、临时通行路径
 - illuminate：照明、驱散黑暗、显露道路
+- gale：大风、驱散/吹散迷雾（不驱散黑暗），将迷雾地形永久变为陆地
 - block：墙、屏障、封路、阻挡灾害或巨兽
 - calm：安抚、沟通、翻译、降低敌意/战争值
 - guide：引导单位移动、指路、召回、护送
-- cleanse：净化毒、雾、污染、疾病、诅咒
+- cleanse：净化毒、污染、疾病、诅咒
 - slow_beast：迟缓、催眠、牵制巨兽/敌人
 - memory_beacon：记忆、路标、歌声、碑文、归家信标
 - force_field：区域保护、结界、隔离灾害

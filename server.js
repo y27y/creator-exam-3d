@@ -800,6 +800,8 @@ function buildNarrativePrompt(type, context, worldState) {
 - 涉及角色：${(context.characters || []).join('、') || '无'}
 - 地点：${context.location || '未知'}
 - 结果：${context.result || '未知'}
+- 关键事实：${formatPromptValue(context.keyFacts, '无')}
+- 风格约束：${formatPromptValue(context.styleGuide, '无')}
 
 叙事规则：
 1. 从受影响最深的角色的视角描述事件。
@@ -807,6 +809,7 @@ function buildNarrativePrompt(type, context, worldState) {
 3. 如果事件是悲剧性的，用诗意的语言描述损失。
 4. 如果事件是胜利的，描述希望如何重新点燃。
 5. 在叙事中埋下伏笔，暗示未来可能发生的事。
+6. 如果提供了风格约束，必须优先遵守，不要为了诗意牺牲可读性。
 
 请直接输出事件叙事。`,
 

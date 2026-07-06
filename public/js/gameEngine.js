@@ -833,6 +833,7 @@ class GameEngine {
 
   applyImmediatePlacement(creation) {
     const { card, x, y } = creation;
+    const cardName = normalizeCreationName(card);
     const immediateAbilities = ['create_bridge', 'block', 'force_field', 'transform_land', 'freeze_water', 'raise_earth', 'grow_forest', 'dig_channel', 'trap', 'time_dilation', 'reveal_path', 'sun_blessing', 'dream_link'];
     if (!immediateAbilities.includes(card.ability) && hasAbilityHandler(card.ability, 'immediate')) {
       applyAbility(this, creation, 'immediate');
@@ -869,7 +870,7 @@ class GameEngine {
           changed += 1;
         }
       }
-      if (changed) this.log(`「${card.name}」改造了 ${changed} 处危险地形`);
+      if (changed) this.log(`「${cardName}」改造了 ${changed} 处危险地形`);
     }
     if (card.ability === 'freeze_water') {
       let changed = 0;
@@ -879,8 +880,8 @@ class GameEngine {
           changed += 1;
         }
       }
-      if (changed) this.log(`「${card.name}」冻结了 ${changed} 格水域`);
-      else this.log(`「${card.name}」没有冻结到水域`);
+      if (changed) this.log(`「${cardName}」冻结了 ${changed} 格水域`);
+      else this.log(`「${cardName}」没有冻结到水域`);
     }
     if (card.ability === 'raise_earth') {
       let changed = 0;
@@ -891,8 +892,8 @@ class GameEngine {
           changed += 1;
         }
       }
-      if (changed) this.log(`「${card.name}」抬升了 ${changed} 格地面`);
-      else this.log(`「${card.name}」没有可抬升的地面`);
+      if (changed) this.log(`「${cardName}」抬升了 ${changed} 格地面`);
+      else this.log(`「${cardName}」没有可抬升的地面`);
     }
     if (card.ability === 'grow_forest') {
       let changed = 0;
@@ -903,19 +904,19 @@ class GameEngine {
           changed += 1;
         }
       }
-      if (changed) this.log(`「${card.name}」种植了 ${changed} 格森林`);
-      else this.log(`「${card.name}」没有可种植的土地`);
+      if (changed) this.log(`「${cardName}」种植了 ${changed} 格森林`);
+      else this.log(`「${cardName}」没有可种植的土地`);
     }
     if (card.ability === 'dig_channel') {
       this.setTerrain(x, y, TILE.WATER);
-      this.log(`「${card.name}」在 ${this.tileName(x, y)} 挖掘了水渠`);
+      this.log(`「${cardName}」在 ${this.tileName(x, y)} 挖掘了水渠`);
     }
     if (card.ability === 'trap') {
-      this.log(`「${card.name}」在 ${this.tileName(x, y)} 设置了陷阱`);
+      this.log(`「${cardName}」在 ${this.tileName(x, y)} 设置了陷阱`);
     }
     if (card.ability === 'time_dilation') {
       this.level.maxTurns += 1;
-      this.log(`「${card.name}」延缓了时间，剩余回合 +1`);
+      this.log(`「${cardName}」延缓了时间，剩余回合 +1`);
     }
     if (card.ability === 'reveal_path') {
       let revealed = 0;
@@ -925,7 +926,7 @@ class GameEngine {
           revealed += 1;
         }
       }
-      if (revealed) this.log(`「${card.name}」为 ${revealed} 个单位显示了最优路径`);
+      if (revealed) this.log(`「${cardName}」为 ${revealed} 个单位显示了最优路径`);
     }
     if (card.ability === 'sun_blessing') {
       let changed = 0;
@@ -942,7 +943,7 @@ class GameEngine {
           unit.guidedTurns = Math.max(unit.guidedTurns, 1);
         }
       }
-      if (changed) this.log(`「${card.name}」的大范围光照驱散了 ${changed} 格黑暗，并恢复了单位体力`);
+      if (changed) this.log(`「${cardName}」的大范围光照驱散了 ${changed} 格黑暗，并恢复了单位体力`);
     }
     if (card.ability === 'dream_link') {
       const targets = this.units.filter((u) => (this.isCivilian(u) || this.isMessenger(u)) && u.status === 'active' && this.distance(u.x, u.y, x, y) <= card.range + 1);
@@ -953,7 +954,7 @@ class GameEngine {
         b.dreamLinked = a.id;
         a.guidedTurns = Math.max(a.guidedTurns, 2);
         b.guidedTurns = Math.max(b.guidedTurns, 2);
-        this.log(`「${card.name}」连接了 ${a.name} 和 ${b.name} 的梦境，共享视野`);
+        this.log(`「${cardName}」连接了 ${a.name} 和 ${b.name} 的梦境，共享视野`);
       }
     }
 
@@ -967,6 +968,7 @@ class GameEngine {
     for (const creation of this.creations) {
       if (creation.remaining <= 0 || !creation.placed) continue;
       const { card, x, y } = creation;
+      const cardName = normalizeCreationName(card);
 
       if (card.specialEffect?.type === 'mobile' || card.specialEffect?.type === 'movement') {
         this.moveCreationMobile(creation);
@@ -988,7 +990,7 @@ class GameEngine {
             changed += 1;
           }
         }
-        if (changed) this.log(`「${card.name}」吸收了 ${changed} 格水域`);
+        if (changed) this.log(`「${cardName}」吸收了 ${changed} 格水域`);
       }
 
       if (card.ability === 'illuminate') {
@@ -1001,7 +1003,7 @@ class GameEngine {
             changed += 1;
           }
         }
-        if (changed) this.log(`「${card.name}」照亮了 ${changed} 格黑暗或迷雾`);
+        if (changed) this.log(`「${cardName}」照亮了 ${changed} 格黑暗或迷雾`);
       }
 
       if (card.ability === 'cleanse') {
@@ -1013,20 +1015,20 @@ class GameEngine {
             changed += 1;
           }
         }
-        if (changed) this.log(`「${card.name}」净化了 ${changed} 格污染地形`);
+        if (changed) this.log(`「${cardName}」净化了 ${changed} 格污染地形`);
       }
 
       if (card.ability === 'calm') {
         if (this.isWarLevel()) {
           const before = this.warMeter;
           this.warMeter = Math.max(0, this.warMeter - 2);
-          if (before !== this.warMeter) this.log(`「${card.name}」降低战争值：${before} → ${this.warMeter}`);
+          if (before !== this.warMeter) this.log(`「${cardName}」降低战争值：${before} → ${this.warMeter}`);
         }
         for (const unit of this.units.filter((u) => u.type === 'beast' && u.status === 'active')) {
           if (this.distance(unit.x, unit.y, x, y) <= card.range + 1) {
             unit.anger = Math.max(0, (unit.anger || 0) - 1);
             unit.stunned = true;
-            this.log(`「${card.name}」安抚了 ${unit.name}，怒气降至 ${unit.anger}`);
+            this.log(`「${cardName}」安抚了 ${unit.name}，怒气降至 ${unit.anger}`);
           }
         }
       }
@@ -1040,14 +1042,14 @@ class GameEngine {
             guided += 1;
           }
         }
-        if (guided) this.log(`「${card.name}」正在引导 ${guided} 个单位`);
+        if (guided) this.log(`「${cardName}」正在引导 ${guided} 个单位`);
       }
 
       if (card.ability === 'slow_beast') {
         for (const unit of this.units.filter((u) => u.type === 'beast' && u.status === 'active')) {
           if (this.distance(unit.x, unit.y, x, y) <= card.range + 1) {
             unit.stunned = true;
-            this.log(`「${card.name}」牵制了 ${unit.name}`);
+            this.log(`「${cardName}」牵制了 ${unit.name}`);
           }
         }
       }
@@ -1066,12 +1068,12 @@ class GameEngine {
             unit.guidedTurns = 2;
           }
         }
-        if (changed) this.log(`「${card.name}」唤回记忆，驱散 ${changed} 格迷雾`);
+        if (changed) this.log(`「${cardName}」唤回记忆，驱散 ${changed} 格迷雾`);
       }
 
       if (card.ability === 'freeze_water') {
         if (creation.remaining === 1) {
-          this.log(`「${card.name}」冻结的水域即将融化`);
+          this.log(`「${cardName}」冻结的水域即将融化`);
         }
       }
 
@@ -1084,7 +1086,7 @@ class GameEngine {
             revealed += 1;
           }
         }
-        if (revealed) this.log(`「${card.name}」为 ${revealed} 个单位显示了最优路径`);
+        if (revealed) this.log(`「${cardName}」为 ${revealed} 个单位显示了最优路径`);
       }
 
       if (card.ability === 'sun_blessing') {
@@ -1103,7 +1105,7 @@ class GameEngine {
             unit.guidedTurns = Math.max(unit.guidedTurns, 1);
           }
         }
-        if (changed) this.log(`「${card.name}」的大范围光照驱散了 ${changed} 格黑暗，并恢复了单位体力`);
+        if (changed) this.log(`「${cardName}」的大范围光照驱散了 ${changed} 格黑暗，并恢复了单位体力`);
       }
 
       if (card.ability === 'raise_earth') {
@@ -1126,7 +1128,7 @@ class GameEngine {
         if (channelNeighbors.length > 0) {
           const target = channelNeighbors[Math.floor(Math.random() * channelNeighbors.length)];
           this.setTerrain(target.x, target.y, TILE.WATER);
-          this.log(`「${card.name}」的水渠将水流导向 ${this.tileName(target.x, target.y)}`);
+          this.log(`「${cardName}」的水渠将水流导向 ${this.tileName(target.x, target.y)}`);
         }
       }
 
@@ -1139,7 +1141,7 @@ class GameEngine {
           b.dreamLinked = a.id;
           a.guidedTurns = Math.max(a.guidedTurns, 2);
           b.guidedTurns = Math.max(b.guidedTurns, 2);
-          this.log(`「${card.name}」连接了 ${a.name} 和 ${b.name} 的梦境，共享视野`);
+          this.log(`「${cardName}」连接了 ${a.name} 和 ${b.name} 的梦境，共享视野`);
         }
       }
     }
@@ -1258,7 +1260,7 @@ class GameEngine {
     if (trapHere) {
       unit.stunned = true;
       trapHere.remaining = 0;
-      this.log(`「${trapHere.card.name}」触发！${unit.name} 被困住`);
+      this.log(`「${normalizeCreationName(trapHere.card)}」触发！${unit.name} 被困住`);
       return;
     }
     if (this.isGoalReached(unit)) {
@@ -1464,7 +1466,7 @@ class GameEngine {
       creation.remaining -= 1;
       if (creation.remaining <= 0) {
         this.expireCreation(creation);
-        this.log(`「${creation.card.name}」的持续时间结束`);
+        this.log(`「${normalizeCreationName(creation.card)}」的持续时间结束`);
         this.hooks.onCreationExpire(creation);
       }
     }
@@ -1602,6 +1604,7 @@ class GameEngine {
 
   moveCreationMobile(creation) {
     const { card, x, y } = creation;
+    const cardName = normalizeCreationName(card);
     const se = card.specialEffect;
     if (!se || (se.trigger !== 'onTurnStart' && se.trigger !== 'none')) return;
 
@@ -1637,27 +1640,28 @@ class GameEngine {
     if (this.inBounds(nx, ny) && this.getTerrain(nx, ny) !== TILE.WALL && this.getTerrain(nx, ny) !== TILE.MOUNTAIN) {
       creation.x = nx;
       creation.y = ny;
-      this.log(`「${card.name}」向${TERRAIN_LABELS[targetTerrain]}移动至 (${nx + 1}, ${ny + 1})`);
+      this.log(`「${cardName}」向${TERRAIN_LABELS[targetTerrain]}移动至 (${nx + 1}, ${ny + 1})`);
     }
   }
 
   applyEnvironmentalEffect(creation) {
     const { card, x, y } = creation;
+    const cardName = normalizeCreationName(card);
     const se = card.specialEffect;
     if (!se) return;
     const terrain = this.getTerrain(x, y);
     const desc = se.description || '';
 
     if ((desc.includes('水') || desc.includes('域') || desc.includes('潮')) && terrain === TILE.WATER) {
-      this.log(`「${card.name}」在水中发挥更强效力，范围扩大`);
+      this.log(`「${cardName}」在水中发挥更强效力，范围扩大`);
     }
     if ((desc.includes('高') || desc.includes('山') || desc.includes('上')) && terrain === TILE.HIGH) {
-      this.log(`「${card.name}」在高处发挥更强效力，范围扩大`);
+      this.log(`「${cardName}」在高处发挥更强效力，范围扩大`);
     }
     if ((desc.includes('森') || desc.includes('林')) && terrain === TILE.FOREST) {
       if (creation.remaining < card.duration + 1) {
         creation.remaining += 1;
-        this.log(`「${card.name}」在森林中获得滋养，持续时间延长`);
+        this.log(`「${cardName}」在森林中获得滋养，持续时间延长`);
       }
     }
     if (desc.includes('照明') || desc.includes('光') || desc.includes('亮')) {
@@ -1673,12 +1677,13 @@ class GameEngine {
           }
         }
       }
-      if (lit) this.log(`「${card.name}」的光点照亮了 ${lit} 格黑暗`);
+      if (lit) this.log(`「${cardName}」的光点照亮了 ${lit} 格黑暗`);
     }
   }
 
   applySacrificeEffect(creation) {
     const { card } = creation;
+    const cardName = normalizeCreationName(card);
     const se = card.specialEffect;
     if (!se) return;
     const desc = se.description || '';
@@ -1686,15 +1691,15 @@ class GameEngine {
     if (desc.includes('奇迹点') || desc.includes('消耗') || desc.includes('代价')) {
       if (this.miraclePoints > 0) {
         this.miraclePoints -= 1;
-        this.log(`「${card.name}」消耗了 1 点奇迹点维持存在`);
+        this.log(`「${cardName}」消耗了 1 点奇迹点维持存在`);
       } else {
         creation.remaining = 0;
-        this.log(`「${card.name}」因缺乏奇迹点而消散`);
+        this.log(`「${cardName}」因缺乏奇迹点而消散`);
       }
     }
     if (desc.includes('裂隙') || desc.includes('稳定')) {
       this.entropy += 1;
-      this.log(`「${card.name}」使世界裂隙增加了 1`);
+      this.log(`「${cardName}」使世界裂隙增加了 1`);
     }
   }
 

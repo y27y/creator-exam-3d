@@ -607,6 +607,22 @@ async function serveStatic(req, res) {
   }
 }
 
+function containsCjk(text) {
+  return /[\u3400-\u9fff]/.test(String(text || ''));
+}
+
+function fallbackNarrativeText(narrativeType, input, ctx = {}) {
+  const clean = String(input || '').trim();
+  if (clean && containsCjk(clean)) return `本地叙事：${clean}`;
+  if (narrativeType === 'airspace_brief') {
+    return '本地叙事：第六关和长夜之后，白天留下的造物被压缩为空域载体。没有远方神谕时，裂隙把已有选择整理成第七天的清算航线。';
+  }
+  if (containsCjk(ctx.unitName)) {
+    return `本地叙事：${ctx.unitName}的记录仍在继续，世界把这次选择写成新的回声。`;
+  }
+  return '本地叙事：世界不等待远方神谕，也会把已有选择整理成可听见的回声。';
+}
+
 async function handleNarrative(req, res) {
   let payload;
   try {
@@ -625,7 +641,7 @@ async function handleNarrative(req, res) {
   if (!AI_API_KEY) {
     sendJson(res, 200, {
       type: narrativeType,
-      text: `Local chronicle: ${input || 'the world answers without waiting for a distant oracle.'}`,
+      text: fallbackNarrativeText(narrativeType, input, ctx),
       context: ctx,
       worldState: state,
       fallback: true,

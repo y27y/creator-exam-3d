@@ -120,6 +120,8 @@ await withServer(async (baseUrl) => {
   });
   assert(narrative.response.status === 200, '/api/narrative should return local fallback with 200 when AI is not configured');
   assert(narrative.json.fallback === true, 'fallback narrative should be explicit');
+  assert(!String(narrative.json.text || '').includes('Local chronicle'), 'fallback narrative should not expose English template prefixes');
+  assert(!String(narrative.json.text || '').includes('distant oracle'), 'fallback narrative should not expose English placeholder text');
 
   const nightWatchTowers = await fetchJson(`${baseUrl}/api/night-watch-towers`, {
     method: 'POST',

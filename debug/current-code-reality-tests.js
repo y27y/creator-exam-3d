@@ -569,6 +569,7 @@ async function assertNoKeyServerFallbacks() {
     });
     assert.equal(narrative.status, 200, 'narrative must return local text without API key');
     assert.ok(String(narrative.json.text || '').length >= 20, 'fallback narrative must contain visible story text');
+    assert.ok(!String(narrative.json.text || '').includes('Local chronicle'), 'fallback narrative must not expose English template prefixes');
     assert.equal(narrative.json.source, 'fallback_no_key');
 
     const region = await postJson(baseUrl, '/api/generate-region', {

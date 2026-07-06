@@ -77,6 +77,8 @@ const TOWER_FLAVORS = {
   heavyWeapons: ['重武台', '复合火力', '#f8fafc']
 };
 
+const BUFF_EFFECT_TYPES = ['starting_money', 'starting_hp', 'tower_damage', 'tower_range', 'tower_discount', 'wave_income'];
+
 function clampNumber(value, min, max, fallback) {
   const n = Number(value);
   if (!Number.isFinite(n)) return fallback;
@@ -172,6 +174,89 @@ function statBias(input, creation, index) {
   };
 }
 
+function buildCauses(input, towers) {
+  const causes = Object.values(towers).slice(0, 5).map(patch => ({
+    source: `因为你创造过「${patch.sourceCreation}」`,
+    result: `守夜队把它改造成「${patch.name}」`,
+    towerType: patch.type
+  }));
+  if (input.rescuedResidents.length >= 3) {
+    causes.push({
+      source: `因为你救下了${input.rescuedResidents.slice(0, 3).join('、')}`,
+      result: '居民会在夜里提供守城誓约',
+      towerType: ''
+    });
+  }
+  if (input.lostResidents.length || input.experiences.some(item => /失踪|遇难|失败|伤痕/.test(item))) {
+    causes.push({
+      source: '因为白天留下过失踪、失败或伤痕记录',
+      result: '长夜会出现悼念型高压加成',
+      towerType: ''
+    });
+  }
+  if (input.discoveredLore.length || input.entropy >= 7) {
+    causes.push({
+      source: '因为裂隙传说或高熵锚点已经显形',
+      result: '防线可以借用裂隙校准',
+      towerType: ''
+    });
+  }
+  return causes.slice(0, 6);
+}
+
+function buildBuffChoices(input, towerPool) {
+  const primary = towerPool.slice(0, 3);
+  const choices = [
+    {
+      id: 'resident_supply',
+      name: input.rescuedResidents.length >= 3 ? '居民灯火补给' : '守夜预备金',
+      description: input.rescuedResidents.length >= 3
+        ? '开局金币增加，来自被救居民连夜送来的材料。'
+        : '开局金币增加，守夜队把备用材料先押上城墙。',
+      reason: input.rescuedResidents.length >= 3
+        ? `来自${input.rescuedResidents.slice(0, 3).join('、')}等被救居民。`
+        : '来自白天遗留的通用材料。',
+      effect: { type: 'starting_money', value: input.rescuedResidents.length >= 3 ? 420 : 280, towerTypes: [] }
+    },
+    {
+      id: 'creation_resonance',
+      name: '造物回声校准',
+      description: '本次守夜生成的核心塔伤害小幅提高。',
+      reason: input.recentCreations[0]?.name ? `来自「${input.recentCreations[0].name}」等造物。` : '来自白天留下的造物痕迹。',
+      effect: { type: 'tower_damage', value: input.entropy >= 7 ? 1.15 : 1.1, towerTypes: primary }
+    },
+    {
+      id: 'night_route',
+      name: input.discoveredLore.length || input.entropy >= 7 ? '裂隙测距' : '城墙测距',
+      description: '核心塔射程略微提高，方便覆盖夜间弯道。',
+      reason: input.discoveredLore.length ? '来自已发现的传说锚点。' : '来自防线临时测绘。',
+      effect: { type: 'tower_range', value: input.discoveredLore.length || input.entropy >= 7 ? 0.75 : 0.5, towerTypes: primary }
+    }
+  ];
+
+  if (input.lostResidents.length || input.experiences.some(item => /失踪|遇难|失败|伤痕/.test(item))) {
+    choices[1] = {
+      id: 'mourning_fire',
+      name: '悼念火力',
+      description: '核心塔伤害提高，来自失踪者名字刻进塔芯后的回响。',
+      reason: input.lostResidents.length ? `来自${input.lostResidents.slice(0, 2).join('、')}的失踪记录。` : '来自失败区域留下的伤痕。',
+      effect: { type: 'tower_damage', value: 1.16, towerTypes: primary }
+    };
+  }
+
+  if (input.recentCreations.length >= 8) {
+    choices[2] = {
+      id: 'workshop_discount',
+      name: '工坊余料',
+      description: '核心塔建造与升级费用降低。',
+      reason: '来自大量造物拆分后留下的可复用材料。',
+      effect: { type: 'tower_discount', value: 0.9, towerTypes: primary }
+    };
+  }
+
+  return choices.slice(0, 3);
+}
+
 function buildTowerPatch(input, creation, towerType, index) {
   const [suffix, mechanic, color] = TOWER_FLAVORS[towerType] || ['守夜塔', '原型火力', '#d8c58a'];
   const name = fallbackName(creation, towerType, index);
@@ -214,13 +299,17 @@ export function buildNightWatchTowerFallback(input = {}) {
 
   const towerPool = Array.from(used);
   const creationNames = creations.map(item => item.name).slice(0, 4).join('、');
+  const causes = buildCauses(normalized, towers);
+  const buffChoices = buildBuffChoices(normalized, towerPool);
   return {
     source: 'fallback_no_key',
     themeTitle: themeTitle(normalized),
     briefing: `${normalized.regionTitle}进入六夜守城。${creationNames}被搬上城墙，塔名、射程、造价和火力会随这些造物与居民经历变化。`,
     mapId: mapId(normalized),
     towerPool,
-    towers
+    towers,
+    causes,
+    buffChoices
   };
 }
 
@@ -235,7 +324,8 @@ export function buildNightWatchTowerMessages(input = {}) {
         '必须只返回 JSON，不要 markdown，不要解释。',
         '不要发明新的塔 type，只能使用给定 towerPool 中的 type；底层战斗逻辑会复用这些 type，但名字、描述、EX说明和数值偏向必须贴合造物。',
         '普通放置上限已移除；不要输出 limit。EX上限由原塔保留。',
-        'JSON schema: {"themeTitle":"短主题","briefing":"80字以内简报","mapId":"MAP2","towerPool":["arrow"],"towers":{"arrow":{"name":"14字以内","description":"120字以内","exDescription":"100字以内","color":"#79d0b0","projectileColor":"#d7fff0","statBias":{"damageMultiplier":1.1,"rangeBonus":0.25,"costMultiplier":0.95,"fireRateMultiplier":0.9,"utilityMultiplier":1.05}}}}',
+        'JSON schema: {"themeTitle":"短主题","briefing":"80字以内简报","mapId":"MAP2","towerPool":["arrow"],"towers":{"arrow":{"name":"14字以内","description":"120字以内","exDescription":"100字以内","color":"#79d0b0","projectileColor":"#d7fff0","statBias":{"damageMultiplier":1.1,"rangeBonus":0.25,"costMultiplier":0.95,"fireRateMultiplier":0.9,"utilityMultiplier":1.05}}},"causes":[{"source":"因为玩家做过什么","result":"所以得到什么塔或加成","towerType":"arrow"}],"buffChoices":[{"id":"resident_supply","name":"12字内","description":"60字内","reason":"因果理由","effect":{"type":"starting_money","value":300,"towerTypes":["arrow"]}}]}',
+        `buffChoices.effect.type 只能是: ${BUFF_EFFECT_TYPES.join(', ')}；只提供三选一，不要超过3个。`,
         'statBias范围：damageMultiplier 0.75-1.55；rangeBonus -0.5 到 1；costMultiplier 0.75-1.35；fireRateMultiplier 0.75-1.25，越低越快；utilityMultiplier 0.75-1.35。',
         `可用 type: ${TOWER_TYPES.join(', ')}。`
       ].join('\n')
@@ -257,6 +347,48 @@ function sanitizeStatBias(raw = {}, fallback = {}) {
     costMultiplier: clampNumber(raw.costMultiplier, 0.75, 1.35, fallback.costMultiplier || 1),
     fireRateMultiplier: clampNumber(raw.fireRateMultiplier, 0.75, 1.25, fallback.fireRateMultiplier || 1),
     utilityMultiplier: clampNumber(raw.utilityMultiplier, 0.75, 1.35, fallback.utilityMultiplier || 1)
+  };
+}
+
+function sanitizeCause(raw = {}, fallback = {}) {
+  const towerType = TOWER_TYPES.includes(String(raw.towerType || '')) ? String(raw.towerType) : '';
+  return {
+    source: cleanText(raw.source, fallback.source || '因为白天留下了造物记录', 60),
+    result: cleanText(raw.result, fallback.result || '所以守夜队得到对应塔材', 70),
+    towerType
+  };
+}
+
+function sanitizeBuffChoice(raw = {}, fallback = {}, towerPool = []) {
+  const fallbackEffect = fallback.effect || {};
+  const rawEffect = raw.effect && typeof raw.effect === 'object' ? raw.effect : {};
+  const type = BUFF_EFFECT_TYPES.includes(String(rawEffect.type || '')) ? String(rawEffect.type) : fallbackEffect.type || 'starting_money';
+  const defaultValue = Number.isFinite(Number(fallbackEffect.value)) ? Number(fallbackEffect.value) : 1;
+  const valueRanges = {
+    starting_money: [100, 600],
+    starting_hp: [1, 2],
+    tower_damage: [1.04, 1.18],
+    tower_range: [0.25, 1],
+    tower_discount: [0.82, 0.96],
+    wave_income: [60, 220]
+  };
+  const [min, max] = valueRanges[type] || [0, 1];
+  const rawTowerTypes = Array.isArray(rawEffect.towerTypes) ? rawEffect.towerTypes : fallbackEffect.towerTypes;
+  const towerTypes = Array.isArray(rawTowerTypes)
+    ? rawTowerTypes.map(item => String(item)).filter(item => TOWER_TYPES.includes(item) && towerPool.includes(item)).slice(0, 5)
+    : [];
+  const every = type === 'wave_income' ? clampInt(rawEffect.every, 3, 6, fallbackEffect.every || 5) : undefined;
+  return {
+    id: cleanText(raw.id, fallback.id || type, 32).replace(/[^\w-]/g, '') || type,
+    name: cleanText(raw.name, fallback.name || '守夜加成', 16),
+    description: cleanText(raw.description, fallback.description || '为这次守夜提供一次可选加成。', 80),
+    reason: cleanText(raw.reason, fallback.reason || '来自此前造物与经历。', 80),
+    effect: {
+      type,
+      value: clampNumber(rawEffect.value, min, max, defaultValue),
+      towerTypes,
+      ...(every ? { every } : {})
+    }
   };
 }
 
@@ -285,6 +417,11 @@ export function sanitizeNightWatchTowerPlan(raw, input = {}) {
       statBias: sanitizeStatBias(rawPatch.statBias || {}, fallbackPatch.statBias)
     };
   }
+  const causeInput = Array.isArray(source.causes) && source.causes.length ? source.causes : fallback.causes;
+  const rawBuffChoices = Array.isArray(source.buffChoices) ? source.buffChoices.slice(0, 3) : [];
+  const buffInput = rawBuffChoices.length
+    ? [...rawBuffChoices, ...fallback.buffChoices.slice(rawBuffChoices.length, 3)]
+    : fallback.buffChoices;
 
   return {
     source: cleanText(source.source, fallback.source, 24),
@@ -292,6 +429,12 @@ export function sanitizeNightWatchTowerPlan(raw, input = {}) {
     briefing: cleanText(source.briefing, fallback.briefing, 160),
     mapId: /^MAP[1-6]$/.test(String(source.mapId || '')) ? source.mapId : fallback.mapId,
     towerPool: pool,
-    towers
+    towers,
+    causes: causeInput
+      .slice(0, 6)
+      .map((item, index) => sanitizeCause(item, fallback.causes[index] || {})),
+    buffChoices: buffInput
+      .slice(0, 3)
+      .map((item, index) => sanitizeBuffChoice(item, fallback.buffChoices[index] || {}, pool))
   };
 }

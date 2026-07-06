@@ -6,6 +6,7 @@
     'musicStand', 'battery', 'militaryBase', 'gamma', 'gravityBeacon', 'shrineOfMerit',
     'annihilator', 'spotlight', 'heavyWeapons'
   ];
+  const BUFF_EFFECT_TYPES = ['starting_money', 'starting_hp', 'tower_damage', 'tower_range', 'tower_discount', 'wave_income'];
 
   const TOWER_THEME = {
     arrow: { name: '守夜弩塔', description: '由撤离路标改造成的守夜弩，稳定、廉价，适合把第一道裂隙潮压回路口。', color: '#79d0b0', projectileColor: '#d7fff0' },
@@ -105,6 +106,85 @@
     return Number.isFinite(count) ? Math.max(0, count) : 0;
   }
 
+  function lostCount(context = {}) {
+    if (Array.isArray(context.lostResidents)) return context.lostResidents.length;
+    const count = Number(context.lostResidents);
+    return Number.isFinite(count) ? Math.max(0, count) : 0;
+  }
+
+  function contextExperiences(context = {}) {
+    return Array.isArray(context.experiences) ? context.experiences.map(String) : [];
+  }
+
+  function buildLocalCauses(context = {}, towerPool = []) {
+    const causeList = creations(context).slice(-18, -18 + Math.min(5, towerPool.length)).map((creation, index) => ({
+      source: `因为你创造过「${creationName(creation) || '未命名造物'}」`,
+      result: `所以守夜队准备了「${towerPool[index] || '守夜塔'}」原型`,
+      towerType: towerPool[index] || ''
+    }));
+    if (residentsCount(context) >= 3) {
+      causeList.push({
+        source: '因为你救下了多名居民',
+        result: '所以开局可选择居民补给类加成',
+        towerType: ''
+      });
+    }
+    if (lostCount(context) > 0 || contextExperiences(context).some(item => /失踪|遇难|失败|伤痕/.test(item))) {
+      causeList.push({
+        source: '因为白天留下过失踪或失败记录',
+        result: '所以可选择悼念火力类加成',
+        towerType: ''
+      });
+    }
+    return causeList.slice(0, 6);
+  }
+
+  function buildLocalBuffChoices(context = {}, towerPool = []) {
+    const primary = towerPool.slice(0, 3);
+    const choices = [
+      {
+        id: 'resident_supply',
+        name: residentsCount(context) >= 3 ? '居民灯火补给' : '守夜预备金',
+        description: residentsCount(context) >= 3 ? '开局金币增加，来自被救居民送来的材料。' : '开局金币增加，守夜队动用备用材料。',
+        reason: residentsCount(context) >= 3 ? '来自此前救下的居民。' : '来自白天留下的通用物资。',
+        effect: { type: 'starting_money', value: residentsCount(context) >= 3 ? 420 : 280, towerTypes: [] }
+      },
+      {
+        id: 'creation_resonance',
+        name: '造物回声校准',
+        description: '核心守夜塔伤害提高。',
+        reason: creations(context)[0] ? `来自「${creationName(creations(context)[0])}」等造物。` : '来自白天造物痕迹。',
+        effect: { type: 'tower_damage', value: Number(context.entropy || 0) >= 7 ? 1.15 : 1.1, towerTypes: primary }
+      },
+      {
+        id: 'night_route',
+        name: Number(context.entropy || 0) >= 7 ? '裂隙测距' : '城墙测距',
+        description: '核心守夜塔射程提高。',
+        reason: Number(context.entropy || 0) >= 7 ? '来自高熵裂隙锚点。' : '来自守夜队临时测绘。',
+        effect: { type: 'tower_range', value: Number(context.entropy || 0) >= 7 ? 0.75 : 0.5, towerTypes: primary }
+      }
+    ];
+    if (lostCount(context) > 0 || contextExperiences(context).some(item => /失踪|遇难|失败|伤痕/.test(item))) {
+      choices[1] = {
+        id: 'mourning_fire',
+        name: '悼念火力',
+        description: '核心守夜塔伤害提高。',
+        reason: '来自失踪者与失败区域留下的名字。',
+        effect: { type: 'tower_damage', value: 1.16, towerTypes: primary }
+      };
+    }
+    if (creations(context).length >= 8) {
+      choices[2] = {
+        id: 'workshop_discount',
+        name: '工坊余料',
+        description: '核心守夜塔费用降低。',
+        reason: '来自大量造物拆分后的余料。',
+        effect: { type: 'tower_discount', value: 0.9, towerTypes: primary }
+      };
+    }
+    return choices.slice(0, 3);
+  }
+
   function pickTowerTypes(context = {}) {
     const used = new Set();
     const result = [];
@@ -135,7 +215,49 @@
       briefing: `${(names.slice(0, 4).join('、') || '白天留下的造物')}被搬上城墙，守夜塔会沿用这些造物的名字和数值偏向。`,
       mapId: entropy >= 7 ? 'MAP3' : residentsCount(context) >= 4 ? 'MAP5' : 'MAP2',
       towerPool,
-      towers: {}
+      towers: {},
+      causes: buildLocalCauses(context, towerPool),
+      buffChoices: buildLocalBuffChoices(context, towerPool)
+    };
+  }
+
+  function normalizeCause(raw = {}) {
+    return {
+      source: String(raw.source || '因为白天留下了造物记录').slice(0, 70),
+      result: String(raw.result || '所以守夜队得到对应塔材').slice(0, 80),
+      towerType: TOWER_TYPES.includes(String(raw.towerType || '')) ? String(raw.towerType) : ''
+    };
+  }
+
+  function normalizeBuffChoice(raw = {}, fallback = {}, towerPool = []) {
+    const rawEffect = raw.effect && typeof raw.effect === 'object' ? raw.effect : {};
+    const fallbackEffect = fallback.effect || {};
+    const type = BUFF_EFFECT_TYPES.includes(String(rawEffect.type || '')) ? String(rawEffect.type) : fallbackEffect.type || 'starting_money';
+    const ranges = {
+      starting_money: [100, 600, 280],
+      starting_hp: [1, 2, 1],
+      tower_damage: [1.04, 1.18, 1.1],
+      tower_range: [0.25, 1, 0.5],
+      tower_discount: [0.82, 0.96, 0.9],
+      wave_income: [60, 220, 100]
+    };
+    const [min, max, defaultValue] = ranges[type] || [0, 1, 0];
+    const rawTypes = Array.isArray(rawEffect.towerTypes) ? rawEffect.towerTypes : fallbackEffect.towerTypes;
+    const towerTypes = Array.isArray(rawTypes)
+      ? rawTypes.map(String).filter(item => TOWER_TYPES.includes(item) && towerPool.includes(item)).slice(0, 5)
+      : [];
+    const every = type === 'wave_income' ? clamp(rawEffect.every, 3, 6, fallbackEffect.every || 5) : undefined;
+    return {
+      id: String(raw.id || fallback.id || type).replace(/[^\w-]/g, '').slice(0, 32) || type,
+      name: String(raw.name || fallback.name || '守夜加成').slice(0, 16),
+      description: String(raw.description || fallback.description || '为这次守夜提供一次可选加成。').slice(0, 90),
+      reason: String(raw.reason || fallback.reason || '来自此前造物与经历。').slice(0, 90),
+      effect: {
+        type,
+        value: clamp(rawEffect.value, min, max, fallbackEffect.value || defaultValue),
+        towerTypes,
+        ...(every ? { every } : {})
+      }
     };
   }
 
@@ -144,13 +266,21 @@
     const towerPool = Array.isArray(plan.towerPool)
       ? plan.towerPool.map(String).filter(type => TOWER_TYPES.includes(type))
       : fallback.towerPool;
+    const normalizedPool = towerPool.length ? towerPool : fallback.towerPool;
+    const rawCauses = Array.isArray(plan.causes) && plan.causes.length ? plan.causes : fallback.causes || [];
+    const sourceBuffChoices = Array.isArray(plan.buffChoices) ? plan.buffChoices.slice(0, 3) : [];
+    const rawBuffChoices = sourceBuffChoices.length
+      ? [...sourceBuffChoices, ...(fallback.buffChoices || []).slice(sourceBuffChoices.length, 3)]
+      : fallback.buffChoices || [];
     return {
       source: String(plan.source || fallback.source || ''),
       themeTitle: String(plan.themeTitle || fallback.themeTitle || '长夜守城').slice(0, 18),
       briefing: String(plan.briefing || fallback.briefing || '').slice(0, 180),
       mapId: /^MAP[1-6]$/.test(String(plan.mapId || '')) ? plan.mapId : fallback.mapId,
-      towerPool: towerPool.length ? towerPool : fallback.towerPool,
-      towers: plan.towers && typeof plan.towers === 'object' ? plan.towers : fallback.towers || {}
+      towerPool: normalizedPool,
+      towers: plan.towers && typeof plan.towers === 'object' ? plan.towers : fallback.towers || {},
+      causes: rawCauses.slice(0, 6).map(normalizeCause),
+      buffChoices: rawBuffChoices.slice(0, 3).map((item, index) => normalizeBuffChoice(item, (fallback.buffChoices || [])[index] || {}, normalizedPool))
     };
   }
 
@@ -204,6 +334,23 @@
     }
   }
 
+  function applyBuffChoice(towerData = {}, buffChoice = null) {
+    const effect = buffChoice?.effect;
+    if (!effect || !BUFF_EFFECT_TYPES.includes(effect.type)) return;
+    const affected = Array.isArray(effect.towerTypes) && effect.towerTypes.length
+      ? effect.towerTypes.filter(type => towerData[type])
+      : Object.keys(towerData);
+    for (const type of affected) {
+      const data = towerData[type];
+      if (!data || !Array.isArray(data.levels)) continue;
+      for (const level of data.levels) {
+        if (effect.type === 'tower_damage') scaleKeys(level, DAMAGE_KEYS, clamp(effect.value, 1.04, 1.18, 1.1));
+        if (effect.type === 'tower_range') scaleKeys(level, RANGE_KEYS, 1, { add: clamp(effect.value, 0.25, 1, 0.5) });
+        if (effect.type === 'tower_discount') scaleKeys(level, ['cost'], clamp(effect.value, 0.82, 0.96, 0.9), { integer: true });
+      }
+    }
+  }
+
   function removeNormalLimits(towerData = {}) {
     for (const data of Object.values(towerData)) {
       if (!data || typeof data !== 'object') continue;
@@ -225,7 +372,7 @@
     }
   }
 
-  function applyPlan(towerData = {}, mapData = {}, plan = null) {
+  function applyPlan(towerData = {}, mapData = {}, plan = null, buffChoice = null) {
     applyStaticTheme(towerData, mapData);
     const normalized = normalizePlan(plan, localPlan({}));
     for (const [type, patch] of Object.entries(normalized.towers || {})) {
@@ -239,6 +386,7 @@
       data.sourceCreation = String(patch.sourceCreation || '').slice(0, 30);
       applyStatBias(data, patch.statBias || {});
     }
+    applyBuffChoice(towerData, buffChoice);
     return normalized;
   }
 
@@ -260,6 +408,7 @@
     localPlan,
     requestTowerPlan,
     applyPlan,
+    applyBuffChoice,
     availableTowerTypes,
     defaultSelection
   };

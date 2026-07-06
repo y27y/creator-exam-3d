@@ -150,6 +150,7 @@
   let towerPlan = window.NightWatchTowers?.localPlan?.(context) || null;
   let towerDataRef = null;
   let mapDataRef = null;
+  let selectedBuffIndex = 0;
   let aiText = '';
   let latestWaveText = '';
   let activeWaveRequest = '';
@@ -211,6 +212,78 @@
     if (towerPlan?.briefing) return towerPlan.briefing;
     const names = creations().map(creationName).filter(Boolean).slice(0, 3).join('、') || '白天留下的造物';
     return `第六关结束后，所有幸存区域被临时并入同一条防线。${names}被搬上城墙，居民把名字刻在临时墙背面；第七关还没有开始，但裂隙潮已经在夜里排队。`;
+  }
+
+  function buffChoices() {
+    return Array.isArray(towerPlan?.buffChoices) ? towerPlan.buffChoices.slice(0, 3) : [];
+  }
+
+  function selectedBuffChoice() {
+    const choices = buffChoices();
+    if (selectedBuffIndex >= choices.length) selectedBuffIndex = 0;
+    return choices[selectedBuffIndex] || choices[0] || null;
+  }
+
+  function effectText(choice = {}) {
+    const effect = choice.effect || {};
+    if (effect.type === 'starting_money') return `开局金币 +${Math.round(effect.value || 0)}`;
+    if (effect.type === 'starting_hp') return `基地生命 +${Math.round(effect.value || 0)}`;
+    if (effect.type === 'tower_damage') return `相关塔伤害 +${Math.round(((effect.value || 1) - 1) * 100)}%`;
+    if (effect.type === 'tower_range') return `相关塔射程 +${Number(effect.value || 0).toFixed(1)}`;
+    if (effect.type === 'tower_discount') return `相关塔费用 -${Math.round((1 - (effect.value || 1)) * 100)}%`;
+    if (effect.type === 'wave_income') return `每${Math.round(effect.every || 5)}波补给 +${Math.round(effect.value || 0)}`;
+    return '守夜加成';
+  }
+
+  function renderCausalBriefing() {
+    const causesRoot = document.getElementById('night-watch-causes');
+    if (causesRoot) {
+      causesRoot.replaceChildren();
+      const causes = Array.isArray(towerPlan?.causes) ? towerPlan.causes.slice(0, 6) : [];
+      for (const cause of causes) {
+        const card = document.createElement('div');
+        card.className = 'night-watch-cause-card';
+        const source = document.createElement('span');
+        source.textContent = cause.source || '因为白天留下了造物记录';
+        const result = document.createElement('strong');
+        result.textContent = cause.result || '所以守夜队得到对应塔材';
+        card.append(source, result);
+        causesRoot.append(card);
+      }
+    }
+
+    const choicesRoot = document.getElementById('night-watch-buff-choices');
+    if (!choicesRoot) return;
+    choicesRoot.replaceChildren();
+    const choices = buffChoices();
+    if (selectedBuffIndex >= choices.length) selectedBuffIndex = 0;
+    choices.forEach((choice, index) => {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = `night-watch-buff-card${index === selectedBuffIndex ? ' selected' : ''}`;
+      button.dataset.index = String(index);
+      const title = document.createElement('strong');
+      title.textContent = choice.name || '守夜加成';
+      const desc = document.createElement('span');
+      desc.textContent = choice.description || '为这次守夜提供一次可选加成。';
+      const reason = document.createElement('small');
+      reason.textContent = `${effectText(choice)}｜${choice.reason || '来自此前造物与经历。'}`;
+      button.append(title, desc, reason);
+      button.addEventListener('click', () => selectBuffChoice(index));
+      choicesRoot.append(button);
+    });
+  }
+
+  function selectBuffChoice(index) {
+    const choices = buffChoices();
+    selectedBuffIndex = Math.max(0, Math.min(choices.length - 1, Number(index) || 0));
+    if (towerDataRef && mapDataRef && window.NightWatchTowers?.applyPlan) {
+      window.NightWatchTowers.applyPlan(towerDataRef, mapDataRef, towerPlan, selectedBuffChoice());
+    }
+    renderCausalBriefing();
+    window.refreshNightWatchTowerPlan?.(towerPlan);
+    try { window.dispatchEvent(new CustomEvent('night-watch-buff-choice', { detail: selectedBuffChoice() })); } catch (_) {}
+    return selectedBuffChoice();
   }
 
   function watchStage(wave = 1) {
@@ -434,6 +507,54 @@
       }
       #night-watch-brief strong { color: var(--primary-color); }
       #night-watch-ai-text, #night-watch-wave { color: #cbd5e1; font-size: 12px; }
+      #night-watch-causes {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+        gap: 6px;
+      }
+      .night-watch-cause-card {
+        display: grid;
+        gap: 3px;
+        padding: 7px 8px;
+        border: 1px solid rgba(121, 208, 176, .18);
+        background: rgba(121, 208, 176, .07);
+        font-size: 11px;
+        color: #b9c6d3;
+      }
+      .night-watch-cause-card strong {
+        color: #e8dba7;
+        font-size: 12px;
+      }
+      #night-watch-buff-choices {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 7px;
+      }
+      .night-watch-buff-card {
+        display: grid;
+        gap: 4px;
+        min-height: 76px;
+        padding: 8px;
+        border: 1px solid rgba(216, 197, 138, .24);
+        background: rgba(20, 24, 37, .78);
+        color: #d8dee9;
+        text-align: left;
+        cursor: pointer;
+        font: inherit;
+      }
+      .night-watch-buff-card strong {
+        color: #f4de91;
+        font-size: 12px;
+      }
+      .night-watch-buff-card span, .night-watch-buff-card small {
+        font-size: 11px;
+        line-height: 1.35;
+      }
+      .night-watch-buff-card small { color: #9fb0c0; }
+      .night-watch-buff-card.selected {
+        border-color: #79d0b0;
+        box-shadow: 0 0 12px rgba(121, 208, 176, .22);
+      }
       .stats-display { border-left-color: #79d0b0; }
       .tower-card.selected { box-shadow: 0 0 14px rgba(216, 197, 138, .38); }
       #start-wave-btn:not(:disabled), #select-map-btn, #start-game-from-map-btn:not(:disabled), #restart-btn {
@@ -539,6 +660,7 @@
         #selection-screen h1 { font-size: 1.35rem; }
         #selection-info { width: 190px; padding: 10px; }
         #tower-pool { max-height: min(280px, calc(100vh - 310px)); }
+        #night-watch-buff-choices { grid-template-columns: 1fr; }
         .night-watch-cg { min-height: 330px; }
         .night-watch-cg-frame { padding: 28px; }
         .night-watch-cg h2 { font-size: 1.55rem; }
@@ -556,10 +678,13 @@
     brief.innerHTML = `
       <strong>${themeTitle()} · 第七关之前 · 六夜守城</strong>
       <span id="night-watch-ai-text">${fallbackNarrative()}</span>
+      <div id="night-watch-causes" aria-label="守夜因果简报"></div>
+      <div id="night-watch-buff-choices" aria-label="守夜誓约选择"></div>
       <span id="night-watch-wave">AI 正在整理六夜防守主题。</span>
     `;
     const selectionSlots = document.getElementById('selection-slots');
     selectionSlots?.parentElement?.insertBefore(brief, selectionSlots);
+    renderCausalBriefing();
     return brief;
   }
 
@@ -634,6 +759,7 @@
   function publishTowerPlan() {
     const target = document.getElementById('night-watch-ai-text');
     if (target && towerPlan?.briefing && !aiText) target.textContent = towerPlan.briefing;
+    renderCausalBriefing();
     try { window.dispatchEvent(new CustomEvent('night-watch-tower-plan', { detail: towerPlan })); } catch (_) {}
     window.refreshNightWatchTowerPlan?.(towerPlan);
   }
@@ -646,8 +772,9 @@
     const plan = await window.NightWatchTowers.requestTowerPlan(context);
     if (!plan) return towerPlan;
     towerPlan = plan;
+    if (selectedBuffIndex >= buffChoices().length) selectedBuffIndex = 0;
     if (towerDataRef && mapDataRef) {
-      window.NightWatchTowers.applyPlan(towerDataRef, mapDataRef, towerPlan);
+      window.NightWatchTowers.applyPlan(towerDataRef, mapDataRef, towerPlan, selectedBuffChoice());
     }
     publishTowerPlan();
     return towerPlan;
@@ -657,7 +784,7 @@
     towerDataRef = towerData;
     mapDataRef = mapData;
     if (window.NightWatchTowers?.applyPlan) {
-      towerPlan = window.NightWatchTowers.applyPlan(towerData, mapData, towerPlan);
+      towerPlan = window.NightWatchTowers.applyPlan(towerData, mapData, towerPlan, selectedBuffChoice());
       return towerPlan;
     }
     for (const [key, value] of Object.entries(TOWER_THEME)) {
@@ -691,9 +818,27 @@
   function getStartingState() {
     const entropy = Math.max(0, Number(context.entropy || 0));
     const protectedResidents = residentsCount();
+    const effect = selectedBuffChoice()?.effect || {};
+    const moneyBonus = effect.type === 'starting_money' ? Math.round(Number(effect.value || 0)) : 0;
+    const hpBonus = effect.type === 'starting_hp' ? Math.round(Number(effect.value || 0)) : 0;
     return {
-      hp: Math.max(2, Math.min(6, 3 + Math.floor(protectedResidents / 3) - Math.floor(entropy / 6))),
-      money: Math.max(1400, 2000 + protectedResidents * 80 - entropy * 55)
+      hp: Math.max(2, Math.min(7, 3 + Math.floor(protectedResidents / 3) - Math.floor(entropy / 6) + hpBonus)),
+      money: Math.max(1400, 2000 + protectedResidents * 80 - entropy * 55 + moneyBonus)
+    };
+  }
+
+  function applyWaveBuff(wave, state = {}) {
+    const choice = selectedBuffChoice();
+    const effect = choice?.effect || {};
+    if (effect.type !== 'wave_income') return null;
+    const every = Math.max(3, Math.round(Number(effect.every || 5)));
+    const waveNo = Math.max(1, Number(wave || 1));
+    if (waveNo % every !== 0) return null;
+    const moneyDelta = Math.round(Number(effect.value || 0));
+    return {
+      moneyDelta,
+      text: `${choice.name || '守夜补给'}：第${waveNo}波补给 +${moneyDelta}`,
+      state
     };
   }
 
@@ -797,6 +942,11 @@
         briefing: towerPlan.briefing || '',
         towerPool: Array.isArray(towerPlan.towerPool) ? towerPlan.towerPool.slice(0, 7) : []
       } : null,
+      selectedBuff: selectedBuffChoice() ? {
+        id: selectedBuffChoice().id,
+        name: selectedBuffChoice().name,
+        effect: selectedBuffChoice().effect
+      } : null,
       completedAt: new Date().toISOString()
     };
     const publish = (payload) => {
@@ -869,10 +1019,14 @@
     getStartingState,
     markBattleStarted,
     announceWave,
+    applyWaveBuff,
     enemyWhisper,
     complete,
     returnToMain,
     getTowerPlan: () => towerPlan,
+    getBuffChoices: buffChoices,
+    getSelectedBuffChoice: selectedBuffChoice,
+    selectBuffChoice,
     requestDynamicTowerPlan
   };
 

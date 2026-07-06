@@ -140,6 +140,9 @@ await withServer(async (baseUrl) => {
   assert(Array.isArray(nightWatchTowers.json.towerPool) && nightWatchTowers.json.towerPool.length > 0, 'night watch tower plan should include a tower pool');
   assert(nightWatchTowers.json.towers[nightWatchTowers.json.towerPool[0]], 'night watch tower plan should include tower patches');
   assert(!Object.values(nightWatchTowers.json.towers).some(tower => Object.prototype.hasOwnProperty.call(tower, 'limit')), 'night watch tower patches should not restore normal placement limits');
+  assert(Array.isArray(nightWatchTowers.json.causes) && nightWatchTowers.json.causes.length > 0, 'night watch tower plan should explain prior-flow causes');
+  assert(Array.isArray(nightWatchTowers.json.buffChoices) && nightWatchTowers.json.buffChoices.length === 3, 'night watch tower plan should include three buff choices');
+  assert(nightWatchTowers.json.buffChoices.every(choice => choice.effect && choice.effect.type), 'night watch buff choices should include whitelisted effects');
 });
 
 console.log('Server API tests passed');

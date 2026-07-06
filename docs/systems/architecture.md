@@ -41,8 +41,9 @@
 **关键功能**：
 - 通过 `creatorExamNightWatchContext` 接收主游戏状态，包含熵值、居民、最多18张最近造物卡、近期世界事件经历和玩家风格
 - `towerBridge.js` 负责主游戏上下文、守夜旁白、波次通讯和结果写回；`nightWatchTowers.js` 负责前端塔计划应用、数值偏向、塔池筛选和普通放置上限移除
-- 后端 `/api/night-watch-towers` 使用 DeepSeek Flash 等 OpenAI-compatible 模型生成守夜塔名称、描述、EX说明、颜色和数值偏向；无密钥或失败时使用 `server/nightWatchTowers.js` 本地兜底
+- 后端 `/api/night-watch-towers` 使用 DeepSeek Flash 等 OpenAI-compatible 模型生成守夜塔名称、描述、EX说明、颜色、因果简报、三选一守夜加成和数值偏向；无密钥或失败时使用 `server/nightWatchTowers.js` 本地兜底
 - 塔的底层攻击/支援逻辑继续复用原有塔类型，AI只改变名称、说明、选择池和已白名单校验的数值倍率
+- 开局简报展示“此前行为 -> 守夜获得内容”，三选一加成只允许白名单效果（开局金币/生命、核心塔伤害/射程/折扣、周期补给），AI不直接生成可执行逻辑
 - 普通 `limit` 在守夜模式中移除；`exLimit` 保留，EX升级仍按原计数限制执行
 - 结算写入 `creatorExamNightWatchResult`，主游戏收到后记录 `defense_resolved` 世界事件，并把守夜塔计划摘要带给后续空域和结局
 

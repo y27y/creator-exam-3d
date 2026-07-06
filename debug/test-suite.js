@@ -4711,13 +4711,13 @@ runner.test('Night Watch integration - should keep AI bridge and result update w
   const server = readFileSync(new URL('../server.js', import.meta.url), 'utf8');
   const game = readFileSync(new URL('../public/js/game.js', import.meta.url), 'utf8');
 
-  for (const token of ['requestNightWatchText', 'night_watch_wave', 'night_watch_settlement', 'night_watch_enemy_whisper', 'latestWaveText', 'aiSettlement', 'requestDynamicTowerPlan']) {
+  for (const token of ['requestNightWatchText', 'night_watch_wave', 'night_watch_settlement', 'night_watch_enemy_whisper', 'latestWaveText', 'aiSettlement', 'requestDynamicTowerPlan', 'getBuffChoices', 'selectBuffChoice', 'applyWaveBuff']) {
     runner.assert(bridge.includes(token), `towerBridge.js should include ${token}`);
   }
-  for (const token of ['nightWatchTowers.js', 'refreshNightWatchTowerPlan', 'getSelectionTowerTypes']) {
+  for (const token of ['nightWatchTowers.js', 'refreshNightWatchTowerPlan', 'getSelectionTowerTypes', 'night-watch-buff-choice']) {
     runner.assert(tower.includes(token), `tower mode should include ${token}`);
   }
-  for (const token of ['/api/night-watch-towers', 'applyStatBias', 'removeNormalLimits', 'delete data.limit']) {
+  for (const token of ['/api/night-watch-towers', 'applyStatBias', 'removeNormalLimits', 'delete data.limit', 'buffChoices', 'causes', 'applyBuffChoice']) {
     runner.assert(towerModule.includes(token) || server.includes(token), `dynamic tower module should include ${token}`);
   }
   runner.assert(tower.includes('window.NightWatchBridge?.announceWave?.(wave'), 'tower mode should announce waves through the bridge');
@@ -4727,6 +4727,8 @@ runner.test('Night Watch integration - should keep AI bridge and result update w
   runner.assert(tower.includes('LOCAL_LEADERBOARD_KEY'), 'tower mode should keep Night Watch records local');
   runner.assert(bridge.includes("document.getElementById('open-announcement-btn')?.remove()"), 'Night Watch bridge should remove update announcement chrome');
   runner.assert(bridge.includes('showNightWatchCinematic()'), 'Night Watch bridge should show a story cutscene before setup');
+  runner.assert(bridge.includes('night-watch-causes'), 'Night Watch should render a causal briefing');
+  runner.assert(bridge.includes('night-watch-buff-choices'), 'Night Watch should render three buff choices');
   runner.assert(bridge.includes('width: min(760px'), 'Night Watch setup should use a compact selection layout');
   runner.assert(bridge.includes('第六关到第七关之间'), 'Night Watch should be framed as the interlude before level seven');
   runner.assert(bridge.includes('每5波推进一夜'), 'Night Watch waves should be grouped into six nights');
@@ -4775,6 +4777,8 @@ runner.test('Night Watch dynamic towers - should derive different tower plans fr
   runner.assert(warSun.towerPool.includes('sun') || warSun.towerPool.includes('spotlight'), 'sun blessing should map to light damage tower');
   runner.assert(warSun.towerPool.includes('blast') || warSun.towerPool.includes('gamma'), 'trap creation should map to explosive/corruption tower');
   runner.assert(waterMemory.briefing !== warSun.briefing, 'different creations should produce different briefings');
+  runner.assert(Array.isArray(waterMemory.causes) && waterMemory.causes.length > 0, 'fallback should explain why towers or buffs were granted');
+  runner.assert(Array.isArray(waterMemory.buffChoices) && waterMemory.buffChoices.length === 3, 'fallback should offer three night-watch buff choices');
   runner.assert(Object.values(waterMemory.towers).some(t => t.name.includes('透明鲸') || t.description.includes('透明鲸')), 'tower names/descriptions should mention source creations');
 
   const sanitized = sanitizeNightWatchTowerPlan({
@@ -4788,7 +4792,11 @@ runner.test('Night Watch dynamic towers - should derive different tower plans fr
         color: '#abcdef',
         statBias: { damageMultiplier: 8, rangeBonus: 5, costMultiplier: 0.1, fireRateMultiplier: 0.1, utilityMultiplier: 9 }
       }
-    }
+    },
+    causes: [],
+    buffChoices: [
+      { id: '<bad id>', name: 'Bad buff', description: 'test', reason: 'test', effect: { type: 'made_up', value: 999, towerTypes: ['slow', 'madeUpTower'] } }
+    ]
   }, waterMemory);
 
   runner.assertEqual(sanitized.mapId, waterMemory.mapId, 'invalid map id should fall back');
@@ -4797,6 +4805,10 @@ runner.test('Night Watch dynamic towers - should derive different tower plans fr
   runner.assertEqual(sanitized.towers.slow.statBias.rangeBonus, 1, 'range bonus should be clamped');
   runner.assertEqual(sanitized.towers.slow.statBias.costMultiplier, 0.75, 'cost multiplier should be clamped');
   runner.assertTrue(!('limit' in sanitized.towers.slow), 'dynamic tower patches must not restore normal placement limits');
+  runner.assert(sanitized.causes.length > 0, 'empty AI causes should fall back to local causal briefing');
+  runner.assertEqual(sanitized.buffChoices.length, 3, 'partial AI buff choices should be filled back to three options');
+  runner.assert(sanitized.buffChoices[0].effect.type !== 'made_up', 'invalid buff effect types should be replaced');
+  runner.assert(sanitized.buffChoices[0].effect.towerTypes.every(type => sanitized.towerPool.includes(type)), 'buff tower types should stay inside the selected tower pool');
 });
 runner.test('Air Combat integration - should keep finite airspace bridge and result wiring', async () => {
   const { readFileSync } = await import('node:fs');

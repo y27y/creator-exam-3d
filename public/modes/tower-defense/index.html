@@ -8747,6 +8747,11 @@ function spawnWave() {
     waveInProgress = true; 
     wave++;
     window.NightWatchBridge?.announceWave?.(wave, { hp, money, towerCount: towers.length });
+    const nightWatchWaveBuff = window.NightWatchBridge?.applyWaveBuff?.(wave, { hp, money, towerCount: towers.length });
+    if (nightWatchWaveBuff?.moneyDelta) {
+        money += nightWatchWaveBuff.moneyDelta;
+        effects.push(new GoldEffect(NATIVE_WIDTH / 2, NATIVE_HEIGHT / 2, nightWatchWaveBuff.moneyDelta));
+    }
     markUiDirty();
     const batteries = towers.filter(t => t.type === 'battery');
     const hasFullBatteryGrid = batteries.length === 6 && batteries.every(t => t.level === t.data.levels.length - 1);
@@ -11030,7 +11035,7 @@ function initializeSelectionScreen() {
 window.refreshNightWatchTowerPlan = (plan) => {
     if (!isNightWatchMode) return;
     if (plan && window.NightWatchTowers?.applyPlan) {
-        window.NightWatchTowers.applyPlan(TOWER_DATA, MAP_DATA, plan);
+        window.NightWatchTowers.applyPlan(TOWER_DATA, MAP_DATA, plan, window.NightWatchBridge?.getSelectedBuffChoice?.());
     }
     const selection = window.NightWatchTowers?.defaultSelection?.(window.NightWatchBridge?.context || {}, plan, TOWER_DATA);
     if (selection?.towerPool?.length) selectedTowerPool = selection.towerPool.filter(type => TOWER_DATA[type]).slice(0, NORMAL_TOWER_POOL_SIZE);
@@ -11040,6 +11045,7 @@ window.refreshNightWatchTowerPlan = (plan) => {
     if (wikiBuilt) renderWiki();
 };
 window.addEventListener('night-watch-tower-plan', event => window.refreshNightWatchTowerPlan(event.detail));
+window.addEventListener('night-watch-buff-choice', () => window.refreshNightWatchTowerPlan(window.NightWatchBridge?.getTowerPlan?.()));
 
 function handleTowerSelection(type) {
     const index = selectedTowerPool.indexOf(type);
@@ -11273,7 +11279,9 @@ function showMapSelection() {
 
 function startRandomNightWatchMap() {
     const mapIds = Object.keys(MAP_DATA);
-    selectedMap = mapIds[Math.floor(Math.random() * mapIds.length)] || 'MAP1';
+    if (!selectedMap || !MAP_DATA[selectedMap]) {
+        selectedMap = window.NightWatchBridge?.defaultSelection?.().mapId || mapIds[Math.floor(Math.random() * mapIds.length)] || 'MAP1';
+    }
     startGame('normal');
 }
 

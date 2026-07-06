@@ -835,6 +835,7 @@ class CreatorExam3D extends GameEngine {
     this.updateUi();
   }
 
+
   applyStorytellerEvent(event) {
     if (!event) return;
 
@@ -914,13 +915,6 @@ class CreatorExam3D extends GameEngine {
       case 'npcDialogue':
         // 纯叙事事件，不修改游戏状态
         break;
-    }
-  }
-
-  applyActiveCreationEffects() {
-    for (const creation of this.creations) {
-      if (creation.remaining <= 0) continue;
-      applyAbility(this, creation, 'active');
     }
   }
 
@@ -1356,89 +1350,8 @@ class CreatorExam3D extends GameEngine {
     }
   }
 
-  // Override moveCivilian for simpler browser version (no NPC interactions, no revealedPath/dreamLink)
-  moveCivilian(unit) {
-    if (this.isGoalReached(unit)) {
-      this.rescueUnit(unit);
-      return;
-    }
-    const guided = unit.guidedTurns > 0 || this.nearActiveAbility(unit.x, unit.y, ['guide', 'memory_beacon', 'illuminate']);
-    const hasRevealPath = unit.revealedPath > 0;
-    const hasDreamLink = unit.dreamLinked && this.units.find(u => u.id === unit.dreamLinked && u.status === 'active');
-
-    if (hasDreamLink) {
-      const linkedUnit = this.units.find(u => u.id === unit.dreamLinked);
-      if (linkedUnit) {
-        const myDist = this.distance(unit.x, unit.y, unit.goal.x, unit.goal.y);
-        const linkedDist = this.distance(linkedUnit.x, linkedUnit.y, unit.goal.x, unit.goal.y);
-        if (linkedDist < myDist) {
-          unit.guidedTurns = 1;
-        }
-      }
-    }
-
-    let next = null;
-    if (this.level.memoryChaos && !guided && Math.random() < 0.45) {
-      next = this.randomPassableNeighbor(unit);
-      if (next) this.addLog(`${unit.name} 被记忆瘟疫影响，偏离了道路。`);
-    }
-    if (!next) next = this.nextStepToward(unit, unit.goal);
-    if (next) {
-      unit.x = next.x;
-      unit.y = next.y;
-      if (hasRevealPath && !this.isGoalReached(unit)) {
-        const extraStep = this.nextStepToward(unit, unit.goal);
-        if (extraStep) {
-          unit.x = extraStep.x;
-          unit.y = extraStep.y;
-        }
-      }
-    }
-    if (unit.guidedTurns > 0) unit.guidedTurns -= 1;
-    if (unit.revealedPath > 0) unit.revealedPath -= 1;
-    if (unit.immuneChaos > 0) unit.immuneChaos -= 1;
-    if (this.isGoalReached(unit)) {
-      this.rescueUnit(unit);
-    }
-  }
-
-  // Override moveMessenger with full revealedPath/immuneChaos support
-  moveMessenger(unit) {
-    if (this.isGoalReached(unit)) {
-      unit.met = true;
-      return;
-    }
-    const terrain = this.getTerrain(unit.x, unit.y);
-    const guided = unit.guidedTurns > 0 || this.nearActiveAbility(unit.x, unit.y, ['calm', 'guide', 'memory_beacon']);
-    const immuneChaos = unit.immuneChaos > 0;
-    const hasRevealPath = unit.revealedPath > 0;
-    if ((terrain === TILE.FOG || terrain === TILE.DARK) && !guided && !immuneChaos) {
-      this.warMeter = Math.min(this.level.hazard?.warLimit || 9, this.warMeter + 1);
-      this.addLog(`${unit.name} 在迷雾中误判形势，战争值 +1。`);
-      return;
-    }
-    const next = this.nextStepToward(unit, unit.goal);
-    if (next) {
-      unit.x = next.x;
-      unit.y = next.y;
-      if (hasRevealPath && !this.isGoalReached(unit)) {
-        const extraStep = this.nextStepToward(unit, unit.goal);
-        if (extraStep) {
-          unit.x = extraStep.x;
-          unit.y = extraStep.y;
-        }
-      }
-    }
-    if (unit.guidedTurns > 0) unit.guidedTurns -= 1;
-    if (unit.revealedPath > 0) unit.revealedPath -= 1;
-    if (unit.immuneChaos > 0) unit.immuneChaos -= 1;
-    if (this.isGoalReached(unit)) {
-      unit.met = true;
-      this.addLog(`${unit.name} 抵达边境会谈点。`, true);
-    }
-  }
-
   // Override moveBeast with trap trigger support
+
   moveBeast(unit) {
     if (unit.tamed) {
       this.addLog(`${unit.name} 已被驯服，安静地停留在原地。`);

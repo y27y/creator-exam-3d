@@ -690,11 +690,118 @@ AbilityHandlers.active.set('chaos_guide', (game, creation) => {
   });
 });
 
+// ========== Dig Channel ==========
+
+AbilityHandlers.immediate.set('dig_channel', (game, creation) => {
+  const { card, x, y } = creation;
+  const range = Math.max(1, (card.range || 1) + 1);
+  // Drain channel leftward: convert WATER/SWAMP to LAND along the channel
+  let drained = 0;
+  for (let dx = 0; dx <= range; dx++) {
+    if (drained >= 5) break;
+    const cx = x - dx;
+    if (typeof game.inBounds === 'function' && !game.inBounds(cx, y)) continue;
+    const terrain = game.getTerrain(cx, y);
+    if ([TILE.WATER, TILE.SWAMP].includes(terrain)) {
+      setTempTerrain(game, creation, cx, y, TILE.LAND);
+      drained += 1;
+    }
+  }
+  // Also drain nearby cells within range
+  for (const cell of game.tilesWithin(x, y, range)) {
+    if (drained >= 8) break;
+    if (cell.x === x && cell.y === y) continue;
+    const terrain = game.getTerrain(cell.x, cell.y);
+    if ([TILE.WATER, TILE.SWAMP].includes(terrain)) {
+      setTempTerrain(game, creation, cell.x, cell.y, TILE.LAND);
+      drained += 1;
+    }
+  }
+  logGame(game, `「${card.name}」挖掘排水渠道，${drained} 格水域/沼泽转为平地。`, true);
+});
+
+AbilityHandlers.active.set('dig_channel', (game, creation) => {
+  const { card, x, y } = creation;
+  // Each turn, drain one adjacent water cell if any
+  for (const cell of game.tilesWithin(x, y, 1)) {
+    if (cell.x === x && cell.y === y) continue;
+    const terrain = game.getTerrain(cell.x, cell.y);
+    if ([TILE.WATER, TILE.SWAMP].includes(terrain)) {
+      setTempTerrain(game, creation, cell.x, cell.y, TILE.LAND);
+      break; // only drain 1 per turn
+    }
+  }
+});
+
+// ========== Fused Ability Active Handlers ==========
+
+AbilityHandlers.active.set('nature_awakening', (game, creation) => {
+  const { card, x, y } = creation;
+  let changed = 0;
+  for (const cell of game.tilesWithin(x, y, card.range)) {
+    const terrain = game.getTerrain(cell.x, cell.y);
+    if ([TILE.LAND, TILE.SWAMP].includes(terrain)) {
+      game.setTerrain(cell.x, cell.y, TILE.FOREST);
+      changed += 1;
+    }
+  }
+  for (const unit of game.units.filter(u => game.isCivilian(u) && u.status === 'active')) {
+    if (game.distance(unit.x, unit.y, x, y) <= card.range + 1) {
+      unit.guidedTurns = Math.max(unit.guidedTurns || 0, 1) + 1;
+    }
+  }
+  if (changed) game.addLog(`「${card.name}」自然觉醒让 ${changed} 格土地化为森林。`);
+});
+
+AbilityHandlers.active.set('rift_sealing', (game, creation) => {
+  game.entropy = Math.max(0, game.entropy - 3);
+  let sealed = 0;
+  for (const c of game.creations) {
+    if (c.placed && c.card.ability === 'memory_beacon') {
+      c.remaining = 0;
+      sealed++;
+    }
+  }
+  game.addLog(`「${creation.card.name}」封隙减低裂隙3点，${sealed} 个记忆信标熄灭。`);
+});
+
+AbilityHandlers.active.set('beast_taming', (game, creation) => {
+  const { card, x, y } = creation;
+  for (const unit of game.units.filter(u => u.type === 'beast' && u.status === 'active')) {
+    if (game.distance(unit.x, unit.y, x, y) <= card.range + 1) {
+      unit.tamed = true;
+      unit.anger = 0;
+      unit.stunnedTurns = 2;
+    }
+  }
+  game.addLog(`「${creation.card.name}」驯兽安抚了附近巨兽。`);
+});
+
+AbilityHandlers.active.set('time_weave', (game, creation) => {
+  let extended = 0;
+  for (const c of game.creations) {
+    if (c.placed && c.remaining > 0) {
+      c.remaining += 2;
+      c.maxTurns += 2;
+      extended++;
+    }
+  }
+  game.addLog(`「${creation.card.name}」织时延长了 ${extended} 个造物的持续时间。`);
+
+});
+
 // Apply a handler by ability name
 export function applyAbility(game, creation, phase) {
-  const handler = AbilityHandlers[phase].get(creation.card.ability);
+  let ability = creation.card.ability;
+  // Fused_ prefix fallback: extract base ability if no specific handler
+  if (ability.startsWith('fused_') && !AbilityHandlers[phase].has(ability)) {
+    ability = ability.slice(6);
+  }
+  const handler = AbilityHandlers[phase].get(ability);
   if (handler) {
     handler(game, creation);
+  } else {
+    console.warn(`[AbilityHandlers] No ${phase} handler for ability: ${creation.card.ability}`);
   }
 }
 

@@ -4,6 +4,13 @@
 // Validates LLM-generated creations against game state consistency
 
 import { cognitiveEffects } from './cognitiveEffects.js';
+import { ABILITY_SET, FUSED_ABILITIES, isKnownAbility } from './abilities.js';
+
+const VALID_ABILITIES = new Set([...ABILITY_SET, ...FUSED_ABILITIES]);
+
+function isValidAbility(ability) {
+  return isKnownAbility(ability);
+}
 
 // Terrain-ability compatibility matrix
 const TERRAIN_ABILITY_COMPATIBILITY = {
@@ -125,6 +132,10 @@ export class ValidationEngine {
       if (card[field] === undefined || card[field] === null) {
         errors.push(`缺少必需字段: ${field}`);
       }
+    }
+
+    if (!isValidAbility(card.ability)) {
+      errors.push(`未知能力: ${card.ability}，必须是标准能力或融合能力`);
     }
 
     if (!card.name || card.name.length === 0) {

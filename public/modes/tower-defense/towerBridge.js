@@ -140,7 +140,6 @@
     sun_blessing: 'sun',
     raise_earth: 'cannon',
     grow_forest: 'thiefClaw',
-    dig_channel: 'boomerang',
     trap: 'blast',
     dream_link: 'matrix',
     time_dilation: 'tesla'

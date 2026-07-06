@@ -4,6 +4,7 @@
 
 import { validationEngine } from './validationEngine.js';
 import { cognitiveEffects } from './cognitiveEffects.js';
+import { FUSION_TABLE } from './abilities.js';
 
 // Material types extracted from creations
 export const MATERIAL_TYPES = {
@@ -365,23 +366,10 @@ export class CreatorWorkshop {
 
   // Determine fused ability from two abilities
   determineFusedAbility(abilityA, abilityB) {
-    // Fusion table - some combinations produce special abilities
-    const fusionTable = {
-      'illuminate+absorb_water': 'steam_burst',
-      'absorb_water+illuminate': 'steam_burst',
-      'grow_forest+transform_land': 'nature_awakening',
-      'transform_land+grow_forest': 'nature_awakening',
-      'force_field+memory_beacon': 'rift_sealing',
-      'memory_beacon+force_field': 'rift_sealing',
-      'calm+trap': 'beast_taming',
-      'trap+calm': 'beast_taming',
-      'time_dilation+reveal_path': 'time_weave',
-      'reveal_path+time_dilation': 'time_weave'
-    };
-
+    // Fusion table from abilities.js
     const key = `${abilityA}+${abilityB}`;
-    if (fusionTable[key]) {
-      return fusionTable[key];
+    if (FUSION_TABLE[key]) {
+      return FUSION_TABLE[key];
     }
 
     // Default: return the first ability with "fused_" prefix

@@ -75,7 +75,7 @@ export const LEVELS = [
       { type: 'villager', name: '木匠', x: 3, y: 4, goal: { x: 6, y: 4 } },
       { type: 'villager', name: '邮差', x: 4, y: 3, goal: { x: 6, y: 3 } }
     ],
-    hazard: { type: 'flood', spreadPerTurn: 2, source: 'left' },
+    hazard: { type: 'flood', spreadPerTurn: 3, source: 'left' },
     win: 'requiredRescue',
     tips: ['吸水、造桥、屏障和引导类造物都有效。', '洪水不会吞没高地，但会切断道路。']
   },

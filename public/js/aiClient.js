@@ -1,172 +1,14 @@
-const ABILITY_SET = new Set([
-  'absorb_water',
-  'create_bridge',
-  'illuminate',
-  'gale',
-  'block',
-  'calm',
-  'guide',
-  'cleanse',
-  'slow_beast',
-  'memory_beacon',
-  'force_field',
-  'transform_land',
-  'freeze_water',
-  'reveal_path',
-  'sun_blessing',
-  'raise_earth',
-  'grow_forest',
-  'trap',
-  'dream_link',
-  'time_dilation',
-  'haste',
-  'teleport',
-  'shield_units',
-  'redirect_hazard'
-]);
+import {
+  ABILITY_SET,
+  ABILITY_LABELS,
+  TYPE_BY_ABILITY,
+  NAME_SEEDS,
+  TAGS_BY_ABILITY,
+  KEYWORDS,
+  RULE_DESCRIBED_ABILITIES
+} from './abilities.js';
 
-const ABILITY_LABELS = {
-  absorb_water: '吸水/转移',
-  create_bridge: '造路/搭桥',
-  illuminate: '照明',
-  gale: '大风',
-  block: '阻挡',
-  calm: '安抚/沟通',
-  guide: '引导',
-  cleanse: '净化',
-  slow_beast: '牵制巨兽',
-  memory_beacon: '记忆信标',
-  force_field: '保护结界',
-  transform_land: '改变地形',
-  freeze_water: '冻结水域',
-  reveal_path: '显路/加速',
-  sun_blessing: '日华祝福',
-  raise_earth: '抬升地面',
-  grow_forest: '种植森林',
-  trap: '设置陷阱',
-  dream_link: '梦境链接',
-  time_dilation: '时间延缓',
-  haste: '行动力/加速',
-  teleport: '传送',
-  shield_units: '护盾/庇护',
-  redirect_hazard: '灾害改道'
-};
-
-const TYPE_BY_ABILITY = {
-  absorb_water: '生物',
-  create_bridge: '地形',
-  illuminate: '奇迹',
-  gale: '奇迹',
-  block: '地形',
-  calm: '仪式',
-  guide: '生物',
-  cleanse: '机械',
-  slow_beast: '法则',
-  memory_beacon: '法则',
-  force_field: '奇迹',
-  transform_land: '法则',
-  freeze_water: '法则',
-  reveal_path: '奇迹',
-  sun_blessing: '仪式',
-  raise_earth: '地形',
-  grow_forest: '生物',
-  trap: '机械',
-  dream_link: '仪式',
-  time_dilation: '奇迹',
-  haste: '奇迹',
-  teleport: '法则',
-  shield_units: '奇迹',
-  redirect_hazard: '法则'
-};
-
-const NAME_SEEDS = {
-  absorb_water: ['云鲸群', '饮洪菌林', '吞潮莲', '搬雨兽'],
-  create_bridge: ['浮石桥律', '舞桥木灵', '月桥', '渡水藤'],
-  illuminate: ['月亮树', '晨星灯塔', '萤火圣枝', '日核花'],
-  gale: ['卷雾风灵', '长风笛', '吹雾者', '裂空羽'],
-  block: ['静默墙', '岩壳屏障', '藤蔓城垣', '眠石阵'],
-  calm: ['同梦圆桌', '真言白鸟', '和声花园', '静心水钟'],
-  guide: ['归路鹿', '指路风铃', '影行使者', '北星狐'],
-  cleanse: ['月光净机', '澄泉祭坛', '白盐塔', '净毒蜂群'],
-  slow_beast: ['悲伤花园', '眠兽笛', '迟步月环', '柔水锁链'],
-  memory_beacon: ['记忆碑', '家乡歌塔', '名册圣石', '回声灯'],
-  force_field: ['护世穹顶', '星砂结界', '无雨环', '守夜罩'],
-  transform_land: ['改土律', '生路之种', '软泥硬化术', '开原令'],
-  freeze_water: ['冰镜莲', '霜息花', '凝冰蝶', '冻时晶'],
-  reveal_path: ['路光苔', '径显萤', '航标灵', '道标花'],
-  sun_blessing: ['日华轮', '光暖树', '阳炎蝶', '晨曦钟'],
-  raise_earth: ['地隆笋', '土丘芽', '石升藤', '隆地根'],
-  grow_forest: ['速生林', '木灵种', '森罗籽', '树界芽'],
-  trap: ['缚兽藤', '陷地阵', '迟步网', '缠根索'],
-  dream_link: ['同梦蛛', '共感茧', '心桥蛾', '识海丝'],
-  time_dilation: ['时漏沙', '缓时花', '凝刻钟', '延流晶'],
-  haste: ['疾行铃', '二步风', '迅足符', '赶路鼓'],
-  teleport: ['星门', '折路环', '归途门', '瞬径石'],
-  shield_units: ['守护伞', '避水罩', '庇护灯', '护身铃'],
-  redirect_hazard: ['引灾风标', '分洪罗盘', '转流旗', '改道铃']
-};
-
-const TAGS_BY_ABILITY = {
-  absorb_water: ['水', '吸收', '潮湿'],
-  create_bridge: ['道路', '通行', '临时'],
-  illuminate: ['光', '驱散', '显形'],
-  gale: ['风', '驱散', '显形'],
-  block: ['屏障', '阻挡', '稳定'],
-  calm: ['情绪', '沟通', '和平'],
-  guide: ['移动', '方向', '护送'],
-  cleanse: ['净化', '污染', '恢复'],
-  slow_beast: ['巨兽', '迟缓', '非杀伤'],
-  memory_beacon: ['记忆', '路标', '归家'],
-  force_field: ['保护', '结界', '隔离'],
-  transform_land: ['地形', '转化', '塑造'],
-  freeze_water: ['冰', '冻结', '临时通行'],
-  reveal_path: ['路径', '加速', '显形'],
-  sun_blessing: ['光', '恢复', '大范围'],
-  raise_earth: ['地形', '高地', '防御'],
-  grow_forest: ['植物', '阻挡', '持续'],
-  trap: ['控制', '巨兽', '临时'],
-  dream_link: ['精神', '连接', '共享'],
-  time_dilation: ['时间', '延缓', '紧急'],
-  haste: ['行动力', '加速', '移动'],
-  teleport: ['传送', '空间', '救援'],
-  shield_units: ['护盾', '庇护', '防护'],
-  redirect_hazard: ['改道', '灾害', '引导']
-};
-
-const KEYWORDS = [
-  { ability: 'absorb_water', words: ['水', '洪', '雨', '潮', '河', '海', '抽水', '吸水', '鲸', '蘑菇', '云'] },
-  { ability: 'create_bridge', words: ['桥', '路', '渡', '浮', '跨', '通道', '木板', '石头', '道路'] },
-  { ability: 'illuminate', words: ['光', '灯', '太阳', '月亮', '发光', '黑暗', '夜', '萤火', '星'] },
-  { ability: 'gale', words: ['风', '大风', '吹', '刮', '气流', '狂风', '暴风', '清风', '岚', '迷雾', '雾'] },
-  { ability: 'block', words: ['墙', '挡', '封', '拦', '城墙', '屏障', '围栏', '堤坝'] },
-  { ability: 'calm', words: ['安抚', '和平', '沟通', '翻译', '语言', '真话', '谎言', '梦境', '圆桌', '花园'] },
-  { ability: 'guide', words: ['引导', '指路', '带路', '风', '鹿', '鸟', '影子', '护送', '方向'] },
-  { ability: 'cleanse', words: ['净化', '毒', '病', '瘟疫', '污染', '治疗', '治愈', '清除'] },
-  { ability: 'slow_beast', words: ['巨兽', '催眠', '迟缓', '睡', '锁链', '笛', '牵制'] },
-  { ability: 'memory_beacon', words: ['记忆', '家乡', '歌', '名字', '碑', '路标', '圣树', '回忆'] },
-  { ability: 'force_field', words: ['结界', '保护', '护盾', '罩', '穹顶', '领域'] },
-  { ability: 'transform_land', words: ['地形', '土地', '沼泽', '山', '树', '森林', '变成', '创造', '法则'] },
-  { ability: 'freeze_water', words: ['冰', '冻', '冻结', '霜', '雪', '冷', '凝固', '结冰'] },
-  { ability: 'reveal_path', words: ['路', '径', '路径', '显示', '显现', '导航', '地图', '加速', '快步'] },
-  { ability: 'sun_blessing', words: ['太阳', '日', '光', '温暖', '祝福', '治愈', '恢复', '大范围'] },
-  { ability: 'raise_earth', words: ['抬', '升', '高', '地', '土', '丘', '隆', '地面'] },
-  { ability: 'grow_forest', words: ['森林', '树', '木', '林', '种', '植物', '生长', '芽'] },
-  { ability: 'trap', words: ['陷阱', '坑', '网', '索', '绊', '捕', '捉', '机关'] },
-  { ability: 'dream_link', words: ['梦', '链接', '连接', '共享', '心', '精神', '同梦', '共感'] },
-  { ability: 'time_dilation', words: ['时间', '缓', '慢', '延', '钟', '沙漏', '凝', '延缓'] },
-  { ability: 'haste', words: ['行动力', '加一', '加二', '多走', '快跑', '疾行', '冲刺', '移动力', '加速', '加快', '提速', '速度', 'move', 'speed'] },
-  { ability: 'teleport', words: ['传送', '星门', '瞬移', '空间门', 'portal', 'teleport'] },
-  { ability: 'shield_units', words: ['护盾', '庇护', '保护伞', '雨伞', '罩住', 'shield'] },
-  { ability: 'redirect_hazard', words: ['改道', '转向', '引流', '分洪', '风向', '吹走', 'redirect'] }
-];
-
-const RULE_DESCRIBED_ABILITIES = new Set([
-  'reveal_path',
-  'haste',
-  'teleport',
-  'shield_units',
-  'redirect_hazard'
-]);
+export { ABILITY_SET };
 
 const COMPILE_TIMEOUT_MS = 5000;
 const FALLBACK_MESSAGES = {
@@ -243,14 +85,18 @@ export function localCompile(text, gameContext = {}) {
     grow_forest: 2, trap: 2, dream_link: 2,
     reveal_path: 1, freeze_water: 1, raise_earth: 1,
     time_dilation: 0, haste: 1, teleport: 2, shield_units: 2,
-    redirect_hazard: 2, slow_beast: 2, absorb_water: 2, cleanse: 2
+    redirect_hazard: 2, slow_beast: 2, absorb_water: 2, cleanse: 2,
+    dig_channel: 2,
+    steam_burst: 2, nature_awakening: 2, rift_sealing: 1, beast_taming: 2, time_weave: 0
   };
   const range = ability === 'haste' ? inferHasteRange(text) : (rangeMap[ability] ?? 1);
 
   const durationMap = {
     create_bridge: 3, freeze_water: 2, trap: 2, time_dilation: 1,
     grow_forest: 4, raise_earth: 3, force_field: 2, sun_blessing: 2, calm: 1,
-    haste: 2, teleport: 2, shield_units: 3, redirect_hazard: 3
+    haste: 2, teleport: 2, shield_units: 3, redirect_hazard: 3,
+    dig_channel: 3,
+    steam_burst: 3, nature_awakening: 4, rift_sealing: 2, beast_taming: 2, time_weave: 1
   };
   const duration = isTooStrong ? 2 : (durationMap[ability] ?? 3);
 
@@ -260,7 +106,9 @@ export function localCompile(text, gameContext = {}) {
     create_bridge: 2, freeze_water: 2, raise_earth: 2, grow_forest: 2,
     trap: 2, dream_link: 2, memory_beacon: 2,
     force_field: 2, sun_blessing: 2, transform_land: 3, time_dilation: 4,
-    haste: 2, teleport: 3, shield_units: 2, redirect_hazard: 2
+    haste: 2, teleport: 3, shield_units: 2, redirect_hazard: 2,
+    dig_channel: 2,
+    steam_burst: 3, nature_awakening: 3, rift_sealing: 3, beast_taming: 2, time_weave: 3
   };
   const cost = isTooStrong ? 3 : (costMap[ability] ?? 2);
 
@@ -270,7 +118,9 @@ export function localCompile(text, gameContext = {}) {
     create_bridge: 1, freeze_water: 1, raise_earth: 1, grow_forest: 1,
     trap: 1, dream_link: 1, memory_beacon: 1,
     force_field: 1, sun_blessing: 1, transform_land: 1, time_dilation: 2,
-    haste: 1, teleport: 2, shield_units: 1, redirect_hazard: 1
+    haste: 1, teleport: 2, shield_units: 1, redirect_hazard: 1,
+    dig_channel: 1,
+    steam_burst: 2, nature_awakening: 1, rift_sealing: 2, beast_taming: 1, time_weave: 2
   };
   const stabilityCost = isTooStrong ? 2 : (stabilityMap[ability] ?? 0);
 
@@ -391,7 +241,13 @@ function buildDescription(ability, isTooStrong, needsPlacement) {
     haste: '给附近单位增加行动力，使其一回合最多移动2到3格。',
     teleport: '将附近一名单位传送到其目标点，范围有限且代价很高。',
     shield_units: '给附近单位套上短暂护盾，抵消危险地形伤害。',
-    redirect_hazard: '临时改道附近洪水、迷雾或污染，打开安全通路。'
+    redirect_hazard: '临时改道附近洪水、迷雾或污染，打开安全通路。',
+    dig_channel: '挖掘排水渠道，吸收附近水域并引走洪水。',
+    steam_burst: '蒸汽爆发，蒸化附近水域与黑暗地形为平地。',
+    nature_awakening: '自然觉醒，将附近土地化为森林并增强单位行动力。',
+    rift_sealing: '封印裂隙3点，但会消耗范围内记忆信标。',
+    beast_taming: '驯服附近巨兽，使其安静且迟缓2回合。',
+    time_weave: '编织时间，延长所有活跃造物2回合持续时间。'
   }[ability] || '改写附近世界规则。';
   return `${prefix}${effect}${suffix}`.slice(0, 120);
 }
@@ -422,7 +278,13 @@ function buildSideEffect(ability, isTooStrong) {
     haste: '加速效果持续短，离开范围后会消失。',
     teleport: '空间折叠会显著提升世界裂隙。',
     shield_units: '护盾会在抵消伤害后快速衰减。',
-    redirect_hazard: '被改道的灾害可能在造物消失后回流。'
+    redirect_hazard: '被改道的灾害可能在造物消失后回流。',
+    dig_channel: '水渠需要持续维护，否则可能被回水淹没。',
+    steam_burst: '蒸汽会短暂阻挡视野。',
+    nature_awakening: '森林可能阻碍己方通行。',
+    rift_sealing: '消耗记忆信标是不可逆的。',
+    beast_taming: '驯服效果可能随时间衰退。',
+    time_weave: '时间编织会进一步撕裂世界稳定性。'
   }[ability] ?? '世界裂隙轻微上升。';
 }
 

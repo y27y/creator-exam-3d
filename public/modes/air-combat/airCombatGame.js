@@ -7,6 +7,8 @@
   const hudWeapon = document.getElementById('hud-weapon');
   const hudScore = document.getElementById('hud-score');
   const hud = document.getElementById('airspace-hud');
+  const hudToggles = Array.from(document.querySelectorAll('.hud-toggle'));
+  const hudPanels = Array.from(document.querySelectorAll('.hud-panel'));
   const comm = document.getElementById('airspace-comm');
   const menu = document.getElementById('airspace-menu');
   const menuKicker = menu.querySelector('.menu-kicker');
@@ -26,6 +28,7 @@
   const W = canvas.width;
   const H = canvas.height;
   const DEG = Math.PI / 180;
+  let hudCloseTimer = 0;
 
   function clamp(value, min, max) {
     return Math.max(min, Math.min(max, value));
@@ -53,6 +56,28 @@
       x: (touch.clientX - rect.left) / rect.width * W,
       y: (touch.clientY - rect.top) / rect.height * H
     };
+  }
+
+  function setHudPanel(target) {
+    if (hudCloseTimer) {
+      window.clearTimeout(hudCloseTimer);
+      hudCloseTimer = 0;
+    }
+    hudPanels.forEach(panel => {
+      panel.classList.toggle('is-open', panel.dataset.hudPanel === target);
+    });
+    hudToggles.forEach(button => {
+      const active = button.dataset.hudTarget === target;
+      button.classList.toggle('is-active', active);
+      button.setAttribute('aria-expanded', active ? 'true' : 'false');
+    });
+  }
+
+  function toggleHudPanel(target) {
+    const current = hudPanels.find(panel => panel.dataset.hudPanel === target && panel.classList.contains('is-open'));
+    const next = current ? '' : target;
+    setHudPanel(next);
+    if (next) hudCloseTimer = window.setTimeout(() => setHudPanel(''), 5200);
   }
 
   class Player {
@@ -547,6 +572,8 @@
     resultId: '',
     noHitT: 0,
     fieldRepairT: 0,
+    repairLoopT: 0,
+    repairLoopTriggers: 0,
     score: 0,
     time: 0,
     stars: Array.from({ length: 90 }, () => ({ x: Math.random() * W, y: Math.random() * H, s: 60 + Math.random() * 150, r: Math.random() < 0.8 ? 1 : 2 })),
@@ -559,7 +586,10 @@
       hud?.classList.toggle('hidden', !playing);
       comm?.classList.toggle('hidden', !playing);
       skillBtn?.classList.toggle('hidden', !playing);
-      if (!playing && comm) comm.textContent = '';
+      if (!playing) {
+        setHudPanel('');
+        if (comm) comm.textContent = '';
+      }
     },
 
     renderSelectedLoadout() {
@@ -652,6 +682,8 @@
       this.resultId = '';
       this.noHitT = 0;
       this.fieldRepairT = 0;
+      this.repairLoopT = 0;
+      this.repairLoopTriggers = 0;
       this.score = 0;
       this.time = 0;
       menu.classList.add('hidden');
@@ -1198,6 +1230,7 @@
       if (this.painConverted >= 2) tags.push('痛觉转译');
       if (this.pointDefenseCleared >= 4) tags.push('近防协议');
       if (this.livingArmorHpGained > 0) tags.push(`活性装甲 +${this.livingArmorHpGained}HP`);
+      if (this.repairLoopTriggers > 0) tags.push(`维修循环x${this.repairLoopTriggers}`);
       if (this.lastStandTriggered) tags.push('黑匣子保险');
       if (this.cleanClears >= 2) tags.push('完美清算');
       if (this.route.some(boss => boss.affix?.attack === 'prism')) tags.push('棱镜航线');
@@ -1291,7 +1324,7 @@
         const weak = active?._weakTimer > 0 ? ` · 弱点${active._weakTimer.toFixed(1)}s` : '';
         hudAffix.textContent = boss?.affix ? `${boss.affix.line}${weak}${cd}` : '';
       }
-      hudWeapon.textContent = `${this.weapon.name} · ${this.resonance.name}${this.armorCaliberStatus()}${this.vitalReactorStatus()}${this.shieldAmplifierStatus()}${this.bossHunterStatus()}${this.executionerStatus()}${this.weakScannerStatus()}${this.missileVolleyStatus()}${this.painConverterStatus()}${this.pointDefenseStatus()}${this.livingArmorStatus()}${this.signalFilterStatus()}${this.lastStandStatus()}${this.fieldRepairStatus()}${this.jamStatus()}`;
+      hudWeapon.textContent = `${this.weapon.name} · ${this.resonance.name}${this.armorCaliberStatus()}${this.vitalReactorStatus()}${this.shieldAmplifierStatus()}${this.bossHunterStatus()}${this.executionerStatus()}${this.weakScannerStatus()}${this.missileVolleyStatus()}${this.painConverterStatus()}${this.pointDefenseStatus()}${this.livingArmorStatus()}${this.repairLoopStatus()}${this.signalFilterStatus()}${this.lastStandStatus()}${this.fieldRepairStatus()}${this.jamStatus()}`;
       hudScore.textContent = String(Math.round(this.score));
       skillBtn.disabled = !this.player || this.player.skillCd > 0 || this.state !== 'playing';
       skillBtn.textContent = this.player && this.player.skillCd > 0 ? `${Math.ceil(this.player.skillCd)}s` : '造物脉冲';
@@ -1357,6 +1390,13 @@
       return maxHp > 0 ? ` · 活性装甲+${this.livingArmorHpGained}/${maxHp}HP` : '';
     },
 
+    repairLoopStatus() {
+      const every = Number(this.resonance.repairLoopEvery) || 0;
+      if (every <= 0) return '';
+      const wait = Math.max(0, Math.ceil(every - this.repairLoopT));
+      return ` · 维修循环${wait > 0 ? wait + 's' : '就绪'}`;
+    },
+
     signalFilterStatus() {
       const resist = Number(this.resonance.signalFilterJamResist) || 0;
       return resist > 0 ? ` · 抗干扰滤波-${Math.round(resist * 100)}%` : '';
@@ -1394,6 +1434,7 @@
       this.segmentTime += dt;
       this.nearLineCd = Math.max(0, this.nearLineCd - dt);
       this.updateFieldRepair(dt);
+      this.updateRepairLoop(dt);
       this.updateJammerPressure(dt);
       this.player.update(dt);
       if (!this.boss && this.segmentTime > 8.5) this.spawnBoss();
@@ -1467,6 +1508,30 @@
       const before = this.player.hp;
       this.player.hp = Math.min(this.player.maxHp, this.player.hp + Math.max(1, Math.round(this.player.maxHp * repair.healPct)));
       if (this.player.hp > before) this.burst(this.player.x, this.player.y, '#69db7c', 6);
+    },
+
+    updateRepairLoop(dt) {
+      const every = Number(this.resonance.repairLoopEvery) || 0;
+      if (!this.player || every <= 0 || this.player.hp <= 0) return;
+      this.repairLoopT += dt;
+      if (this.repairLoopT < every) return;
+      this.repairLoopT = 0;
+      this.repairLoopTriggers += 1;
+      const healPct = Number(this.resonance.repairLoopHealPct) || 0;
+      const shield = Number(this.resonance.repairLoopShield) || 0;
+      const maxShield = Number(this.resonance.repairLoopMaxShield) || 0;
+      if (this.player.hp < this.player.maxHp && healPct > 0) {
+        const before = this.player.hp;
+        this.player.hp = Math.min(this.player.maxHp, this.player.hp + Math.max(1, Math.round(this.player.maxHp * healPct)));
+        if (this.player.hp > before) this.burst(this.player.x, this.player.y, '#38d9a9', 10);
+        return;
+      }
+      if (shield > 0) {
+        this.player.shield = maxShield > 0
+          ? Math.min(maxShield, this.player.shield + shield)
+          : this.player.shield + shield;
+        this.burst(this.player.x, this.player.y, '#8bd3ff', 8);
+      }
     },
 
     draw() {
@@ -1580,7 +1645,10 @@
     event.preventDefault();
   }
 
-  canvas.addEventListener('pointerdown', pointerMove);
+  canvas.addEventListener('pointerdown', event => {
+    setHudPanel('');
+    pointerMove(event);
+  });
   canvas.addEventListener('pointermove', pointerMove);
   canvas.addEventListener('touchstart', pointerMove, { passive: false });
   canvas.addEventListener('touchmove', pointerMove, { passive: false });
@@ -1599,6 +1667,12 @@
   document.getElementById('airspace-return').addEventListener('click', () => bridge.returnToMain());
   document.getElementById('result-return').addEventListener('click', () => bridge.returnToMain());
   skillBtn.addEventListener('click', () => game.useSkill());
+  hudToggles.forEach(button => {
+    button.addEventListener('click', event => {
+      event.stopPropagation();
+      toggleHudPanel(button.dataset.hudTarget || '');
+    });
+  });
 
   let last = performance.now();
   function loop(now) {

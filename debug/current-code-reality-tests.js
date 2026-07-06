@@ -231,6 +231,7 @@ function assertAirCombatIntegration() {
   assert.ok(bridgeSource.includes('carrierWing') && bridgeSource.includes('母舰残群'), 'air bridge must adapt upstream carrier enemies as finite enemy-pressure affix');
   assert.ok(bridgeSource.includes('barrage') && bridgeSource.includes("attack: 'ring'"), 'air bridge must adapt upstream barrage boss affix into finite ring pressure');
   assert.ok(bridgeSource.includes('fieldRepair') && bridgeSource.includes('纳米修复'), 'air bridge must adapt upstream field repair as a prior-flow reward');
+  assert.ok(bridgeSource.includes('repairLoopEvery') && bridgeSource.includes('维修循环'), 'air bridge must adapt upstream repair loop as finite shield-route sustain');
   assert.ok(bridgeSource.includes('exposedCore') && bridgeSource.includes("attack: 'weak'") && bridgeSource.includes('weakDamageMult'), 'air bridge must adapt upstream exposed core as a finite boss weak-point affix');
   assert.ok(bridgeSource.includes("keys.push('exposedCore')"), 'air bridge must derive exposed core from prior-flow context instead of unconditional route filler');
   assert.ok(bridgeSource.includes('phantomEscort') && bridgeSource.includes('幻影护航') && bridgeSource.includes("enemy: 'phantom'"), 'air bridge must adapt upstream phantom escort as finite lost-resident pressure');
@@ -287,6 +288,7 @@ function assertAirCombatIntegration() {
   assert.ok(airGameSource.includes('fireBossEscort'), 'air combat slice must apply upstream escort affix as finite add pressure');
   assert.ok(airGameSource.includes("if (affix.elite === 'jammer') this.applyJammerElite(escort, affix)"), 'air combat slice must let electronic warfare escorts become jammer elites');
   assert.ok(airGameSource.includes("this.affix.attack === 'repair'") && airGameSource.includes('repairBoss'), 'air combat slice must apply upstream repair boss affix locally');
+  assert.ok(airGameSource.includes('updateRepairLoop') && airGameSource.includes('repairLoopStatus') && airGameSource.includes('维修循环'), 'air combat slice must apply upstream repair-loop sustain locally and in HUD');
   assert.ok(airGameSource.includes("this.affix.attack === 'weak'") && airGameSource.includes('openBossWeakPoint') && airGameSource.includes('_weakTimer'), 'air combat slice must apply upstream exposed-core weak windows locally');
   assert.ok(airGameSource.includes('target._weakTimer > 0') && airGameSource.includes('target.affix?.weakDamageMult'), 'air combat slice must increase Boss damage only during exposed-core windows');
   assert.ok(airGameSource.includes('this.resonance.weakScannerDamageMult') && airGameSource.includes('weakScannerStatus') && airGameSource.includes('弱点标定+'), 'air combat slice must fold finite weak scanner into weak-window damage and HUD');
@@ -514,6 +516,9 @@ function assertAirCombatRouteBalance() {
     recentCreations: [{ name: '鲸潮护盾', ability: 'absorb_water' }]
   });
   assert.equal(shieldRoute.routeResonance().shieldAmplifierDamageMult, 0.18, 'shield weapons should unlock upstream shield amplifier damage');
+  assert.equal(shieldRoute.routeResonance().repairLoopEvery, 14, 'shield weapons should unlock finite repair-loop sustain');
+  assert.equal(shieldRoute.routeResonance().repairLoopHealPct, 0.06, 'finite repair-loop healing should stay bounded');
+  assert.equal(shieldRoute.routeResonance().repairLoopMaxShield, 36, 'finite repair-loop shielding should stay capped');
 
   const failedDefenseRoute = loadAirBridgeForContext({
     entropy: 4,

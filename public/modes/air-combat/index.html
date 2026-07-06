@@ -11,16 +11,21 @@
     <section class="airspace-stage" aria-label="第七天裂隙空域">
       <canvas id="airspace-canvas" width="540" height="860"></canvas>
       <div id="airspace-hud" class="airspace-hud hidden">
-        <div>
+        <div class="hud-toggle-column" aria-label="战斗信息">
+          <button class="hud-toggle" type="button" data-hud-target="stage" aria-expanded="false">空域</button>
+          <button class="hud-toggle" type="button" data-hud-target="weapon" aria-expanded="false">武器</button>
+          <button class="hud-toggle" type="button" data-hud-target="score" aria-expanded="false">分数</button>
+        </div>
+        <div class="hud-panel" data-hud-panel="stage">
           <span class="hud-label">空域</span>
           <strong id="hud-stage">第七天裂隙空域</strong>
           <small id="hud-affix" class="hud-detail"></small>
         </div>
-        <div>
+        <div class="hud-panel" data-hud-panel="weapon">
           <span class="hud-label">造物武器</span>
           <strong id="hud-weapon">记忆光矛</strong>
         </div>
-        <div>
+        <div class="hud-panel" data-hud-panel="score">
           <span class="hud-label">分数</span>
           <strong id="hud-score">0</strong>
         </div>

@@ -57,14 +57,12 @@ button {
 
 .airspace-hud {
   position: absolute;
-  inset: 10px 10px auto 10px;
-  display: grid;
-  grid-template-columns: 1.3fr 1.2fr 0.7fr;
-  gap: 8px;
+  inset: 0;
+  display: block;
   pointer-events: none;
 }
 
-.airspace-hud > div,
+.hud-panel,
 .airspace-comm,
 .airspace-clearance-card,
 .airspace-skill,
@@ -76,16 +74,63 @@ button {
   backdrop-filter: blur(8px);
 }
 
-.airspace-hud > div {
+.hud-toggle-column {
+  position: absolute;
+  left: 10px;
+  bottom: 150px;
+  display: grid;
+  gap: 6px;
+  pointer-events: auto;
+  z-index: 4;
+}
+
+.hud-toggle {
+  width: 44px;
+  min-height: 32px;
+  padding: 0;
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(9, 13, 16, 0.68);
+  backdrop-filter: blur(8px);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.hud-toggle.is-active {
+  color: #10201d;
+  border-color: rgba(114, 214, 189, 0.9);
+  background: var(--teal);
+}
+
+.hud-panel {
+  position: absolute;
+  left: 62px;
+  bottom: 150px;
+  display: none;
   min-width: 0;
+  width: min(258px, calc(100% - 78px));
+  max-height: 168px;
+  overflow: hidden auto;
   padding: 8px 10px;
+  pointer-events: auto;
+  z-index: 4;
+}
+
+.hud-panel.is-open {
+  display: block;
+}
+
+.hud-panel[data-hud-panel="score"] {
+  width: 118px;
 }
 
 .hud-label {
   display: block;
   margin-bottom: 2px;
   color: var(--muted);
-  font-size: 11px;
+  font-size: 10px;
 }
 
 .airspace-hud strong {
@@ -93,14 +138,16 @@ button {
   min-width: 0;
   overflow: hidden;
   color: var(--text);
-  font-size: 13px;
+  font-size: 12px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 #hud-weapon {
-  overflow: visible;
-  line-height: 1.25;
+  display: block;
+  max-height: 112px;
+  overflow: hidden;
+  line-height: 1.35;
   text-overflow: clip;
   white-space: normal;
 }
@@ -110,7 +157,7 @@ button {
   min-width: 0;
   overflow: hidden;
   color: var(--muted);
-  font-size: 11px;
+  font-size: 10px;
   line-height: 1.35;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -307,10 +354,22 @@ button {
   }
 
   .airspace-hud {
-    grid-template-columns: 1fr 1fr;
+    inset: 0;
   }
 
-  .airspace-hud > div:last-child {
-    grid-column: 1 / -1;
+  .hud-toggle-column {
+    left: 8px;
+    bottom: 142px;
+  }
+
+  .hud-toggle {
+    width: 42px;
+    min-height: 31px;
+  }
+
+  .hud-panel {
+    left: 58px;
+    bottom: 142px;
+    width: min(252px, calc(100vw - 70px));
   }
 }

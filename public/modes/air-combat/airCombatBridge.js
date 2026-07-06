@@ -657,6 +657,10 @@
       painConverterCooldownPerHp: 0,
       painConverterMaxCooldown: 0,
       pointDefenseRange: 0,
+      repairLoopEvery: 0,
+      repairLoopHealPct: 0,
+      repairLoopShield: 0,
+      repairLoopMaxShield: 0,
       signalFilterJamResist: 0,
       weakScannerDamageMult: 0,
       weakScannerDuration: 0,
@@ -679,6 +683,13 @@
     if ((Number(resonance.startingShield) || 0) > 0 || weapon.kind === 'shield') {
       resonance.shieldAmplifierDamageMult = resonance.shieldAmplifierMaxDamageMult;
       resonance.effect = `${resonance.effect} 护盾放大器会在护盾存在时提供全武器增伤 ${Math.round(resonance.shieldAmplifierDamageMult * 100)}%。`;
+    }
+    if (weapon.kind === 'shield') {
+      resonance.repairLoopEvery = 14;
+      resonance.repairLoopHealPct = 0.06;
+      resonance.repairLoopShield = 8;
+      resonance.repairLoopMaxShield = 36;
+      resonance.effect = `${resonance.effect} 维修循环每 14 秒修复 6% 最大生命，满血时转为临时护盾。`;
     }
     const flowHpBonus = Math.max(0,
       residentsCount() * 4

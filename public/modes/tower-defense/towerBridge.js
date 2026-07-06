@@ -451,7 +451,7 @@
       }
       #selection-screen h1 { font-size: 1.65rem; }
       #selection-top-actions { gap: 8px; }
-      #open-leaderboard-btn, #open-wiki-btn, #open-settings-btn {
+      #open-leaderboard-btn, #open-wiki-btn, #open-settings-btn, #open-exit-btn {
         min-block-size: 30px;
         padding: 4px 11px;
         font-size: .78em;

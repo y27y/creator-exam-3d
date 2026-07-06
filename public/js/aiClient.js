@@ -10,7 +10,7 @@ import {
 
 export { ABILITY_SET };
 
-const COMPILE_TIMEOUT_MS = 5000;
+const COMPILE_TIMEOUT_MS = 20000;
 const FALLBACK_MESSAGES = {
   timeout: 'AI 编译超时，已使用本地规则兜底。',
   network_error: 'AI 编译连接失败，已使用本地规则兜底。',

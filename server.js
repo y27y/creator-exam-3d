@@ -546,7 +546,7 @@ async function handleCompileCreation(req, res) {
     ]
   });
 
-  if (result.source !== 'provider') {
+  if (result.source !== 'provider' && result.source !== 'cache') {
     const reason = result.source === 'fallback_budget' ? 'budget' : normalizeCompileFallbackReason(result.error);
     sendJson(res, 200, buildFallbackCreation(playerText, reason));
     return;
@@ -745,9 +745,10 @@ async function handleNightWatchTowers(req, res) {
     messages: buildNightWatchTowerMessages(input)
   });
   const plan = sanitizeNightWatchTowerPlan(result.data, input);
-  plan.source = result.source === 'provider' ? 'ai' : (plan.source || result.source);
+  const aiSucceeded = result.source === 'provider' || result.source === 'cache';
+  plan.source = aiSucceeded ? 'ai' : (plan.source || result.source);
   plan.model = AI_MODEL;
-  if (result.source !== 'provider') plan.fallback = true;
+  if (!aiSucceeded) plan.fallback = true;
   sendJson(res, 200, plan);
 }
 

@@ -55,16 +55,21 @@ const HAZARD_TILES = [TILE.WATER, TILE.SWAMP, TILE.FOG, TILE.DARK, TILE.POISON];
 
 AbilityHandlers.immediate.set('create_bridge', (game, creation) => {
   const { card, x, y } = creation;
-  const cells = game.tilesWithin(x, y, Math.max(1, card.range));
-  let changed = 0;
-  for (const cell of cells) {
-    if (changed >= 4) break;
-    if ([TILE.WATER, TILE.SWAMP, TILE.FOG, TILE.DARK, TILE.POISON].includes(game.getTerrain(cell.x, cell.y))) {
-      setTempTerrain(game, creation, cell.x, cell.y, TILE.BRIDGE);
-      changed += 1;
-    }
+  const hazardTiles = [TILE.WATER, TILE.SWAMP, TILE.FOG, TILE.DARK, TILE.POISON];
+
+  // Collect all hazard tiles within range and sort by distance from placement point.
+  const candidates = game.tilesWithin(x, y, Math.max(1, card.range)).filter((cell) =>
+    hazardTiles.includes(game.getTerrain(cell.x, cell.y))
+  );
+  candidates.sort((a, b) => game.distance(x, y, a.x, a.y) - game.distance(x, y, b.x, b.y));
+
+  // No hazard terrain: do not place anything.
+  if (!candidates.length) return;
+
+  // Place bridges on the nearest hazard tiles (up to 4).
+  for (const cell of candidates.slice(0, 4)) {
+    setTempTerrain(game, creation, cell.x, cell.y, TILE.BRIDGE);
   }
-  if (!changed) setTempTerrain(game, creation, x, y, TILE.BRIDGE);
 });
 
 AbilityHandlers.immediate.set('dig_channel', (game, creation) => {

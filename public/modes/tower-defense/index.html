@@ -378,15 +378,15 @@
         .target-cycle { width: 34px; height: 32px; padding: 0; border: 0; border-radius: 0; background: #404040; color: var(--primary-color); font-size: 20px; line-height: 1; cursor: pointer; }
         .target-cycle:hover { background: #505050; transform: none; }
         #settings-dock { position: absolute; z-index: 9; left: -160px; bottom: 0; width: 140px; display: flex; flex-direction: column; gap: 10px; }
-        #pause-row, #settings-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; width: 100%; }
-        #pause-row.single-control, #settings-row.single-control { grid-template-columns: minmax(0, 1fr); }
-        #pause-button, #settings-button, #quick-restart-btn, #abandon-button { min-height: 86px; display: grid; place-items: center; gap: 5px; padding: 10px; color: var(--text-color); background: linear-gradient(160deg, #313131, #242424); border: 2px solid var(--primary-color); border-radius: 0; cursor: pointer; box-shadow: 0 6px 18px rgba(0,0,0,.4); }
+        #pause-row, #settings-row, #exit-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; width: 100%; }
+        #pause-row.single-control, #settings-row.single-control, #exit-row.single-control { grid-template-columns: minmax(0, 1fr); }
+        #pause-button, #settings-button, #exit-button, #quick-restart-btn, #abandon-button { min-height: 86px; display: grid; place-items: center; gap: 5px; padding: 10px; color: var(--text-color); background: linear-gradient(160deg, #313131, #242424); border: 2px solid var(--primary-color); border-radius: 0; cursor: pointer; box-shadow: 0 6px 18px rgba(0,0,0,.4); }
         #quick-restart-btn[hidden], #abandon-button[hidden] { display: none !important; }
-        #pause-button:hover, #settings-button:hover, #quick-restart-btn:hover, #abandon-button:hover { background: linear-gradient(160deg, #414141, #2b2b2b); }
+        #pause-button:hover, #settings-button:hover, #exit-button:hover, #quick-restart-btn:hover, #abandon-button:hover { background: linear-gradient(160deg, #414141, #2b2b2b); }
         #pause-button.is-paused { color: #ffd48b; border-color: #ffd48b; }
-        #pause-button:focus-visible, #settings-button:focus-visible, #quick-restart-btn:focus-visible, #abandon-button:focus-visible, .settings-slider:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
-        #pause-button svg, #settings-button svg, #quick-restart-btn svg, #abandon-button svg { width: 34px; height: 34px; color: var(--primary-color); }
-        #pause-button span, #settings-button span, #quick-restart-btn span, #abandon-button span { font-size: 13px; font-weight: 700; }
+        #pause-button:focus-visible, #settings-button:focus-visible, #exit-button:focus-visible, #quick-restart-btn:focus-visible, #abandon-button:focus-visible, .settings-slider:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+        #pause-button svg, #settings-button svg, #exit-button svg, #quick-restart-btn svg, #abandon-button svg { width: 34px; height: 34px; color: var(--primary-color); }
+        #pause-button span, #settings-button span, #exit-button span, #quick-restart-btn span, #abandon-button span { font-size: 13px; font-weight: 700; }
         .settings-row { display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: center; margin-top: 12px; font-size: 13px; }
         .settings-row output { color: #ffd700; font-weight: 700; }
         .settings-slider { grid-column: 1 / -1; width: 100%; accent-color: var(--primary-color); cursor: pointer; }
@@ -580,11 +580,11 @@
         #floating-info-panel.modern-detail .action-btn, #floating-info-panel.modern-detail .target-selector { min-height: 38px; }
         .stat-buffed { color: #4dd0e1; font-weight: bold; }
         #tooltip { display: none; position: fixed; background-color: rgba(26, 26, 26, 0.9); border: 1px solid var(--primary-color); border-radius: 0; padding: 10px; z-index: 1000; max-width: 220px; pointer-events: none; font-size: 0.9em; }
-        #modal, #confirm-modal, #abandon-confirm-modal { display: none; position: fixed; z-index: 100; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.8); justify-content: center; align-items: center; animation: fadeIn 0.3s; }
+        #modal, #confirm-modal, #abandon-confirm-modal, #exit-confirm-modal { display: none; position: fixed; z-index: 100; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.8); justify-content: center; align-items: center; animation: fadeIn 0.3s; }
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-        #modal-content, #confirm-modal-content, #abandon-confirm-content { background-color: var(--surface-color); padding: 30px 40px; border: 2px solid var(--primary-color); border-radius: 0; text-align: center; width: 80%; max-width: 450px; box-shadow: 0 0 30px var(--shadow-color); }
+        #modal-content, #confirm-modal-content, #abandon-confirm-content, #exit-confirm-content { background-color: var(--surface-color); padding: 30px 40px; border: 2px solid var(--primary-color); border-radius: 0; text-align: center; width: 80%; max-width: 450px; box-shadow: 0 0 30px var(--shadow-color); }
         #modal-content h2 { margin-top: 0; color: var(--primary-color); font-size: 2em; }
-        #confirm-modal-content h2, #abandon-confirm-content h2 { margin-top: 0; color: var(--primary-color); font-size: 1.8em; }
+        #confirm-modal-content h2, #abandon-confirm-content h2, #exit-confirm-content h2 { margin-top: 0; color: var(--primary-color); font-size: 1.8em; }
         #restart-btn { background-color: var(--primary-color); color: var(--bg-color); font-weight: bold; padding: 12px 25px; font-size: 1.1em; border: none; border-radius: 0; cursor: pointer; transition: all 0.2s ease; }
         #restart-btn:hover { transform: scale(1.05); }
         /* 结算弹窗按钮行 */
@@ -642,9 +642,9 @@
         #announce-ok:hover { transform: scale(1.05); }
         #announce-close-x { position: absolute; top: 6px; right: 10px; background: none; border: none; color: var(--text-color); font-size: 1.25em; cursor: pointer; opacity: .6; line-height: 1; }
         #announce-close-x:hover { opacity: 1; color: var(--primary-color); }
-        #selection-top-actions { --selection-action-width: 136px; display: flex; align-items: center; justify-content: center; gap: 10px; }
-        #open-announcement-btn, #open-leaderboard-btn, #open-wiki-btn, #open-settings-btn { box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center; gap: 6px; inline-size: var(--selection-action-width); min-block-size: 34px; background: none; border: 1px solid var(--primary-color); color: var(--primary-color); padding: 5px 14px; font-size: .85em; cursor: pointer; transition: all .2s ease; }
-        #open-announcement-btn:hover, #open-leaderboard-btn:hover, #open-wiki-btn:hover, #open-settings-btn:hover { background: var(--primary-color); color: var(--bg-color); }
+        #selection-top-actions { --selection-action-width: 136px; display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 10px; }
+        #open-announcement-btn, #open-leaderboard-btn, #open-wiki-btn, #open-settings-btn, #open-exit-btn { box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center; gap: 6px; inline-size: var(--selection-action-width); min-block-size: 34px; background: none; border: 1px solid var(--primary-color); color: var(--primary-color); padding: 5px 14px; font-size: .85em; cursor: pointer; transition: all .2s ease; }
+        #open-announcement-btn:hover, #open-leaderboard-btn:hover, #open-wiki-btn:hover, #open-settings-btn:hover, #open-exit-btn:hover { background: var(--primary-color); color: var(--bg-color); }
         #open-leaderboard-btn { border-color: #ffe082; color: #ffe082; }
         #open-leaderboard-btn:hover { background: #ffe082; color: #241707; }
         #preferences-modal { display: none; position: fixed; inset: 0; z-index: 145; justify-content: center; align-items: center; background: rgba(0,0,0,.84); animation: fadeIn .25s; }
@@ -934,7 +934,7 @@
             #skill-rail, #settings-dock { left: -116px; width: 110px; }
             #skill-rail { top: 0; }
             #settings-dock { bottom: 0; gap: 8px; }
-            #pause-button, #settings-button, #quick-restart-btn, #abandon-button { min-height: 72px; padding: 8px; }
+            #pause-button, #settings-button, #exit-button, #quick-restart-btn, #abandon-button { min-height: 72px; padding: 8px; }
             /* 详情窗口保留在移动端，供升级、出售和目标切换操作使用。 */
             .screen { padding: 14px; gap: 12px; box-sizing: border-box; }
             /* 局外选择界面缩小至视口内；对局舞台保持上面的原始缩放策略，不受这里影响。 */
@@ -1027,6 +1027,7 @@
         <button id="open-leaderboard-btn" type="button">🏆 守夜档案</button>
         <button id="open-wiki-btn" type="button">📖 图鉴</button>
         <button id="open-settings-btn" type="button">🔧 设置</button>
+        <button id="open-exit-btn" type="button">🚪 退出</button>
     </div>
     <div id="selection-slots"></div>
     <div id="selection-main">
@@ -1074,6 +1075,12 @@
                 <button id="abandon-button" type="button" title="放弃本局">
                     <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M8.5 11V5.5a1.5 1.5 0 0 1 3 0V10m0-5.5a1.5 1.5 0 0 1 3 0V10m0-4a1.5 1.5 0 0 1 3 0v5m-9-3a1.5 1.5 0 0 0-3 0v5c0 4.4 2.8 7 7 7s7-3.1 7-7v-2a1.5 1.5 0 0 0-3 0v1"/></svg>
                     <span>放弃</span>
+                </button>
+            </div>
+            <div id="exit-row" class="single-control">
+                <button id="exit-button" type="button" title="退出到主菜单">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4m7 14 5-5m0 0-5-5m5 5H12"/></svg>
+                    <span>退出</span>
                 </button>
             </div>
         </div>
@@ -1132,6 +1139,17 @@
         <div class="confirm-actions">
             <button id="confirm-abandon-yes" class="action-btn">确认放弃</button>
             <button id="confirm-abandon-no" class="action-btn">继续对局</button>
+        </div>
+    </div>
+</div>
+
+<div id="exit-confirm-modal" role="dialog" aria-modal="true" aria-labelledby="exit-confirm-title">
+    <div id="exit-confirm-content">
+        <h2 id="exit-confirm-title">退出长夜守城？</h2>
+        <p>确定后将离开当前小游戏并返回主游戏。</p>
+        <div class="confirm-actions">
+            <button id="confirm-exit-yes" class="action-btn">确认退出</button>
+            <button id="confirm-exit-no" class="action-btn">继续守夜</button>
         </div>
     </div>
 </div>
@@ -9666,11 +9684,13 @@ const modal = document.getElementById('modal');
 const waveCountdownBubble = document.getElementById('wave-countdown');
 const pauseButton = document.getElementById('pause-button');
 const settingsButton = document.getElementById('settings-button');
+const exitButton = document.getElementById('exit-button');
 const pauseRow = document.getElementById('pause-row');
 const settingsRow = document.getElementById('settings-row');
 const quickRestartButton = document.getElementById('quick-restart-btn');
 const abandonButton = document.getElementById('abandon-button');
 const openSettingsButton = document.getElementById('open-settings-btn');
+const openExitButton = document.getElementById('open-exit-btn');
 const preferencesModal = document.getElementById('preferences-modal');
 const bgmVolumeInput = document.getElementById('bgm-volume');
 const sfxVolumeInput = document.getElementById('sfx-volume');
@@ -11327,6 +11347,7 @@ confirmModal.addEventListener('click', (e) => {
 });
 
 const abandonConfirmModal = document.getElementById('abandon-confirm-modal');
+const exitConfirmModal = document.getElementById('exit-confirm-modal');
 abandonButton.addEventListener('click', () => {
     if (isTestMode || isReplayMode || gameEnded) return;
     abandonConfirmModal.style.display = 'flex';
@@ -11340,6 +11361,27 @@ document.getElementById('confirm-abandon-yes').addEventListener('click', () => {
 });
 abandonConfirmModal.addEventListener('click', event => {
     if (event.target === abandonConfirmModal) abandonConfirmModal.style.display = 'none';
+});
+
+openExitButton?.addEventListener('click', () => {
+    exitConfirmModal.style.display = 'flex';
+});
+exitButton?.addEventListener('click', () => {
+    exitConfirmModal.style.display = 'flex';
+});
+document.getElementById('confirm-exit-no').addEventListener('click', () => {
+    exitConfirmModal.style.display = 'none';
+});
+document.getElementById('confirm-exit-yes').addEventListener('click', () => {
+    exitConfirmModal.style.display = 'none';
+    if (window.NightWatchBridge?.returnToMain) {
+        window.NightWatchBridge.returnToMain();
+    } else {
+        window.location.href = '../../index.html';
+    }
+});
+exitConfirmModal.addEventListener('click', event => {
+    if (event.target === exitConfirmModal) exitConfirmModal.style.display = 'none';
 });
 
 window.addEventListener('beforeunload', event => {

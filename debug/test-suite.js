@@ -5025,7 +5025,7 @@ runner.test('Air Combat integration - should keep finite airspace bridge and res
   }
 });
 
-runner.test('Test jump UI - should expose all levels and mode buttons only', async () => {
+runner.test('Test jump UI - should expose all levels, mode buttons, and smoke verification', async () => {
   const { readFileSync } = await import('node:fs');
   const html = readFileSync(new URL('../public/index.html', import.meta.url), 'utf8');
   const styles = readFileSync(new URL('../public/styles.css', import.meta.url), 'utf8');
@@ -5038,10 +5038,12 @@ runner.test('Test jump UI - should expose all levels and mode buttons only', asy
   runner.assert(styles.includes('.test-jump-panel:not([open]) .test-jump-grid'), 'closed test sandbox should not leak hidden buttons over later panels');
   runner.assert(html.includes('id="test-night-watch-btn"'), 'test UI should include tower-defense button');
   runner.assert(html.includes('id="test-air-combat-btn"'), 'test UI should include air-combat button');
+  runner.assert(html.includes('id="test-browser-smoke-btn"'), 'test UI should include browser smoke button');
   runner.assert(!html.includes('docs/superpowers/specs/2026-07-05-air-combat-integration-concept.md'), 'test UI should not expose internal doc paths');
   runner.assert(game.includes('jumpToTestLevel(index)'), 'game.js should include test level jump handler');
   runner.assert(game.includes('openNightWatchTestMode()'), 'game.js should include local tower-defense test handler');
   runner.assert(game.includes('openAirCombatMode()'), 'game.js should include air-combat test handler');
+  runner.assert(game.includes('handleBrowserDemoSmokeClick()'), 'game.js should include browser smoke click handler');
   runner.assert(game.includes('if (options.testEntry)') && game.includes('window.location.href = url.toString()'), 'air-combat test entry should navigate in-page for browser verification');
   runner.assert(game.includes('window.__creatorExam3D = this'), 'browser game should expose the live instance for behavior verification');
   runner.assert(game.includes('updateDebugDataset()') && game.includes('dataset.debugState'), 'browser game should expose compact DOM debug state for behavior verification');

@@ -162,39 +162,39 @@ export function buildAdvancedMechanicsViewModel(state = {}) {
     {
       id: 'dismantle-workshop',
       label: '拆解库存',
-      enabled: inventory.length > 0,
-      hint: inventory.length ? `拆解 ${cardName(inventory[0])}` : '需要库存造物'
+      enabled: true,
+      hint: inventory.length ? `拆解 ${cardName(inventory[0])}` : '自动准备演示造物'
     },
     {
       id: 'modify-workshop',
       label: '改造造物',
-      enabled: inventory.length > 0 && Object.keys(workshop.materials || {}).length > 0,
+      enabled: true,
       hint: '消耗材料强化最近造物'
     },
     {
       id: 'fuse-workshop',
       label: '融合造物',
-      enabled: inventory.length >= 2 && Object.keys(workshop.materials || {}).length > 0,
+      enabled: true,
       hint: '消耗两个库存造物生成新卡'
     },
     {
       id: 'perform-ritual',
       label: '执行仪式',
-      enabled: ritualSuggestions.length > 0,
-      hint: ritualSuggestions[0]?.recipe?.name || '需要匹配仪式'
+      enabled: true,
+      hint: ritualSuggestions[0]?.recipe?.name || '自动准备仪式造物'
     },
     {
       id: 'form-oath',
       label: '立下誓约',
-      enabled: !!selectedNpc && availableOaths.some(o => o.canForm !== false),
-      hint: selectedNpc ? `${selectedNpc.name} · ${OATH_LABELS[availableOaths.find(o => o.canForm !== false)?.type] || '誓约'}` : '先点击 NPC',
+      enabled: true,
+      hint: selectedNpc ? `${selectedNpc.name} · ${OATH_LABELS[availableOaths.find(o => o.canForm !== false)?.type] || '誓约'}` : '自动选择首个 NPC',
       oathType: availableOaths.find(o => o.canForm !== false)?.type || 'protection'
     },
     {
       id: 'break-oath',
       label: '背弃誓约',
-      enabled: activeOaths.length > 0,
-      hint: activeOaths.length ? '触发怨恨链与关系恶化' : '需要活跃誓约'
+      enabled: true,
+      hint: activeOaths.length ? '触发怨恨链与关系恶化' : '自动立约后背弃'
     },
     {
       id: 'record-legacy',
@@ -237,8 +237,8 @@ export function buildAdvancedMechanicsViewModel(state = {}) {
     {
       id: 'advance-story',
       label: '推进剧情',
-      enabled: (story.availableBeats || 0) > 0,
-      hint: (story.availableBeats || 0) > 0 ? '触发一个剧情节拍' : '等待节奏窗口'
+      enabled: true,
+      hint: (story.availableBeats || 0) > 0 ? '触发一个剧情节拍' : '立即触发 Storyteller 事件'
     }
   ]
 

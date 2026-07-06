@@ -140,6 +140,7 @@ class CreatorExam3D extends GameEngine {
     this.selectedRitualCreations = new Set();
     this.selectedWorkshopItems = new Set();
     this.currentAbyssRiddle = null;
+    this.suppressAbyssAutoRiddle = false;
     this.materials = new Map();
     this.geometryCache = new Map();
     this.labelCache = new Map();
@@ -192,6 +193,7 @@ class CreatorExam3D extends GameEngine {
     this.selectedRitualCreations.clear();
     this.selectedWorkshopItems.clear();
     this.currentAbyssRiddle = null;
+    this.suppressAbyssAutoRiddle = false;
     this.isResolvingTurn = false;
     if (this.turnUnlockTimer) {
       window.clearTimeout(this.turnUnlockTimer);
@@ -2578,12 +2580,16 @@ class CreatorExam3D extends GameEngine {
         this.triggerAbyssDemo();
         break;
       case 'submit-riddle':
-        if (this.currentAbyssRiddle?.decoded && this.ui.abyssRiddleInput) {
-          this.ui.abyssRiddleInput.value = this.currentAbyssRiddle.decoded;
+        {
+          const riddle = this.currentAbyssRiddle || this.cognitiveAbyss?.currentRiddle;
+          if (!riddle) break;
+          this.currentAbyssRiddle = riddle;
+          const answer = this.ui.advancedDecodeInput?.value?.trim() || riddle.decoded;
+          if (this.ui.advancedDecodeInput) this.ui.advancedDecodeInput.value = answer;
+          if (this.ui.abyssRiddleInput) this.ui.abyssRiddleInput.value = answer;
           this.handleDecodeAbyss();
           return;
         }
-        break;
     }
     this.renderWorld();
     this.updateUi();
@@ -2682,6 +2688,7 @@ class CreatorExam3D extends GameEngine {
   triggerAbyssDemo() {
     this.entropy = Math.max(this.entropy, Math.ceil((this.level.entropyLimit || 7) * 0.9));
     this.cognitiveAbyss.update(this.entropy, this.level.entropyLimit || 7);
+    this.suppressAbyssAutoRiddle = false;
     this.currentAbyssRiddle = this.generateAbyssRiddle('instruction');
     if (this.currentAbyssRiddle) {
       this.addLog(`【深渊演示】谜题出现：${this.currentAbyssRiddle.displayed}`, true);
@@ -2872,8 +2879,10 @@ class CreatorExam3D extends GameEngine {
 
   triggerOathBreakDemo() {
     const oath = this.oathManager.getAllActiveOaths()[0];
-    if (!oath) return this.triggerOathDemo();
-    this.handleBreakOath(oath.id);
+    if (oath) return this.handleBreakOath(oath.id);
+    this.triggerOathDemo();
+    const created = this.oathManager.getAllActiveOaths()[0];
+    if (created) this.handleBreakOath(created.id);
   }
 
   triggerLegacyDemo() {
@@ -2949,6 +2958,21 @@ class CreatorExam3D extends GameEngine {
   triggerSocialDemo() {
     const graph = this.npcManager?.socialGraph;
     const npcs = this.npcManager?.getNPCSummary?.() || [];
+    if (graph && npcs.length < 3 && Array.isArray(this.npcManager?.npcs)) {
+      const seeded = [
+        { id: 'social-demo-witness-a', name: '裂隙见证者', type: 'witness', mood: '好奇', attitude: '中立', dynamicTraits: { trustLevel: 45, fearLevel: 35, hopeLevel: 55 }, memories: [] },
+        { id: 'social-demo-witness-b', name: '回声记录员', type: 'scribe', mood: '专注', attitude: '友善', dynamicTraits: { trustLevel: 55, fearLevel: 25, hopeLevel: 60 }, memories: [] },
+        { id: 'social-demo-witness-c', name: '边境联络人', type: 'messenger', mood: '警觉', attitude: '谨慎', dynamicTraits: { trustLevel: 40, fearLevel: 45, hopeLevel: 45 }, memories: [] }
+      ];
+      for (const npc of seeded) {
+        if (npcs.length >= 3) break;
+        if (this.npcManager.npcs.some(existing => existing.id === npc.id)) continue;
+        this.npcManager.npcs.push(npc);
+        graph.addNode(npc.id, npc);
+        graph.joinFaction?.(npc.id, this.level?.id || 'demo');
+        npcs.push(npc);
+      }
+    }
     if (!graph || npcs.length < 3) {
       this.showToast('当前关卡 NPC 不足，无法形成社交图谱演示。');
       return;
@@ -3795,11 +3819,17 @@ class CreatorExam3D extends GameEngine {
       return;
     }
 
-    if (!this.currentAbyssRiddle) {
+    if (!this.currentAbyssRiddle && !this.suppressAbyssAutoRiddle) {
       this.currentAbyssRiddle = this.generateAbyssRiddle('instruction');
     }
 
     const riddle = this.currentAbyssRiddle;
+    if (!riddle) {
+      this.ui.abyssRiddleText.innerHTML = '<div class="continuity-item">深渊静默，未生成谜题。</div>';
+      this.ui.abyssRiddleInput.classList.add('hidden');
+      this.ui.abyssDecodeBtn.classList.add('hidden');
+      return;
+    }
     const active = riddle && riddle.active !== false;
     const depth = riddle?.depth ?? 0;
     if (!active && depth < 0.8) {
@@ -3973,7 +4003,7 @@ class CreatorExam3D extends GameEngine {
   }
 
   handleDecodeAbyss() {
-    const input = this.ui.abyssRiddleInput?.value?.trim();
+    const input = this.ui.advancedDecodeInput?.value?.trim() || this.ui.abyssRiddleInput?.value?.trim();
     if (!input) {
       this.showToast('请输入解码答案。');
       return;
@@ -3991,7 +4021,9 @@ class CreatorExam3D extends GameEngine {
 
     if (result.success) {
       this.currentAbyssRiddle = null;
-      this.ui.abyssRiddleInput.value = '';
+      this.suppressAbyssAutoRiddle = true;
+      if (this.ui.advancedDecodeInput) this.ui.advancedDecodeInput.value = '';
+      if (this.ui.abyssRiddleInput) this.ui.abyssRiddleInput.value = '';
       if (result.reward) {
         if (result.reward.type === 'knowledge') {
           this.showToast(`获得知识：${result.reward.category}`);

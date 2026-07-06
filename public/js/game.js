@@ -29,6 +29,7 @@ import { normalizeCreationDisplayText, normalizeCreationName } from './creationD
 const TILE_SIZE = 1.55;
 const BOARD_SIZE = 7;
 const MAX_LOGS = 18;
+const TURN_RESOLUTION_LOCK_MS = 300;
 
 // AI Narrative endpoint configuration
 const NARRATIVE_ENDPOINT = '/api/narrative';
@@ -171,6 +172,8 @@ class CreatorExam3D extends GameEngine {
     this.processedNightWatchResults = new Set();
     this.lastAirCombatResult = null;
     this.processedAirCombatResults = new Set();
+    this.isResolvingTurn = false;
+    this.turnUnlockTimer = null;
 
     this.ui = this.collectUi();
     this.initScene();
@@ -189,6 +192,11 @@ class CreatorExam3D extends GameEngine {
     this.selectedRitualCreations.clear();
     this.selectedWorkshopItems.clear();
     this.currentAbyssRiddle = null;
+    this.isResolvingTurn = false;
+    if (this.turnUnlockTimer) {
+      window.clearTimeout(this.turnUnlockTimer);
+      this.turnUnlockTimer = null;
+    }
     this.ui.modal.classList.add('hidden');
     this.ui.nextBtn.classList.add('hidden');
     this.ui.cardPanel.classList.add('hidden');
@@ -2364,9 +2372,10 @@ class CreatorExam3D extends GameEngine {
     this.ui.charges.textContent = `${this.creationCharges}`;
     this.ui.miracle.textContent = `${this.miraclePoints}`;
     this.ui.entropy.textContent = `${this.entropy} / ${this.level.entropyLimit}`;
-    this.ui.endTurnBtn.disabled = this.gameState !== 'playing';
-    this.ui.compileBtn.disabled = this.gameState !== 'playing';
-    this.ui.placeBtn.disabled = !this.activeCard || this.activeCard.cost > this.miraclePoints || this.creationCharges <= 0 || this.gameState !== 'playing';
+    this.ui.endTurnBtn.disabled = this.gameState !== 'playing' || this.isResolvingTurn;
+    this.ui.endTurnBtn.textContent = this.isResolvingTurn ? '结算中...' : '结束回合';
+    this.ui.compileBtn.disabled = this.gameState !== 'playing' || this.isResolvingTurn;
+    this.ui.placeBtn.disabled = !this.activeCard || this.activeCard.cost > this.miraclePoints || this.creationCharges <= 0 || this.gameState !== 'playing' || this.isResolvingTurn;
 
     // Dynamic stat urgency classes
     const entropyStat = this.ui.entropy.closest('.stat');
@@ -2408,6 +2417,28 @@ class CreatorExam3D extends GameEngine {
     this.renderNightWatchPanel();
     this.renderAirCombatPanel();
     this.renderIntentArrows();
+  }
+
+  setTurnControlsPending(pending) {
+    this.isResolvingTurn = pending;
+    if (!this.ui) return;
+    if (this.ui.endTurnBtn) {
+      this.ui.endTurnBtn.disabled = pending || this.gameState !== 'playing';
+      this.ui.endTurnBtn.textContent = pending ? '结算中...' : '结束回合';
+    }
+    if (this.ui.compileBtn) this.ui.compileBtn.disabled = pending || this.gameState !== 'playing';
+    if (this.ui.placeBtn) {
+      this.ui.placeBtn.disabled = pending || !this.activeCard || this.activeCard.cost > this.miraclePoints || this.creationCharges <= 0 || this.gameState !== 'playing';
+    }
+  }
+
+  releaseTurnResolutionLock() {
+    if (this.turnUnlockTimer) window.clearTimeout(this.turnUnlockTimer);
+    this.turnUnlockTimer = window.setTimeout(() => {
+      this.turnUnlockTimer = null;
+      this.setTurnControlsPending(false);
+      this.updateUi();
+    }, TURN_RESOLUTION_LOCK_MS);
   }
 
   getAdvancedMechanicsState() {
@@ -4752,36 +4783,42 @@ class CreatorExam3D extends GameEngine {
   }
 
   endTurn() {
+    if (this.isResolvingTurn) return;
     if (this.gameState !== 'playing') {
       this.showToast('Level already ended.');
       return;
     }
-    this.addLog(`Turn ${this.turn} starts.`, true);
-    this.applyActiveCreationEffects();
-    this.applyChainReactions();
-    this.triggerRandomEvent();
-    this.moveUnits();
-    this.spreadHazards();
-    this.applyTileHazardsToUnits();
-    this.enemyIntentSystem.generatePreviews(this.worldState, this);
-    this.cognitiveAbyss.update(this.entropy, this.level.entropyLimit || 7);
-    this.processRiftEchoes();
-    this.decrementCreationDurations();
-    this.checkOathBetrayals();
-    this.checkEndCondition(true);
-    if (this.gameState === 'playing') {
-      this.turn += 1;
-      if (this.turn % 5 === 0) worldLegendSystem.evolveMyths();
-      const storyResult = this.storyteller.tellStory(this, this.memorySystem);
-      if (storyResult) {
-        this.addLog(`Narrative: ${storyResult.narrative}`, true);
-        this.applyStorytellerEvent(storyResult.event);
+    this.setTurnControlsPending(true);
+    try {
+      this.addLog(`Turn ${this.turn} starts.`, true);
+      this.applyActiveCreationEffects();
+      this.applyChainReactions();
+      this.triggerRandomEvent();
+      this.moveUnits();
+      this.spreadHazards();
+      this.applyTileHazardsToUnits();
+      this.enemyIntentSystem.generatePreviews(this.worldState, this);
+      this.cognitiveAbyss.update(this.entropy, this.level.entropyLimit || 7);
+      this.processRiftEchoes();
+      this.decrementCreationDurations();
+      this.checkOathBetrayals();
+      this.checkEndCondition(true);
+      if (this.gameState === 'playing') {
+        this.turn += 1;
+        if (this.turn % 5 === 0) worldLegendSystem.evolveMyths();
+        const storyResult = this.storyteller.tellStory(this, this.memorySystem);
+        if (storyResult) {
+          this.addLog(`Narrative: ${storyResult.narrative}`, true);
+          this.applyStorytellerEvent(storyResult.event);
+        }
+        this.storyteller.recordBehavior(this, 'turn_end');
+        if (this.turn > this.level.maxTurns) this.checkEndCondition(true, true);
       }
-      this.storyteller.recordBehavior(this, 'turn_end');
-      if (this.turn > this.level.maxTurns) this.checkEndCondition(true, true);
+    } finally {
+      this.renderWorld();
+      this.updateUi();
+      this.releaseTurnResolutionLock();
     }
-    this.renderWorld();
-    this.updateUi();
   }
 
   nextStepToward(unit, goal) {

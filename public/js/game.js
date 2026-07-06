@@ -3179,7 +3179,8 @@ class CreatorExam3D extends GameEngine {
         this.showToast(`${unit.name}：${reply}`);
 
         if (npc) {
-          this.npcManager.updateNPCMemory(npc.id, `造物者问："${input}"；回应："${reply}"`);
+          const memoryInput = hasFabricatedPremisePrompt(input) ? '未被证实的外来传闻' : input;
+          this.npcManager.updateNPCMemory(npc.id, `造物者问："${memoryInput}"；回应："${reply}"`);
           this.npcManager.playerBehavior.dialogues += 1;
           if (this.npcManager.playerBehavior.dialogues >= this.npcManager.attitudeThresholds.dialogue.threshold) {
             this.npcManager.updateNPCAttitude(npc.id, this.npcManager.attitudeThresholds.dialogue.delta);

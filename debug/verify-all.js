@@ -8,6 +8,7 @@ const suites = [
   { label: 'compile-reliability', command: 'node', args: ['debug/compile-reliability-tests.js'] },
   { label: 'turn-reliability', command: 'node', args: ['debug/turn-reliability-tests.js'] },
   { label: 'advanced-mechanisms-reliability', command: 'node', args: ['debug/advanced-mechanisms-reliability-tests.js'] },
+  { label: 'npc-dialogue-reliability', command: 'node', args: ['debug/npc-dialogue-reliability-tests.js'] },
   { label: 'server-api', command: 'node', args: ['debug/server-api-tests.js'] },
 ];
 

@@ -265,6 +265,17 @@
       scoreMult: 1.18,
       line: '电子战词缀会周期投放扰频精英机，先拉开干扰圈再输出 Boss。'
     },
+    phantomEscort: {
+      key: 'phantomEscort',
+      name: '幻影护航',
+      color: '#22d3ee',
+      attack: 'escort',
+      every: 7,
+      enemy: 'phantom',
+      maxAdds: 4,
+      scoreMult: 1.16,
+      line: '幻影护航会周期投放高速残影僚机，别让它们把航线拖成返航。'
+    },
     exposedCore: {
       key: 'exposedCore',
       name: '露核',
@@ -287,6 +298,15 @@
       line: '维修词缀会周期缝合 Boss 外壳，别把输出窗口拖成持久战。'
     }
   };
+
+  const ROUTE_FILLER_AFFIX_KEYS = [
+    'armored',
+    'rapid',
+    'support',
+    'barrage',
+    'minefield',
+    'carrierWing'
+  ];
 
   const WEAPON_MAP = {
     absorb_water: {
@@ -618,6 +638,8 @@
       painConverterMaxCooldown: 0,
       pointDefenseRange: 0,
       signalFilterJamResist: 0,
+      weakScannerDamageMult: 0,
+      weakScannerDuration: 0,
       flowHpBonus: 0,
       livingArmorEvery: 0,
       livingArmorHp: 0,
@@ -693,6 +715,11 @@
       resonance.livingArmorMaxHp = 30;
       resonance.effect = `${resonance.effect} 活性装甲会每 12 次清敌成长 +3HP，上限 +30HP。`;
     }
+    if (weapon.kind === 'beam' || weapon.kind === 'spear' || discoveredLore().length > 0) {
+      resonance.weakScannerDamageMult = 0.25;
+      resonance.weakScannerDuration = 0.4;
+      resonance.effect = `${resonance.effect} 弱点标定会延长露核窗口 0.4 秒，并提高弱点伤害 25%。`;
+    }
     const abilityText = creations().map(creationAbility).join(' ');
     const antiJamSeed = /illuminate|memory_beacon|dream_link|guide/.test(abilityText) || weapon.kind === 'spear' || weapon.kind === 'wing';
     if (antiJamSeed || defense.victory) {
@@ -716,6 +743,7 @@
     if (pressure >= 0.82) keys.push('armored');
     if (pressure >= 0.72 && /block|memory_beacon|force_field/.test(abilityText)) keys.push('sniperLockdown');
     if (lostCount() > 0) keys.push('phantom');
+    if (lostCount() > 0 && pressure >= 0.62) keys.push('phantomEscort');
     if (lostCount() > 0 && entropy >= 4) keys.push('berserker');
     if (residentsCount() >= 4 || /block|force_field/.test(abilityText)) keys.push('escort');
     if (defense && defense.victory === false) keys.push('breach', 'jammer');
@@ -730,7 +758,12 @@
     if (/illuminate|memory_beacon|dream_link|guide/.test(abilityText)) keys.push('support');
     if (!keys.length) keys.push('armored');
     if (keys.length === 1) keys.push(residentsCount() >= 3 ? 'support' : 'rapid');
-    return [...new Set(keys)];
+    const unique = [...new Set(keys)];
+    for (const key of ROUTE_FILLER_AFFIX_KEYS) {
+      if (unique.length >= BOSS_ROUTE.length) break;
+      if (!unique.includes(key)) unique.push(key);
+    }
+    return unique;
   }
 
   function affixForStage(index) {

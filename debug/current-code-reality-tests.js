@@ -202,6 +202,7 @@ function assertAirCombatIntegration() {
   assert.ok(bridgeSource.includes("route().map(boss => boss.affix.name)"), 'loadout affix list must show the actual finite route, not unused candidate affixes');
   assert.ok(bridgeSource.includes('BOSS_AFFIXES'), 'air bridge must adapt upstream boss affixes into finite route modifiers');
   assert.ok(bridgeSource.includes('contextualAffixKeys'), 'air bridge must derive boss affixes from main-game context');
+  assert.ok(bridgeSource.includes('ROUTE_FILLER_AFFIX_KEYS'), 'air bridge must adapt upstream recent-affix repeat avoidance for sparse finite routes');
   assert.ok(bridgeSource.includes('routeResonance'), 'air bridge must derive creation route resonance from prior player flow');
   assert.ok(bridgeSource.includes('airspaceAffixes'), 'AI world state must include airspace affix context');
   assert.ok(bridgeSource.includes('communicator()'), 'air bridge must derive communicator identity from prior player flow');
@@ -230,6 +231,8 @@ function assertAirCombatIntegration() {
   assert.ok(bridgeSource.includes('fieldRepair') && bridgeSource.includes('纳米修复'), 'air bridge must adapt upstream field repair as a prior-flow reward');
   assert.ok(bridgeSource.includes('exposedCore') && bridgeSource.includes("attack: 'weak'") && bridgeSource.includes('weakDamageMult'), 'air bridge must adapt upstream exposed core as a finite boss weak-point affix');
   assert.ok(bridgeSource.includes("keys.push('exposedCore')"), 'air bridge must derive exposed core from prior-flow context instead of unconditional route filler');
+  assert.ok(bridgeSource.includes('phantomEscort') && bridgeSource.includes('幻影护航') && bridgeSource.includes("enemy: 'phantom'"), 'air bridge must adapt upstream phantom escort as finite lost-resident pressure');
+  assert.ok(bridgeSource.includes('weakScannerDamageMult') && bridgeSource.includes('weakScannerDuration') && bridgeSource.includes('弱点标定'), 'air bridge must adapt upstream weak scanner as finite prior-flow resonance');
   assert.ok(bridgeSource.includes('damageTakenMult') && bridgeSource.includes('钛合装甲'), 'air bridge must adapt upstream armor plating as finite shield resonance');
   assert.ok(bridgeSource.includes('钨芯重弹') && bridgeSource.includes('fireIntervalMult: 1.12'), 'air bridge must adapt upstream heavy rounds as finite cannon resonance');
   assert.ok(bridgeSource.includes('破甲弹芯') && bridgeSource.includes('armorPierceMult: 0.35'), 'air bridge must adapt upstream armor piercer as finite cannon resonance');
@@ -283,6 +286,8 @@ function assertAirCombatIntegration() {
   assert.ok(airGameSource.includes("this.affix.attack === 'repair'") && airGameSource.includes('repairBoss'), 'air combat slice must apply upstream repair boss affix locally');
   assert.ok(airGameSource.includes("this.affix.attack === 'weak'") && airGameSource.includes('openBossWeakPoint') && airGameSource.includes('_weakTimer'), 'air combat slice must apply upstream exposed-core weak windows locally');
   assert.ok(airGameSource.includes('target._weakTimer > 0') && airGameSource.includes('target.affix?.weakDamageMult'), 'air combat slice must increase Boss damage only during exposed-core windows');
+  assert.ok(airGameSource.includes('this.resonance.weakScannerDamageMult') && airGameSource.includes('weakScannerStatus') && airGameSource.includes('弱点标定+'), 'air combat slice must fold finite weak scanner into weak-window damage and HUD');
+  assert.ok(airGameSource.includes("affix.key === 'phantomEscort'") && airGameSource.includes('幻影护航'), 'air combat slice must surface phantom escort pressure separately from generic escorts');
   assert.ok(airGameSource.includes('updateFieldRepair') && airGameSource.includes('fieldRepairStatus'), 'air combat slice must apply upstream field repair locally');
   assert.ok(airGameSource.includes('this.resonance.damageTakenMult'), 'air combat slice must apply finite armor-plating damage reduction locally');
   assert.ok(airGameSource.includes('armorPierces') && airGameSource.includes('playerBulletDamage') && airGameSource.includes('armorPierceMinHp') && airGameSource.includes('bullet.main'), 'air combat slice must apply finite armor-piercer bonus only to main bullets');
@@ -400,6 +405,8 @@ function assertAirCombatRouteBalance() {
   const exposedCoreBoss = exposedCoreRoute.route().find(boss => boss.affix.key === 'exposedCore');
   assert.ok(exposedCoreBoss, 'finite route should include exposed-core affix when prior creations reveal the core');
   assert.equal(exposedCoreBoss.affix.weakDamageMult, 0.35, 'exposed-core weak window damage bonus must stay bounded');
+  assert.equal(exposedCoreRoute.routeResonance().weakScannerDamageMult, 0.25, 'light/lore routes should unlock finite weak scanner damage resonance');
+  assert.equal(exposedCoreRoute.routeResonance().weakScannerDuration, 0.4, 'finite weak scanner should only extend exposed-core windows by a small bounded amount');
 
   const aggressiveCoreRoute = loadAirBridgeForContext({
     entropy: 2,
@@ -410,6 +417,8 @@ function assertAirCombatRouteBalance() {
     playerStyle: 'aggressive'
   });
   assert.equal(aggressiveCoreRoute.route()[0].affix.key, 'exposedCore', 'aggressive high-pressure flow should be able to expose the first boss core');
+  const aggressiveAffixKeys = aggressiveCoreRoute.route().map(boss => boss.affix.key);
+  assert.equal(new Set(aggressiveAffixKeys).size, aggressiveAffixKeys.length, 'sparse finite routes should avoid repeating recent boss affixes');
   assert.equal(aggressiveCoreRoute.weaponOptions().length, 3, 'prior-flow air opening should offer three weapon choices');
   assert.ok(aggressiveCoreRoute.weaponOptions().every(option => option.reason), 'each air weapon choice should explain its prior-flow reason');
   const firstChoice = aggressiveCoreRoute.weaponLoadout().ability;
@@ -444,6 +453,7 @@ function assertAirCombatRouteBalance() {
     towerDefenseResult: { victory: true }
   });
   assert.ok(lostRoute.route().some(boss => boss.affix.key === 'berserker'), 'lost residents plus entropy should introduce finite berserker elite pressure');
+  assert.ok(lostRoute.route().some(boss => boss.affix.key === 'phantomEscort'), 'lost residents plus final pressure should introduce finite phantom escort pressure');
 
   const mineRoute = loadAirBridgeForContext({
     entropy: 6,

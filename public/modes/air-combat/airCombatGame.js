@@ -888,16 +888,20 @@
       if (affix.elite === 'jammer') this.applyJammerElite(escort, affix);
       this.enemies.push(escort);
       this.burst(escort.x, escort.y, affix.color || escort.color, 10);
-      this.say(affix.elite === 'jammer'
-        ? '电子战词缀投放扰频精英机，先脱离干扰圈再反击。'
-        : '护卫词缀投放重炮僚机，先清掉侧翼高威胁目标。', 1.8);
+      const line = affix.key === 'phantomEscort'
+        ? '幻影护航投放高速残影僚机，先截断侧翼追击。'
+        : affix.elite === 'jammer'
+          ? '电子战词缀投放扰频精英机，先脱离干扰圈再反击。'
+          : '护卫词缀投放重炮僚机，先清掉侧翼高威胁目标。';
+      this.say(line, 1.8);
     },
 
     openBossWeakPoint(boss, affix) {
       if (!boss || !affix) return false;
-      boss._weakTimer = affix.dur || 2.5;
+      boss._weakTimer = (affix.dur || 2.5) + (Number(this.resonance.weakScannerDuration) || 0);
       this.burst(boss.x, boss.y, affix.color || '#ffd43b', 16);
-      this.say(`露核词缀打开裂隙核心，弱点窗口 +${Math.round((affix.weakDamageMult || 0) * 100)}% Boss 伤害。`, 1.8);
+      const bonus = (Number(affix.weakDamageMult) || 0) + (Number(this.resonance.weakScannerDamageMult) || 0);
+      this.say(`露核词缀打开裂隙核心，弱点窗口 +${Math.round(bonus * 100)}% Boss 伤害。`, 1.8);
       return true;
     },
 
@@ -1073,7 +1077,9 @@
         ? Number(this.resonance.executionerDamageMult) || 0
         : 0;
       const shield = (this.player?.shield || 0) > 0 ? Number(this.resonance.shieldAmplifierDamageMult) || 0 : 0;
-      const weak = target?.isBoss && target._weakTimer > 0 ? Number(target.affix?.weakDamageMult) || 0 : 0;
+      const weak = target?.isBoss && target._weakTimer > 0
+        ? (Number(target.affix?.weakDamageMult) || 0) + (Number(this.resonance.weakScannerDamageMult) || 0)
+        : 0;
       return amount * (1 + vital + hunter + executioner + shield + weak);
     },
 
@@ -1196,6 +1202,7 @@
       if (this.route.some(boss => boss.affix?.attack === 'prism')) tags.push('棱镜航线');
       if (this.route.some(boss => boss.affix?.attack === 'ionStorm')) tags.push('离子风暴');
       if (this.route.some(boss => boss.affix?.attack === 'weak')) tags.push('露核窗口');
+      if (this.route.some(boss => boss.affix?.key === 'phantomEscort')) tags.push('幻影护航');
       if (this.route.some(boss => boss.affix?.attack === 'escort')) tags.push('护卫僚机');
       if (this.route.some(boss => boss.affix?.attack === 'ring')) tags.push('环幕弹幕');
       if (!victory && this.bossDefeated.length === 0) tags.push('首段压力高');
@@ -1283,7 +1290,7 @@
         const weak = active?._weakTimer > 0 ? ` · 弱点${active._weakTimer.toFixed(1)}s` : '';
         hudAffix.textContent = boss?.affix ? `${boss.affix.line}${weak}${cd}` : '';
       }
-      hudWeapon.textContent = `${this.weapon.name} · ${this.resonance.name}${this.armorCaliberStatus()}${this.vitalReactorStatus()}${this.shieldAmplifierStatus()}${this.bossHunterStatus()}${this.executionerStatus()}${this.missileVolleyStatus()}${this.painConverterStatus()}${this.pointDefenseStatus()}${this.livingArmorStatus()}${this.signalFilterStatus()}${this.lastStandStatus()}${this.fieldRepairStatus()}${this.jamStatus()}`;
+      hudWeapon.textContent = `${this.weapon.name} · ${this.resonance.name}${this.armorCaliberStatus()}${this.vitalReactorStatus()}${this.shieldAmplifierStatus()}${this.bossHunterStatus()}${this.executionerStatus()}${this.weakScannerStatus()}${this.missileVolleyStatus()}${this.painConverterStatus()}${this.pointDefenseStatus()}${this.livingArmorStatus()}${this.signalFilterStatus()}${this.lastStandStatus()}${this.fieldRepairStatus()}${this.jamStatus()}`;
       hudScore.textContent = String(Math.round(this.score));
       skillBtn.disabled = !this.player || this.player.skillCd > 0 || this.state !== 'playing';
       skillBtn.textContent = this.player && this.player.skillCd > 0 ? `${Math.ceil(this.player.skillCd)}s` : '造物脉冲';
@@ -1325,6 +1332,11 @@
     executionerStatus() {
       const mult = Number(this.resonance.executionerDamageMult) || 0;
       return mult > 0 ? ` · 处决算法+${Math.round(mult * 100)}%` : '';
+    },
+
+    weakScannerStatus() {
+      const mult = Number(this.resonance.weakScannerDamageMult) || 0;
+      return mult > 0 ? ` · 弱点标定+${Math.round(mult * 100)}%` : '';
     },
 
     missileVolleyStatus() {

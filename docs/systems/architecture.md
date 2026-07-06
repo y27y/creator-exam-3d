@@ -36,7 +36,22 @@
 
 **继承**：extends GameEngine
 
-### 2.1 第七天空域模式 (public/modes/air-combat/)
+### 2.1 长夜守城模式 (public/modes/tower-defense/)
+**职责**：第6到第7天之间的塔防过场、造物防线化、守夜结果回写
+**关键功能**：
+- 通过 `creatorExamNightWatchContext` 接收主游戏状态，包含熵值、居民、最多18张最近造物卡、近期世界事件经历和玩家风格
+- `towerBridge.js` 负责主游戏上下文、守夜旁白、波次通讯和结果写回；`nightWatchTowers.js` 负责前端塔计划应用、数值偏向、塔池筛选和普通放置上限移除
+- 后端 `/api/night-watch-towers` 使用 DeepSeek Flash 等 OpenAI-compatible 模型生成守夜塔名称、描述、EX说明、颜色和数值偏向；无密钥或失败时使用 `server/nightWatchTowers.js` 本地兜底
+- 塔的底层攻击/支援逻辑继续复用原有塔类型，AI只改变名称、说明、选择池和已白名单校验的数值倍率
+- 普通 `limit` 在守夜模式中移除；`exLimit` 保留，EX升级仍按原计数限制执行
+- 结算写入 `creatorExamNightWatchResult`，主游戏收到后记录 `defense_resolved` 世界事件，并把守夜塔计划摘要带给后续空域和结局
+
+**边界**：
+- 不把大型塔防 HTML 一次性拆入主引擎；当前只拆出守夜塔生成/应用模块，战斗循环仍留在独立模式页
+- 不允许AI返回新塔类型或任意执行逻辑；所有类型、数值范围和颜色都经过白名单/夹取校验
+- 不在每帧或每次攻击时调用AI；AI只在入场生成塔计划、波次通讯和结算文本时低频使用
+
+### 2.2 第七天空域模式 (public/modes/air-combat/)
 **职责**：终局空战清算层、造物武器化、结果回写
 **关键功能**：
 - 通过 `creatorExamAirCombatContext` 接收主游戏状态（熵值、居民、最近造物、守夜结果）

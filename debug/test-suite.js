@@ -4575,10 +4575,18 @@ runner.test('Night Watch integration - should keep AI bridge and result update w
   const { readFileSync } = await import('node:fs');
   const bridge = readFileSync(new URL('../public/modes/tower-defense/towerBridge.js', import.meta.url), 'utf8');
   const tower = readFileSync(new URL('../public/modes/tower-defense/index.html', import.meta.url), 'utf8');
+  const towerModule = readFileSync(new URL('../public/modes/tower-defense/nightWatchTowers.js', import.meta.url), 'utf8');
+  const server = readFileSync(new URL('../server.js', import.meta.url), 'utf8');
   const game = readFileSync(new URL('../public/js/game.js', import.meta.url), 'utf8');
 
-  for (const token of ['requestNightWatchText', 'night_watch_wave', 'night_watch_settlement', 'night_watch_enemy_whisper', 'latestWaveText', 'aiSettlement']) {
+  for (const token of ['requestNightWatchText', 'night_watch_wave', 'night_watch_settlement', 'night_watch_enemy_whisper', 'latestWaveText', 'aiSettlement', 'requestDynamicTowerPlan']) {
     runner.assert(bridge.includes(token), `towerBridge.js should include ${token}`);
+  }
+  for (const token of ['nightWatchTowers.js', 'refreshNightWatchTowerPlan', 'getSelectionTowerTypes']) {
+    runner.assert(tower.includes(token), `tower mode should include ${token}`);
+  }
+  for (const token of ['/api/night-watch-towers', 'applyStatBias', 'removeNormalLimits', 'delete data.limit']) {
+    runner.assert(towerModule.includes(token) || server.includes(token), `dynamic tower module should include ${token}`);
   }
   runner.assert(tower.includes('window.NightWatchBridge?.announceWave?.(wave'), 'tower mode should announce waves through the bridge');
   runner.assert(tower.includes('window.NightWatchBridge?.complete?.(isVictory'), 'tower mode should publish settlement through the bridge');
@@ -4591,10 +4599,73 @@ runner.test('Night Watch integration - should keep AI bridge and result update w
   runner.assert(bridge.includes('第六关到第七关之间'), 'Night Watch should be framed as the interlude before level seven');
   runner.assert(bridge.includes('每5波推进一夜'), 'Night Watch waves should be grouped into six nights');
   runner.assert(tower.includes('for (const t of towers || [])'), 'resizeCanvas should tolerate pre-game resize');
+  runner.assert(game.includes('.slice(-18)'), 'main game should pass up to 18 creation cards into Night Watch');
+  runner.assert(game.includes('experiences'), 'main game should pass recent story experiences into Night Watch');
   runner.assert(game.includes('processedNightWatchResults.has(result.id)'), 'game.js should dedupe Night Watch results');
   runner.assert(game.includes('event.payload = { ...event.payload, ...result }'), 'game.js should merge AI settlement updates into the world event payload');
 });
 
+runner.test('Night Watch dynamic towers - should derive different tower plans from different creations', async () => {
+  const {
+    buildNightWatchTowerFallback,
+    sanitizeNightWatchTowerPlan
+  } = await import('../server/nightWatchTowers.js');
+
+  const waterMemory = buildNightWatchTowerFallback({
+    context: {
+      regionTitle: '洪水后的钟楼',
+      entropy: 4,
+      rescuedResidents: ['小烛', '阿岚', '祈灯人'],
+      recentCreations: [
+        { name: '会把洪水搬到天上的透明鲸群', ability: 'absorb_water', type: '生灵', tags: ['water'] },
+        { name: '把失踪者名字唱回来的家乡歌塔', ability: 'memory_beacon', type: '仪式', tags: ['memory'] }
+      ],
+      experiences: ['小烛在洪水村庄被救下', '迷雾区域靠歌声重新点亮']
+    }
+  });
+
+  const warSun = buildNightWatchTowerFallback({
+    context: {
+      regionTitle: '焦土边境',
+      entropy: 9,
+      rescuedResidents: [],
+      lostResidents: ['旧城斥候'],
+      recentCreations: [
+        { name: '给断墙装上太阳心脏的高塔', ability: 'sun_blessing', type: '奇迹', tags: ['light'] },
+        { name: '只在敌人脚下开花的陷阱花园', ability: 'trap', type: '地形', tags: ['trap'] }
+      ],
+      experiences: ['边境区域失败后留下焦土', '旧城斥候失踪']
+    }
+  });
+
+  runner.assert(waterMemory.towerPool.includes('slow'), 'water creation should map to a slow/frost tower');
+  runner.assert(waterMemory.towerPool.includes('magic') || waterMemory.towerPool.includes('musicStand'), 'memory creation should map to a memory-flavored tower');
+  runner.assert(warSun.towerPool.includes('sun') || warSun.towerPool.includes('spotlight'), 'sun blessing should map to light damage tower');
+  runner.assert(warSun.towerPool.includes('blast') || warSun.towerPool.includes('gamma'), 'trap creation should map to explosive/corruption tower');
+  runner.assert(waterMemory.briefing !== warSun.briefing, 'different creations should produce different briefings');
+  runner.assert(Object.values(waterMemory.towers).some(t => t.name.includes('透明鲸') || t.description.includes('透明鲸')), 'tower names/descriptions should mention source creations');
+
+  const sanitized = sanitizeNightWatchTowerPlan({
+    themeTitle: '越界主题',
+    mapId: 'MAP9',
+    towerPool: ['slow', 'madeUpTower'],
+    towers: {
+      slow: {
+        name: '<霜鲸塔>',
+        description: '测试描述',
+        color: '#abcdef',
+        statBias: { damageMultiplier: 8, rangeBonus: 5, costMultiplier: 0.1, fireRateMultiplier: 0.1, utilityMultiplier: 9 }
+      }
+    }
+  }, waterMemory);
+
+  runner.assertEqual(sanitized.mapId, waterMemory.mapId, 'invalid map id should fall back');
+  runner.assertEqual(sanitized.towerPool.length, 1, 'invalid tower type should be dropped');
+  runner.assertEqual(sanitized.towers.slow.statBias.damageMultiplier, 1.55, 'damage multiplier should be clamped');
+  runner.assertEqual(sanitized.towers.slow.statBias.rangeBonus, 1, 'range bonus should be clamped');
+  runner.assertEqual(sanitized.towers.slow.statBias.costMultiplier, 0.75, 'cost multiplier should be clamped');
+  runner.assertTrue(!('limit' in sanitized.towers.slow), 'dynamic tower patches must not restore normal placement limits');
+});
 runner.test('Air Combat integration - should keep finite airspace bridge and result wiring', async () => {
   const { readFileSync } = await import('node:fs');
   const bridge = readFileSync(new URL('../public/modes/air-combat/airCombatBridge.js', import.meta.url), 'utf8');

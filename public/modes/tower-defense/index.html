@@ -1364,6 +1364,7 @@
 
 
 
+<script src="nightWatchTowers.js"></script>
 <script src="towerBridge.js"></script>
 <script>
 // ===================================
@@ -9992,14 +9993,14 @@ function setupTowerButtons() {
             nameDisplay += ` (${count}/${data.limit})`;
         }
         
-        infoDiv.innerHTML = `${nameDisplay} <span class="cost">${data.levels[0].cost}</span>`;
+        infoDiv.innerHTML = `${escapeHtml(nameDisplay)} <span class="cost">${data.levels[0].cost}</span>`;
         
         btn.appendChild(canvasEl);
         btn.appendChild(infoDiv);
 
         btn.onclick = () => selectTowerToPlace(type);
         
-        btn.onmouseenter = (e) => { tooltip.innerHTML = data.description; tooltip.style.display = 'block'; positionTooltip(e); };
+        btn.onmouseenter = (e) => { tooltip.textContent = data.description; tooltip.style.display = 'block'; positionTooltip(e); };
         btn.onmousemove = positionTooltip;
         btn.onmouseleave = () => { tooltip.style.display = 'none'; };
         
@@ -10022,7 +10023,7 @@ function updateTowerButtonsCount() {
             if (btn) {
                 const infoDiv = btn.querySelector('.btn-info');
                 const count = countTowersOfType(type);
-                infoDiv.innerHTML = `${data.name} (${count}/${data.limit}) <span class="cost">${data.levels[0].cost}</span>`;
+                infoDiv.innerHTML = `${escapeHtml(data.name)} (${count}/${data.limit}) <span class="cost">${data.levels[0].cost}</span>`;
             }
         }
     }
@@ -10958,11 +10959,18 @@ const startGameFromMapBtn = document.getElementById('start-game-from-map-btn');
 const backToTowerSelectBtn = document.getElementById('back-to-tower-select-btn');
 const mapListContainer = document.getElementById('map-list');
 
+function getSelectionTowerTypes() {
+    if (isNightWatchMode && window.NightWatchTowers?.availableTowerTypes) {
+        const plan = window.NightWatchBridge?.getTowerPlan?.();
+        return window.NightWatchTowers.availableTowerTypes(plan, TOWER_DATA);
+    }
+    return Object.keys(TOWER_DATA);
+}
 
 function initializeSelectionScreen() {
     AudioDirector.playHome();
     poolContainer.innerHTML = ''; // Clear pool before re-initializing
-    for (const type in TOWER_DATA) {
+    for (const type of getSelectionTowerTypes()) {
         const data = TOWER_DATA[type];
         const card = document.createElement('div');
         card.className = 'tower-card';
@@ -10989,13 +10997,13 @@ function initializeSelectionScreen() {
 
         card.addEventListener('click', () => handleTowerSelection(type));
         card.addEventListener('mouseenter', () => {
-            let infoHTML = `<h4>${data.name}</h4><p>${data.description}</p>`;
+            let infoHTML = `<h4>${escapeHtml(data.name)}</h4><p>${escapeHtml(data.description)}</p>`;
             if (data.limit) {
                 infoHTML += `<p style="margin-top: 10px; color: var(--primary-color); font-weight: bold;">限制放置: ${data.limit}</p>`;
             }
             if (data.exDescription) {
                 infoHTML += `<hr style="border-color: var(--border-color); margin: 10px 0;">`;
-                infoHTML += `<p style="color: gold; font-weight: bold;">EX特性: ${data.exDescription}</p>`;
+                infoHTML += `<p style="color: gold; font-weight: bold;">EX特性: ${escapeHtml(data.exDescription)}</p>`;
                 if (data.exLimit && data.exLimit < 99) {
                     infoHTML += `<p style="color: #4dd0e1;">EX升级限制: ${data.exLimit}</p>`;
                 }
@@ -11018,6 +11026,20 @@ function initializeSelectionScreen() {
     updatePoolVisuals();
     updateStartButtonState();
 }
+
+window.refreshNightWatchTowerPlan = (plan) => {
+    if (!isNightWatchMode) return;
+    if (plan && window.NightWatchTowers?.applyPlan) {
+        window.NightWatchTowers.applyPlan(TOWER_DATA, MAP_DATA, plan);
+    }
+    const selection = window.NightWatchTowers?.defaultSelection?.(window.NightWatchBridge?.context || {}, plan, TOWER_DATA);
+    if (selection?.towerPool?.length) selectedTowerPool = selection.towerPool.filter(type => TOWER_DATA[type]).slice(0, NORMAL_TOWER_POOL_SIZE);
+    if (selection?.mapId && MAP_DATA[selection.mapId]) selectedMap = selection.mapId;
+    initializeSelectionScreen();
+    if (!gameWrapper.classList.contains('hidden')) setupTowerButtons();
+    if (wikiBuilt) renderWiki();
+};
+window.addEventListener('night-watch-tower-plan', event => window.refreshNightWatchTowerPlan(event.detail));
 
 function handleTowerSelection(type) {
     const index = selectedTowerPool.indexOf(type);
@@ -11609,6 +11631,7 @@ window.addEventListener('resize', () => {
 window.onload = () => {
     updateGameStageScale();
     initializeSelectionScreen();
+    window.NightWatchBridge?.requestDynamicTowerPlan?.();
     AudioDirector.playHome();
     maybeShowAnnouncement();
     const query = new URLSearchParams(window.location.search);

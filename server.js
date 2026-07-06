@@ -9,6 +9,12 @@ import {
   fallbackResidentDialogueEnvelope,
   fallbackCard
 } from './server/aiFallbacks.js';
+import {
+  buildNightWatchTowerFallback,
+  buildNightWatchTowerMessages,
+  normalizeNightWatchTowerInput,
+  sanitizeNightWatchTowerPlan
+} from './server/nightWatchTowers.js';
 import { sanitizeResidentDialogueEnvelope } from './public/js/dialogueGrounding.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -660,6 +666,37 @@ async function handleNarrative(req, res) {
   }
 }
 
+async function handleNightWatchTowers(req, res) {
+  let payload;
+  try {
+    payload = JSON.parse(await readRequestBody(req));
+  } catch (_error) {
+    sendJson(res, 400, { error: 'invalid_json' });
+    return;
+  }
+
+  const input = normalizeNightWatchTowerInput(payload);
+  const fallback = buildNightWatchTowerFallback(input);
+
+  if (!AI_API_KEY) {
+    sendJson(res, 200, fallback);
+    return;
+  }
+
+  const result = await aiGateway.requestJson({
+    kind: 'night_watch_towers',
+    temperature: 0.72,
+    cacheKey: `night-watch-towers:${JSON.stringify(input)}`,
+    fallback: { ...fallback, source: 'fallback_ai_failed' },
+    messages: buildNightWatchTowerMessages(input)
+  });
+  const plan = sanitizeNightWatchTowerPlan(result.data, input);
+  plan.source = result.source === 'provider' ? 'ai' : (plan.source || result.source);
+  plan.model = AI_MODEL;
+  if (result.source !== 'provider') plan.fallback = true;
+  sendJson(res, 200, plan);
+}
+
 function formatPromptValue(value, fallback = '无') {
   if (value === undefined || value === null || value === '') return fallback;
   if (Array.isArray(value)) return value.length ? value.map((item) => formatPromptValue(item, '')).filter(Boolean).join('；') : fallback;
@@ -1136,6 +1173,11 @@ const server = createServer(async (req, res) => {
 
   if (req.method === 'POST' && req.url?.startsWith('/api/narrative')) {
     await handleNarrative(req, res);
+    return;
+  }
+
+  if (req.method === 'POST' && req.url?.startsWith('/api/night-watch-towers')) {
+    await handleNightWatchTowers(req, res);
     return;
   }
 

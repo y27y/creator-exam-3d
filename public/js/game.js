@@ -1072,9 +1072,23 @@ class CreatorExam3D extends GameEngine {
         name: creation.card?.name || '未命名造物',
         ability: creation.card?.ability || 'unknown',
         type: creation.card?.type || '奇迹',
+        description: creation.card?.description || '',
+        tags: creation.card?.tags || [],
         remaining: creation.remaining || 0
       }))
-      .slice(-7);
+      .slice(-18);
+    const experiences = (this.worldSession?.worldSimulation?.eventBus?.events || [])
+      .slice(-12)
+      .map(event => {
+        const payload = event.payload || {};
+        if (event.type === 'creation_placed') return `在${event.regionId}放置了「${payload.creationName || '未命名造物'}」，能力${payload.ability || 'unknown'}。`;
+        if (event.type === 'unit_rescued') return `${payload.unitName || '居民'}在${event.regionId}被救下。`;
+        if (event.type === 'unit_lost') return `${payload.unitName || '居民'}在${event.regionId}失踪或遇难。`;
+        if (event.type === 'region_resolved') return `${event.regionId}危机被解决。`;
+        if (event.type === 'region_lost') return `${event.regionId}危机留下伤痕。`;
+        if (event.type === 'defense_resolved') return `长夜守城守住${payload.survivedWaves || 0}波，裂隙变化${payload.entropyDelta || 0}。`;
+        return `${event.regionId}发生${event.type}。`;
+      });
 
     return {
       id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
@@ -1086,6 +1100,7 @@ class CreatorExam3D extends GameEngine {
       rescuedResidents: activeResidents,
       lostResidents,
       recentCreations,
+      experiences,
       discoveredLore: this.worldState?.discoveredLore || [],
       playerStyle: this.memorySystem?.getProfileSummary?.() || this.worldState?.playStyle || '未知'
     };

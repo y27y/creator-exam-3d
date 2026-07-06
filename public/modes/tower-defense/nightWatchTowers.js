@@ -1,0 +1,260 @@
+(function () {
+  const DEFAULT_TOWERS = ['arrow', 'slow', 'magic', 'cannon', 'matrix', 'electricCore', 'thiefClaw'];
+  const TOWER_TYPES = [
+    'arrow', 'slow', 'magic', 'cannon', 'matrix', 'electricCore', 'thiefClaw',
+    'sun', 'pursuit', 'frostPunish', 'blast', 'boomerang', 'missileSilo', 'tesla',
+    'musicStand', 'battery', 'militaryBase', 'gamma', 'gravityBeacon', 'shrineOfMerit',
+    'annihilator', 'spotlight', 'heavyWeapons'
+  ];
+
+  const TOWER_THEME = {
+    arrow: { name: '守夜弩塔', description: '由撤离路标改造成的守夜弩，稳定、廉价，适合把第一道裂隙潮压回路口。', color: '#79d0b0', projectileColor: '#d7fff0' },
+    cannon: { name: '断层冲锤', description: '以城墙碎片和回声火药铸成的重炮，命中处会震开裂隙残渣。', color: '#9d8f68', projectileColor: '#f2d78b' },
+    magic: { name: '言灵术塔', description: '把造物者曾说过的话刻进塔芯，击中敌人时会削弱它们的裂隙护层。', color: '#b79cff', projectileColor: '#eadcff' },
+    slow: { name: '霜雾锚', description: '冻结敌人的步伐，也固定居民残留的记忆。适合守住漫长弯道。', color: '#67e8ff', projectileColor: '#d8fbff' },
+    blast: { name: '裂响爆破', description: '把不稳定造物封入爆心，爆炸时短暂撕开敌群的推进节奏。', color: '#ff8f5a', projectileColor: '#ffd3bd' },
+    gamma: { name: '腐化棱镜', description: '危险但高效的裂隙折射塔，光束会在敌群之间传染式跳跃。', color: '#ff6b7a', projectileColor: '#ffd1d8' },
+    sun: { name: '黎明塔', description: '把第七天之前的第一缕光提前封存，持续灼烧最顽固的来袭者。', color: '#f6d36b', projectileColor: '#fff2ae' },
+    electricCore: { name: '奇迹中枢', description: '从主考核残留的奇迹点里抽取脉冲，为周围塔群同步节律。', color: '#7dd3fc' },
+    tesla: { name: '雷纹桩', description: '在地面钉下雷纹，连锁电光会让裂隙生物短暂停摆。', color: '#5eead4' },
+    thiefClaw: { name: '拾荒爪', description: '居民临时拼出的回收装置，从敌人身上夺回可用材料。', color: '#d8c58a' },
+    musicStand: { name: '共鸣台', description: '救下的居民轮流敲响铜片，让附近塔的升级更顺滑。', color: '#f0a6ca' },
+    militaryBase: { name: '居民哨站', description: '被救下的人们守在撤离线上，定期派出临时防守小队。', color: '#b8c2d6' },
+    matrix: { name: '秩序矩阵', description: '把多件造物的副作用束成网，连线越稳，防线越不容易崩散。', color: '#f87171', projectileColor: '#fecaca' },
+    battery: { name: '余烬电池', description: '储存白天剩下的奇迹余温，每波开始时为防线补给资源。', color: '#86efac' },
+    missileSilo: { name: '星轨井', description: '沿着夜空裂纹发射巡航星火，延迟命中但控制范围极大。', color: '#cbd5e1', projectileColor: '#f8fafc' },
+    pursuit: { name: '回声追击', description: '追踪导弹会沿着居民记忆里的路线回响，叠满干扰后反推敌人。', color: '#dbeafe', projectileColor: '#ffffff' },
+    heavyWeapons: { name: '终考重台', description: '把终考后剩余的重型材料全数压上防线，昂贵但足够直接。', color: '#f8fafc', projectileColor: '#fde68a' },
+    boomerang: { name: '回环刃', description: '刀刃沿撤离路线往复巡弋，适合清理在道路上拖延的敌群。', color: '#a78bfa', projectileColor: '#e9d5ff' },
+    frostPunish: { name: '寒誓弩', description: '居民在城墙上立下的寒誓，专门惩戒已经被迟缓的强敌。', color: '#7dd3fc', projectileColor: '#e0f2fe' }
+  };
+
+  const MAP_THEME = {
+    MAP1: { name: '城墙回廊' },
+    MAP2: { name: '撤离小径', modifierText: '居民引路：敌人血量 x0.8，移速 x0.8' },
+    MAP3: { name: '记忆螺旋' },
+    MAP4: { name: '边境折线', modifierText: '旧路狭窄：敌人血量 x0.75，移速 x0.75' },
+    MAP5: { name: '双子防线', modifierText: '双线牵制：敌人血量 x0.7，移速 x0.7' },
+    MAP6: { name: '裂隙弧道', modifierText: '地势回响：敌人血量 x0.7，移速 x0.7' }
+  };
+
+  const CREATION_TOWER_MAP = {
+    absorb_water: ['slow', 'frostPunish'],
+    create_bridge: ['arrow', 'boomerang'],
+    illuminate: ['sun', 'spotlight'],
+    block: ['matrix', 'militaryBase'],
+    calm: ['musicStand', 'shrineOfMerit'],
+    guide: ['pursuit', 'boomerang'],
+    cleanse: ['magic', 'sun'],
+    slow_beast: ['frostPunish', 'slow'],
+    memory_beacon: ['magic', 'musicStand'],
+    force_field: ['electricCore', 'matrix'],
+    transform_land: ['cannon', 'battery'],
+    freeze_water: ['slow', 'frostPunish'],
+    reveal_path: ['pursuit', 'missileSilo'],
+    sun_blessing: ['sun', 'spotlight'],
+    raise_earth: ['cannon', 'heavyWeapons'],
+    grow_forest: ['thiefClaw', 'shrineOfMerit'],
+    dig_channel: ['boomerang', 'blast'],
+    trap: ['blast', 'gamma'],
+    dream_link: ['matrix', 'magic'],
+    time_dilation: ['tesla', 'gravityBeacon'],
+    haste: ['electricCore', 'tesla'],
+    teleport: ['missileSilo', 'annihilator'],
+    shield_units: ['matrix', 'electricCore'],
+    redirect_hazard: ['gravityBeacon', 'cannon']
+  };
+
+  const DAMAGE_KEYS = ['damage', 'minDamage', 'maxDamage', 'missileDamage', 'specialDamage'];
+  const RANGE_KEYS = ['range'];
+  const UTILITY_KEYS = ['slow', 'stun', 'buff', 'damageBuff', 'rangeBuff', 'upgradeDiscount', 'pushback', 'moneyMultiplier', 'burnPercent', 'bossBurnPercent', 'critChance'];
+  const RATE_KEYS = ['fireRate', 'reloadTime', 'spawnRate', 'tankSpawnRate', 'missileFireRate', 'salvoInterval'];
+
+  function clamp(value, min, max, fallback) {
+    const n = Number(value);
+    if (!Number.isFinite(n)) return fallback;
+    return Math.max(min, Math.min(max, n));
+  }
+
+  function color(value, fallback) {
+    const text = String(value || '').trim();
+    return /^#[0-9a-f]{6}$/i.test(text) ? text : fallback;
+  }
+
+  function creationName(item) {
+    return typeof item === 'string' ? item : item?.name || item?.creationName || item?.card?.name || '';
+  }
+
+  function creationAbility(item) {
+    return typeof item === 'object' ? item.ability || item.card?.ability || '' : '';
+  }
+
+  function creations(context = {}) {
+    return Array.isArray(context.recentCreations) ? context.recentCreations : [];
+  }
+
+  function residentsCount(context = {}) {
+    if (Array.isArray(context.rescuedResidents)) return context.rescuedResidents.length;
+    const count = Number(context.rescuedResidents);
+    return Number.isFinite(count) ? Math.max(0, count) : 0;
+  }
+
+  function pickTowerTypes(context = {}) {
+    const used = new Set();
+    const result = [];
+    for (const item of creations(context).slice(-18)) {
+      const candidates = CREATION_TOWER_MAP[creationAbility(item)] || TOWER_TYPES;
+      const type = candidates.find(candidate => !used.has(candidate)) || TOWER_TYPES.find(candidate => !used.has(candidate));
+      if (!type) break;
+      used.add(type);
+      result.push(type);
+    }
+    for (const type of DEFAULT_TOWERS) {
+      if (result.length >= 7) break;
+      if (!used.has(type)) {
+        used.add(type);
+        result.push(type);
+      }
+    }
+    return result.length ? result : DEFAULT_TOWERS;
+  }
+
+  function localPlan(context = {}) {
+    const towerPool = pickTowerTypes(context);
+    const names = creations(context).map(creationName).filter(Boolean);
+    const entropy = Number(context.entropy || 0);
+    return {
+      source: 'local_frontend',
+      themeTitle: entropy >= 7 ? '裂隙高潮' : names.some(name => /记忆|梦|碑|灯|光/.test(name)) ? '记忆守夜' : residentsCount(context) >= 4 ? '万人灯火' : '长夜守城',
+      briefing: `${(names.slice(0, 4).join('、') || '白天留下的造物')}被搬上城墙，守夜塔会沿用这些造物的名字和数值偏向。`,
+      mapId: entropy >= 7 ? 'MAP3' : residentsCount(context) >= 4 ? 'MAP5' : 'MAP2',
+      towerPool,
+      towers: {}
+    };
+  }
+
+  function normalizePlan(raw, fallback) {
+    const plan = raw && typeof raw === 'object' ? raw : {};
+    const towerPool = Array.isArray(plan.towerPool)
+      ? plan.towerPool.map(String).filter(type => TOWER_TYPES.includes(type))
+      : fallback.towerPool;
+    return {
+      source: String(plan.source || fallback.source || ''),
+      themeTitle: String(plan.themeTitle || fallback.themeTitle || '长夜守城').slice(0, 18),
+      briefing: String(plan.briefing || fallback.briefing || '').slice(0, 180),
+      mapId: /^MAP[1-6]$/.test(String(plan.mapId || '')) ? plan.mapId : fallback.mapId,
+      towerPool: towerPool.length ? towerPool : fallback.towerPool,
+      towers: plan.towers && typeof plan.towers === 'object' ? plan.towers : fallback.towers || {}
+    };
+  }
+
+  async function requestTowerPlan(context = {}) {
+    const fallback = localPlan(context);
+    try {
+      const response = await fetch('/api/night-watch-towers', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ context })
+      });
+      if (!response.ok) return fallback;
+      return normalizePlan(await response.json(), fallback);
+    } catch (_error) {
+      return fallback;
+    }
+  }
+
+  function cloneLevels(levels) {
+    return Array.isArray(levels) ? levels.map(level => ({ ...level })) : [];
+  }
+
+  function resetLevels(data) {
+    if (!data || !Array.isArray(data.levels)) return;
+    if (!data._nightWatchBaseLevels) data._nightWatchBaseLevels = cloneLevels(data.levels);
+    data.levels = cloneLevels(data._nightWatchBaseLevels);
+  }
+
+  function scaleKeys(level, keys, multiplier, options = {}) {
+    for (const key of keys) {
+      if (!Number.isFinite(Number(level[key]))) continue;
+      const next = Number(level[key]) * multiplier + (options.add || 0);
+      level[key] = options.integer ? Math.max(1, Math.round(next)) : Number(next.toFixed(3));
+    }
+  }
+
+  function applyStatBias(data, bias = {}) {
+    resetLevels(data);
+    const damageMultiplier = clamp(bias.damageMultiplier, 0.75, 1.55, 1);
+    const rangeBonus = clamp(bias.rangeBonus, -0.5, 1, 0);
+    const costMultiplier = clamp(bias.costMultiplier, 0.75, 1.35, 1);
+    const fireRateMultiplier = clamp(bias.fireRateMultiplier, 0.75, 1.25, 1);
+    const utilityMultiplier = clamp(bias.utilityMultiplier, 0.75, 1.35, 1);
+
+    for (const level of data.levels || []) {
+      scaleKeys(level, DAMAGE_KEYS, damageMultiplier);
+      scaleKeys(level, RANGE_KEYS, 1, { add: rangeBonus });
+      scaleKeys(level, ['cost'], costMultiplier, { integer: true });
+      scaleKeys(level, RATE_KEYS, fireRateMultiplier, { integer: true });
+      scaleKeys(level, UTILITY_KEYS, utilityMultiplier);
+    }
+  }
+
+  function removeNormalLimits(towerData = {}) {
+    for (const data of Object.values(towerData)) {
+      if (!data || typeof data !== 'object') continue;
+      if (data.limit !== undefined && data._nightWatchOriginalLimit === undefined) {
+        data._nightWatchOriginalLimit = data.limit;
+      }
+      delete data.limit;
+    }
+  }
+
+  function applyStaticTheme(towerData = {}, mapData = {}) {
+    for (const data of Object.values(towerData)) resetLevels(data);
+    removeNormalLimits(towerData);
+    for (const [key, value] of Object.entries(TOWER_THEME)) {
+      if (towerData[key]) Object.assign(towerData[key], value);
+    }
+    for (const [key, value] of Object.entries(MAP_THEME)) {
+      if (mapData[key]) Object.assign(mapData[key], value);
+    }
+  }
+
+  function applyPlan(towerData = {}, mapData = {}, plan = null) {
+    applyStaticTheme(towerData, mapData);
+    const normalized = normalizePlan(plan, localPlan({}));
+    for (const [type, patch] of Object.entries(normalized.towers || {})) {
+      const data = towerData[type];
+      if (!data || !patch) continue;
+      data.name = String(patch.name || data.name).slice(0, 14);
+      data.description = String(patch.description || data.description).slice(0, 140);
+      if (patch.exDescription || data.exDescription) data.exDescription = String(patch.exDescription || data.exDescription).slice(0, 120);
+      data.color = color(patch.color, data.color);
+      data.projectileColor = color(patch.projectileColor, patch.color || data.projectileColor || data.color);
+      data.sourceCreation = String(patch.sourceCreation || '').slice(0, 30);
+      applyStatBias(data, patch.statBias || {});
+    }
+    return normalized;
+  }
+
+  function availableTowerTypes(plan, towerData = {}) {
+    const normalized = normalizePlan(plan, localPlan({}));
+    const pool = normalized.towerPool.filter(type => towerData[type]);
+    return pool.length ? pool : Object.keys(towerData);
+  }
+
+  function defaultSelection(context = {}, plan = null, towerData = {}) {
+    const normalized = normalizePlan(plan, localPlan(context));
+    return {
+      towerPool: availableTowerTypes(normalized, towerData).slice(0, 7),
+      mapId: normalized.mapId
+    };
+  }
+
+  window.NightWatchTowers = {
+    localPlan,
+    requestTowerPlan,
+    applyPlan,
+    availableTowerTypes,
+    defaultSelection
+  };
+})();

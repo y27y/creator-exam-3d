@@ -147,6 +147,9 @@
   };
 
   let context = loadContext();
+  let towerPlan = window.NightWatchTowers?.localPlan?.(context) || null;
+  let towerDataRef = null;
+  let mapDataRef = null;
   let aiText = '';
   let latestWaveText = '';
   let activeWaveRequest = '';
@@ -190,6 +193,7 @@
   }
 
   function themeTitle() {
+    if (towerPlan?.themeTitle) return towerPlan.themeTitle;
     const entropy = Number(context.entropy || 0);
     if (entropy >= 7) return '裂隙高潮';
     if (creations().some(item => /记忆|梦|碑|灯|光/.test(creationName(item)))) return '记忆守夜';
@@ -198,6 +202,7 @@
   }
 
   function fallbackNarrative() {
+    if (towerPlan?.briefing) return towerPlan.briefing;
     const names = creations().map(creationName).filter(Boolean).slice(0, 3).join('、') || '白天留下的造物';
     return `第六关结束后，所有幸存区域被临时并入同一条防线。${names}被搬上城墙，居民把名字刻在临时墙背面；第七关还没有开始，但裂隙潮已经在夜里排队。`;
   }
@@ -293,6 +298,8 @@
       entropy: Number(context.entropy || 0),
       entropyLimit: 8,
       creations: creations().map(creationName).filter(Boolean),
+      creationCards: creations().slice(-18),
+      experiences: Array.isArray(context.experiences) ? context.experiences.slice(-12) : [],
       discoveredLore: context.discoveredLore || [],
       playStyle: context.playerStyle || 'unknown',
       ...extra
@@ -599,6 +606,8 @@
             entropy: Number(context.entropy || 0),
             entropyLimit: 8,
             creations: creations().map(creationName).filter(Boolean),
+            creationCards: creations().slice(-18),
+            experiences: Array.isArray(context.experiences) ? context.experiences.slice(-12) : [],
             discoveredLore: context.discoveredLore || [],
             playStyle: context.playerStyle || '未知'
           }
@@ -616,10 +625,42 @@
     }
   }
 
+  function publishTowerPlan() {
+    const target = document.getElementById('night-watch-ai-text');
+    if (target && towerPlan?.briefing && !aiText) target.textContent = towerPlan.briefing;
+    try { window.dispatchEvent(new CustomEvent('night-watch-tower-plan', { detail: towerPlan })); } catch (_) {}
+    window.refreshNightWatchTowerPlan?.(towerPlan);
+  }
+
+  async function requestDynamicTowerPlan() {
+    if (!window.NightWatchTowers?.requestTowerPlan) {
+      publishTowerPlan();
+      return towerPlan;
+    }
+    const plan = await window.NightWatchTowers.requestTowerPlan(context);
+    if (!plan) return towerPlan;
+    towerPlan = plan;
+    if (towerDataRef && mapDataRef) {
+      window.NightWatchTowers.applyPlan(towerDataRef, mapDataRef, towerPlan);
+    }
+    publishTowerPlan();
+    return towerPlan;
+  }
+
   function applyTowerTheme(towerData, mapData) {
+    towerDataRef = towerData;
+    mapDataRef = mapData;
+    if (window.NightWatchTowers?.applyPlan) {
+      towerPlan = window.NightWatchTowers.applyPlan(towerData, mapData, towerPlan);
+      return towerPlan;
+    }
     for (const [key, value] of Object.entries(TOWER_THEME)) {
       if (!towerData[key]) continue;
+      delete towerData[key].limit;
       Object.assign(towerData[key], value);
+    }
+    for (const value of Object.values(towerData)) {
+      if (value && typeof value === 'object') delete value.limit;
     }
     for (const [key, value] of Object.entries(MAP_THEME)) {
       if (!mapData[key]) continue;
@@ -628,9 +669,12 @@
   }
 
   function defaultSelection() {
+    if (window.NightWatchTowers?.defaultSelection) {
+      return window.NightWatchTowers.defaultSelection(context, towerPlan, towerDataRef || {});
+    }
     const mapped = creations()
       .map(creationAbility)
-      .map(ability => creationTowerMap[ability])
+      .map(ability => Array.isArray(creationTowerMap[ability]) ? creationTowerMap[ability][0] : creationTowerMap[ability])
       .filter(Boolean);
     const towerPool = [...new Set([...mapped, ...DEFAULT_TOWERS])].slice(0, 7);
     const entropy = Number(context.entropy || 0);
@@ -742,6 +786,11 @@
       notableMoment: latestWaveText || aiText || fallbackNarrative(),
       theme: themeTitle(),
       towerCount: Number(state.towerCount || 0),
+      towerPlan: towerPlan ? {
+        source: towerPlan.source || 'unknown',
+        briefing: towerPlan.briefing || '',
+        towerPool: Array.isArray(towerPlan.towerPool) ? towerPlan.towerPool.slice(0, 7) : []
+      } : null,
       completedAt: new Date().toISOString()
     };
     const publish = (payload) => {
@@ -816,10 +865,14 @@
     announceWave,
     enemyWhisper,
     complete,
-    returnToMain
+    returnToMain,
+    getTowerPlan: () => towerPlan,
+    requestDynamicTowerPlan
   };
 
   injectStyle();
   syncChrome();
+  publishTowerPlan();
+  requestDynamicTowerPlan();
   requestAiTheme();
 })();

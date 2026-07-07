@@ -842,16 +842,21 @@ class GameEngine {
       return;
     }
     if (card.ability === 'create_bridge') {
-      const cells = this.tilesWithin(x, y, Math.max(1, card.range));
-      let changed = 0;
-      for (const cell of cells) {
-        if (changed >= 4) break;
-        if ([TILE.WATER, TILE.SWAMP, TILE.FOG, TILE.DARK, TILE.POISON].includes(this.getTerrain(cell.x, cell.y))) {
-          this.setTempTerrain(creation, cell.x, cell.y, TILE.BRIDGE);
-          changed += 1;
-        }
+      const hazardTiles = [TILE.WATER, TILE.SWAMP, TILE.FOG, TILE.DARK, TILE.POISON];
+
+      // Collect all hazard tiles within range and sort by distance from placement point.
+      const candidates = this.tilesWithin(x, y, Math.max(1, card.range)).filter((cell) =>
+        hazardTiles.includes(this.getTerrain(cell.x, cell.y))
+      );
+      candidates.sort((a, b) => this.distance(x, y, a.x, a.y) - this.distance(x, y, b.x, b.y));
+
+      // No hazard terrain: do not place anything.
+      if (!candidates.length) return;
+
+      // Place bridges on the nearest hazard tiles (up to 4).
+      for (const cell of candidates.slice(0, 4)) {
+        this.setTempTerrain(creation, cell.x, cell.y, TILE.BRIDGE);
       }
-      if (!changed) this.setTempTerrain(creation, x, y, TILE.BRIDGE);
     }
     if (card.ability === 'block') {
       this.setTempTerrain(creation, x, y, TILE.WALL);
@@ -1257,6 +1262,8 @@ class GameEngine {
       this.log(`${unit.name} 本回合被牵制，怒气上升到 ${unit.anger}`);
       return;
     }
+    const fromX = unit.x;
+    const fromY = unit.y;
     const next = this.nextStepToward(unit, unit.goal);
     if (!next) {
       unit.anger = Math.min(this.level.beastAngerLimit || 5, (unit.anger || 0) + 1);
@@ -1265,6 +1272,7 @@ class GameEngine {
     }
     unit.x = next.x;
     unit.y = next.y;
+    unit.lastMove = { dx: unit.x - fromX, dy: unit.y - fromY, x: fromX, y: fromY };
     const trapHere = this.creations.find(c => c.placed && c.remaining > 0 && c.card.ability === 'trap' && c.x === unit.x && c.y === unit.y);
     if (trapHere) {
       unit.stunnedTurns = 2;
@@ -1906,10 +1914,11 @@ class GameEngine {
   }
 
   isPassable(x, y, unit) {
+    // Support temporary pathfinding blocks used by _findNonReversingStep.
+    if (unit?._pathfindBlock && unit._pathfindBlock.x === x && unit._pathfindBlock.y === y) return false;
     const terrain = this.getTerrain(x, y);
     if (terrain === TILE.MOUNTAIN || terrain === TILE.WALL) return false;
-    const occupant = this.unitAt(x, y);
-    if (occupant && occupant !== unit) return false;
+    // Multiple units may occupy the same tile.
     if (unit.type === 'beast') {
       return ![TILE.WATER, TILE.FIELD, TILE.WALL].includes(terrain);
     }
@@ -1975,24 +1984,44 @@ class GameEngine {
     const goalKey = `${goal.x},${goal.y}`;
     if (startKey === goalKey) return null;
 
-    const openSet = [{ x: unit.x, y: unit.y, g: 0, f: this.distance(unit.x, unit.y, goal.x, goal.y) }];
+    const heuristic = (x, y) => this.distance(x, y, goal.x, goal.y);
+    const openSet = [{ x: unit.x, y: unit.y, g: 0, f: heuristic(unit.x, unit.y) }];
     const closedSet = new Set();
     const cameFrom = new Map([[startKey, null]]);
     const gScore = new Map([[startKey, 0]]);
 
     while (openSet.length > 0) {
-      openSet.sort((a, b) => a.f - b.f);
+      // Stable tie-breaking: prefer lower heuristic, lower g, then deterministic coords.
+      openSet.sort((a, b) => {
+        if (a.f !== b.f) return a.f - b.f;
+        const ha = heuristic(a.x, a.y);
+        const hb = heuristic(b.x, b.y);
+        if (ha !== hb) return ha - hb;
+        if (a.g !== b.g) return a.g - b.g;
+        if (a.x !== b.x) return a.x - b.x;
+        return a.y - b.y;
+      });
       const current = openSet.shift();
       const currentKey = `${current.x},${current.y}`;
       if (closedSet.has(currentKey)) continue;
       closedSet.add(currentKey);
       if (currentKey === goalKey) break;
 
-      for (const nb of this.neighbors(current.x, current.y)) {
-        const key = `${nb.x},${nb.y}`;
-        if (closedSet.has(key) || !this.isPassable(nb.x, nb.y, unit)) continue;
+      // Explore neighbors ordered by proximity to goal for more goal-directed paths.
+      const nbs = this.neighbors(current.x, current.y)
+        .filter((nb) => !closedSet.has(`${nb.x},${nb.y}`) && this.isPassable(nb.x, nb.y, unit));
+      nbs.sort((a, b) => {
+        const da = heuristic(a.x, a.y);
+        const db = heuristic(b.x, b.y);
+        if (da !== db) return da - db;
+        if (a.x !== b.x) return a.x - b.x;
+        return a.y - b.y;
+      });
 
-        const tentativeG = current.g + this.getMoveCost(nb.x, nb.y, unit);
+      for (const nb of nbs) {
+        const key = `${nb.x},${nb.y}`;
+        const moveCost = this.getMoveCost(nb.x, nb.y, unit);
+        const tentativeG = current.g + moveCost;
         if (!gScore.has(key) || tentativeG < gScore.get(key)) {
           gScore.set(key, tentativeG);
           cameFrom.set(key, { x: current.x, y: current.y });
@@ -2000,7 +2029,7 @@ class GameEngine {
             x: nb.x,
             y: nb.y,
             g: tentativeG,
-            f: tentativeG + this.distance(nb.x, nb.y, goal.x, goal.y)
+            f: tentativeG + heuristic(nb.x, nb.y)
           });
         }
       }
@@ -2021,8 +2050,28 @@ class GameEngine {
   }
 
   nextStepToward(unit, goal) {
+    if (!goal) return null;
+    const goalKey = `${goal.x},${goal.y}`;
+    const startKey = `${unit.x},${unit.y}`;
+    if (startKey === goalKey) return null;
+
+    // Prefer a cached path toward the same goal to avoid oscillation between turns.
+    if (unit._pathCache && unit._pathCache.goalKey === goalKey) {
+      const idx = unit._pathCache.index;
+      if (idx < unit._pathCache.path.length) {
+        const next = unit._pathCache.path[idx];
+        if (this.isPassable(next.x, next.y, unit) && this.distance(unit.x, unit.y, next.x, next.y) === 1) {
+          unit._pathCache.index += 1;
+          return next;
+        }
+      }
+    }
+
     const path = this.findPath(unit, goal);
-    return path && path.length ? path[0] : null;
+    if (!path || path.length === 0) return null;
+
+    unit._pathCache = { goalKey, path, index: 1 };
+    return path[0];
   }
 
   getUnitMoveSteps(unit) {
@@ -2044,13 +2093,51 @@ class GameEngine {
     const limit = Math.max(1, Math.floor(Number(steps) || 1));
     for (let i = 0; i < limit; i += 1) {
       if (this.isGoalReached(unit)) break;
+      const fromX = unit.x;
+      const fromY = unit.y;
       const next = this.nextStepToward(unit, unit.goal);
       if (!next) break;
+      // Avoid immediately reversing the previous move when we have a real alternative.
+      if (moved === 0 && unit.lastMove && this._isReverseMove(unit, next)) {
+        const alt = this._findNonReversingStep(unit, unit.goal);
+        if (alt) {
+          unit.x = alt.x;
+          unit.y = alt.y;
+          unit.lastMove = { dx: unit.x - fromX, dy: unit.y - fromY, x: fromX, y: fromY };
+          unit._pathCache = null; // Cache was based on the reversing step; recalculate next turn.
+          moved += 1;
+          continue;
+        }
+      }
       unit.x = next.x;
       unit.y = next.y;
+      unit.lastMove = { dx: unit.x - fromX, dy: unit.y - fromY, x: fromX, y: fromY };
       moved += 1;
     }
     return moved;
+  }
+
+  _isReverseMove(unit, next) {
+    if (!unit.lastMove) return false;
+    const dx = next.x - unit.x;
+    const dy = next.y - unit.y;
+    return dx === -unit.lastMove.dx && dy === -unit.lastMove.dy;
+  }
+
+  _findNonReversingStep(unit, goal) {
+    if (!goal || !unit.lastMove) return null;
+    const reverseX = unit.x - unit.lastMove.dx;
+    const reverseY = unit.y - unit.lastMove.dy;
+    if (!this.inBounds(reverseX, reverseY)) return null;
+    // Temporarily block the reverse tile for this unit so isPassable rejects it.
+    unit._pathfindBlock = { x: reverseX, y: reverseY };
+    const path = this.findPath(unit, goal);
+    delete unit._pathfindBlock;
+    if (path && path.length > 0) {
+      const alt = path[0];
+      if (alt.x !== reverseX || alt.y !== reverseY) return alt;
+    }
+    return null;
   }
 
   endTurn() {

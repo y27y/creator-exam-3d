@@ -1390,6 +1390,8 @@ class CreatorExam3D extends GameEngine {
       this.addLog(`${unit.name} 本回合被牵制，怒气上升到 ${unit.anger}。`);
       return;
     }
+    const fromX = unit.x;
+    const fromY = unit.y;
     const next = this.nextStepToward(unit, unit.goal);
     if (!next) {
       unit.anger = Math.min(this.level.beastAngerLimit || 5, (unit.anger || 0) + 1);
@@ -1398,6 +1400,7 @@ class CreatorExam3D extends GameEngine {
     }
     unit.x = next.x;
     unit.y = next.y;
+    unit.lastMove = { dx: unit.x - fromX, dy: unit.y - fromY, x: fromX, y: fromY };
     const trapHere = this.creations.find(c => c.placed && c.remaining > 0 && c.card.ability === 'trap' && c.x === unit.x && c.y === unit.y);
     if (trapHere) {
       unit.stunnedTurns = 2;
@@ -1509,10 +1512,11 @@ class CreatorExam3D extends GameEngine {
 
   // Override isPassable for simpler browser version (no trap avoidance)
   isPassable(x, y, unit) {
+    // Support temporary pathfinding blocks used by _findNonReversingStep.
+    if (unit?._pathfindBlock && unit._pathfindBlock.x === x && unit._pathfindBlock.y === y) return false;
     const terrain = this.getTerrain(x, y);
     if (terrain === TILE.MOUNTAIN || terrain === TILE.WALL) return false;
-    const occupant = this.unitAt(x, y);
-    if (occupant && occupant !== unit) return false;
+    // Multiple units may occupy the same tile.
     if (unit.type === 'beast') {
       return ![TILE.WATER, TILE.FIELD].includes(terrain);
     }

@@ -1,0 +1,51 @@
+0 verbose cli D:\download\nodejs\node.exe D:\download\nodejs\node_modules\npm\bin\npm-cli.js
+1 info using npm@11.16.0
+2 info using node@v24.18.0
+3 silly config load:file:D:\download\nodejs\node_modules\npm\npmrc
+4 silly config load:file:C:\Users\Administrator\AppData\Local\Microsoft\TypeScript\5.8\.npmrc
+5 silly config load:file:C:\Users\Administrator\.npmrc
+6 silly config load:file:D:\download\nodejs\node_global\etc\npmrc
+7 verbose title npm install @types/node@ts5.8
+8 verbose argv "install" "--ignore-scripts" "@types/node@ts5.8" "--save-dev" "--user-agent" "typesInstaller/5.8.3"
+9 verbose logfile logs-max:10 dir:d:\download\game\creator-exam-3d\.npm-cache\_logs\2026-07-07T09_26_45_217Z-
+10 verbose logfile d:\download\game\creator-exam-3d\.npm-cache\_logs\2026-07-07T09_26_45_217Z-debug-0.log
+11 silly logfile done cleaning log files
+12 silly packumentCache heap:4496293888 maxSize:1124073472 maxEntrySize:562036736
+13 silly packumentCache corgi:https://registry.npmjs.org/@types%2fnode cache-miss
+14 http fetch GET 200 https://registry.npmjs.org/@types%2fnode 713ms (cache miss)
+15 silly packumentCache corgi:https://registry.npmjs.org/@types%2fnode set size:undefined disposed:false
+16 silly idealTree buildDeps
+17 silly fetch manifest @types/node@26.1.0
+18 silly packumentCache full:https://registry.npmjs.org/@types%2fnode cache-miss
+19 http fetch GET 200 https://registry.npmjs.org/@types%2fnode 344ms (cache miss)
+20 silly packumentCache full:https://registry.npmjs.org/@types%2fnode set size:undefined disposed:false
+21 silly placeDep ROOT @types/node@26.1.0 OK for:  want: 26.1.0
+22 silly fetch manifest undici-types@~8.3.0
+23 silly packumentCache full:https://registry.npmjs.org/undici-types cache-miss
+24 http fetch GET 200 https://registry.npmjs.org/undici-types 100ms (cache miss)
+25 silly packumentCache full:https://registry.npmjs.org/undici-types set size:undefined disposed:false
+26 silly placeDep ROOT undici-types@8.3.0 OK for: @types/node@26.1.0 want: ~8.3.0
+27 silly reify moves {}
+28 silly audit bulk request {
+28 silly audit   '@types/react': [ '19.2.17' ],
+28 silly audit   csstype: [ '3.2.3' ],
+28 silly audit   'types-registry': [ '0.1.777' ],
+28 silly audit   '@types/node': [ '26.1.0' ],
+28 silly audit   'undici-types': [ '8.3.0' ]
+28 silly audit }
+29 http cache undici-types@https://registry.npmjs.org/undici-types/-/undici-types-8.3.0.tgz 0ms (cache hit)
+30 http cache @types/node@https://registry.npmjs.org/@types/node/-/node-26.1.0.tgz 0ms (cache hit)
+31 silly tarball no local data for undici-types@https://registry.npmjs.org/undici-types/-/undici-types-8.3.0.tgz. Extracting by manifest.
+32 silly tarball no local data for @types/node@https://registry.npmjs.org/@types/node/-/node-26.1.0.tgz. Extracting by manifest.
+33 http fetch GET 200 https://registry.npmjs.org/undici-types/-/undici-types-8.3.0.tgz 390ms (cache miss)
+34 http fetch POST 200 https://registry.npmjs.org/-/npm/v1/security/advisories/bulk 506ms
+35 silly audit report {}
+36 http fetch GET 200 https://registry.npmjs.org/@types/node/-/node-26.1.0.tgz 629ms (cache miss)
+37 silly ADD node_modules/undici-types
+38 silly ADD node_modules/@types/node
+39 verbose cwd C:\Users\Administrator\AppData\Local\Microsoft\TypeScript\5.8
+40 verbose os Windows_NT 10.0.26200
+41 verbose node v24.18.0
+42 verbose npm  v11.16.0
+43 verbose exit 0
+44 info ok

@@ -133,10 +133,10 @@ export class CausalGraph {
 
   generateButterflyDescription(past, current) {
     const templates = [
-      `在${past.metadata.level}的${past.metadata.type}，竟然在${current.level}引发了回响。`,
-      `谁能想到，${past.metadata.level}的往事会成为${current.level}的伏笔？`,
-      `命运的丝线从${past.metadata.level}延伸到${current.level}，编织出意想不到的故事。`,
-      `${past.metadata.level}的余波，在${current.level}化作了新的浪潮。`
+      `${past.metadata.level}那回的${past.metadata.type}，没成想在${current.level}这儿有了动静。`,
+      `哪成想，${past.metadata.level}的旧事，成了${current.level}这儿的由头。`,
+      `一根线从${past.metadata.level}牵到${current.level}，拽出一段谁都没想到的事。`,
+      `${past.metadata.level}那阵的余波，到了${current.level}翻成了新花样。`
     ];
     return templates[Math.floor(Math.random() * templates.length)];
   }
@@ -208,7 +208,7 @@ export class CausalGraph {
   // Generate narrative summary of a causal chain
   generateCausalNarrative(eventId) {
     const node = this.nodes.get(eventId);
-    if (!node) return '故事刚刚开始...';
+    if (!node) return '事才起头。';
 
     const causes = this.findCauses(eventId, 3);
     const consequences = this.findConsequences(eventId, 3);
@@ -219,7 +219,7 @@ export class CausalGraph {
     if (causes.length > 0) {
       const rootCause = causes[causes.length - 1];
       const rootNode = this.nodes.get(rootCause.eventId);
-      parts.push(`这一切始于${rootNode.level}的${rootNode.description}...`);
+      parts.push(`头一桩是${rootNode.level}的${rootNode.description}。`);
     }
 
     // Main event
@@ -228,14 +228,14 @@ export class CausalGraph {
     // Epilogue: consequences
     if (consequences.length > 0) {
       const directEffects = consequences.filter(c => c.depth === 1);
-      parts.push(`这一事件的涟漪扩散开来，影响了${directEffects.length}个后续事件。`);
+      parts.push(`这一桩的动静传出去，牵动了${directEffects.length}桩后头的事。`);
     }
 
     // Butterfly effects
     const butterflyEffects = this.butterflyEffects.get(node.level);
     if (butterflyEffects && butterflyEffects.length > 0) {
       const strongest = butterflyEffects.sort((a, b) => b.strength - a.strength)[0];
-      parts.push(`最令人惊讶的是，${strongest.description}`);
+      parts.push(`最没想到的是，${strongest.description}`);
     }
 
     return parts.join('\n');
@@ -359,34 +359,34 @@ export class WorldLegendSystem {
   generateMyth(legend) {
     const mythTemplates = {
       creation: [
-        '在{level}的危难时刻，{actor}创造了{target}，从此{effect}。',
-        '传说{actor}的造物{target}拥有{quality}的力量，能{effect}。',
-        '{level}的古老歌谣中唱着：当{actor}举起{target}，世界便{effect}。'
+        '在{level}那回出事的时候，{actor}造出了{target}，打那起{effect}。',
+        '都传{actor}那造物{target}带着{quality}的劲，能{effect}。',
+        '{level}的老歌里唱：等{actor}把{target}举起来，世界就{effect}。'
       ],
       rescue: [
-        '{actor}在{level}救下了{target}，这一义举被传颂了数代。',
-        '当{target}陷入绝境，{actor}如神明般降临{level}。',
-        '{level}的居民至今仍讲述{actor}拯救{target}的故事。'
+        '{actor}在{level}把{target}捞了上来，这事被人念叨了好几辈。',
+        '{target}走投无路那阵，{actor}到了{level}，跟天降似的。',
+        '{level}的人到现在还讲{actor}救{target}那段。'
       ],
       sacrifice: [
-        '{actor}为了拯救{target}，在{level}献出了一切。',
-        '有人说{actor}从未真正离去，{level}的风中仍能听到{actor}的低语。',
-        '{actor}的牺牲让{level}明白了什么是真正的勇气。'
+        '{actor}为救{target}，在{level}把老底都搭了进去。',
+        '有人说{actor}没真走，{level}的风里还留着{actor}的话音。',
+        '{actor}这一去，让{level}的人懂了什么叫敢扛事。'
       ],
       battle: [
-        '在{level}的激战中，{actor}与{target}展开了史诗般的对决。',
-        '{actor}面对{target}时展现的力量，成为了{level}的传说。',
-        '那场战斗改变了{level}的命运，{actor}的名字被永远铭记。'
+        '在{level}那场硬仗里，{actor}跟{target}硬碰硬。',
+        '{actor}对上{target}时露的那一手，成了{level}的谈资。',
+        '那场仗把{level}的命数拨转了，{actor}这个名字被人记到今天。'
       ],
       miracle: [
-        '在{level}，{actor}创造了不可思议的奇迹——{effect}。',
-        '没有人相信{actor}能做到，但{level}见证了奇迹的发生。',
-        '神迹降临{level}，{actor}成为了活着的传奇。'
+        '在{level}，{actor}办了件谁都没想到的事——{effect}。',
+        '没人信{actor}能成，可{level}亲眼瞧见了这事成了。',
+        '{level}出了神迹，{actor}成了活着就成了传说的人。'
       ],
       cataclysm: [
-        '{level}的灾难让世界颤抖，但{actor}在废墟中找到了希望。',
-        '当{target}摧毁{level}时，{actor}证明了毁灭不是终点。',
-        '大灾变后，{actor}在{level}的废墟上重建了未来。'
+        '{level}那场灾连世界都打了个哆嗦，可{actor}在烂摊子里扒拉出了指望。',
+        '{target}把{level}祸害了那回，{actor}让人瞧见了毁后还能再立。',
+        '大灾过后，{actor}在{level}的烂摊子上又把日子立了起来。'
       ]
     };
 
@@ -420,19 +420,19 @@ export class WorldLegendSystem {
 
   generateEffectDescription(legend) {
     const effects = {
-      creation: ['改变了河流的走向', '让黑暗退散', '治愈了大地', '连接了分离的心灵', '创造了新的生命'],
-      rescue: ['让希望重新燃起', '拯救了一个村庄', '改变了命运的轨迹', '证明了善良的力量'],
-      sacrifice: ['永远改变了世界', '成为了永恒的传说', '让后来者找到了勇气', '让牺牲有了意义'],
-      battle: ['决定了世界的命运', '让和平成为可能', '证明了正义的力量', '书写了新的历史'],
-      miracle: ['让不可能变为可能', '创造了新的法则', '让世界学会了相信', '开启了新的时代'],
-      cataclysm: ['从毁灭中重生', '找到了新的道路', '让废墟变成了花园', '证明了生命的顽强']
+      creation: ['把河道拨转了', '把黑暗赶退了', '把地养好了', '把散了的人心又拢上', '添了新的活气'],
+      rescue: ['把指望又点起来了', '救下了一村人', '把命数拨转了', '让人瞧见了善有善报'],
+      sacrifice: ['把世界换了个样', '成了往后被人念叨的事', '让后头的人有了胆', '让那场付出没白搭'],
+      battle: ['把世界的走向定下来了', '让太平有了指望', '让人瞧见了正道的劲', '翻开了新的一页'],
+      miracle: ['把办不到的事办成了', '立下了新规矩', '让世界肯信了', '开了个新头'],
+      cataclysm: ['从烂摊子里又站起来了', '摸出了新路', '把废墟弄成了能住的地', '让人瞧见命硬']
     };
     const pool = effects[legend.type] || effects.creation;
     return pool[Math.floor(Math.random() * pool.length)];
   }
 
   generateQualityDescription() {
-    const qualities = ['不可思议', '神圣', '古老', '神秘', '永恒', '无限', '温柔', '强大'];
+    const qualities = ['了不得', '古怪', '压得住事', '没边儿', '软和', '硬实', '邪门', '稀罕'];
     return qualities[Math.floor(Math.random() * qualities.length)];
   }
 
@@ -507,10 +507,10 @@ export class WorldLegendSystem {
 
   generateArtifactDescription(creation, artifactName) {
     const descriptions = [
-      `${artifactName}是${creation.name}的具现化，拥有${creation.ability}的力量。`,
-      `传说${artifactName}在创造时吸收了世界的精华，能引发${creation.ability}的奇迹。`,
-      `古老的文献记载，${artifactName}是第一位造物者留下的遗物，蕴含着${creation.ability}的秘密。`,
-      `${artifactName}并非普通的造物，它是世界对${creation.name}的回应，承载着${creation.ability}的意志。`
+      `${artifactName}是${creation.name}落成的实物，带着${creation.ability}的劲。`,
+      `都传${artifactName}造出来时吸了天地的气，能引出${creation.ability}那档子事。`,
+      `老书上说，${artifactName}是头一个造物者落下的东西，里头藏着${creation.ability}的门道。`,
+      `${artifactName}不是寻常造物，它是世界接了${creation.name}的话，顶着${creation.ability}的性子。`
     ];
     return descriptions[Math.floor(Math.random() * descriptions.length)];
   }
@@ -854,12 +854,12 @@ export class WorldLegendSystem {
 
   generateRealityManifestation(myth) {
     const manifestations = {
-      HeroJourney: '传说中的英雄气息弥漫在空气中，单位的移动速度略微提升。',
-      Tragedy: '空气中弥漫着古老的悲伤，裂隙的扩散速度减缓但更加深沉。',
-      CreationMyth: '创造之力在周围涌动，造物的效果持续时间延长。',
-      CycleMyth: '时间的轮回在此刻显现，某些地形发生了周期性变化。'
+      HeroJourney: '空气里有股英雄的劲头，人走起来轻快了些。',
+      Tragedy: '空气里压着一股老伤悲，裂隙扩得慢了，可沉得更深。',
+      CreationMyth: '周遭淌着一股造的劲，造物撑得更久了。',
+      CycleMyth: '时间在这儿打了个转，有些地开始来回变。'
     };
-    return manifestations[myth.archetype] || '神话的力量在此显现。';
+    return manifestations[myth.archetype] || '神话的劲在这儿冒了头。';
   }
 
   generateMythEffect(myth) {

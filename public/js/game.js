@@ -1336,25 +1336,47 @@ class CreatorExam3D extends GameEngine {
 
   // Override applyTileHazardsToUnits for browser-specific effects
   applyTileHazardsToUnits() {
+    const HAZARD_TERRAINS = [TILE.WATER, TILE.DARK, TILE.FOG, TILE.POISON];
     for (const unit of this.units) {
       if (unit.status !== 'active') continue;
       const terrain = this.getTerrain(unit.x, unit.y);
-      if (this.isCivilian(unit) && [TILE.WATER, TILE.DARK, TILE.POISON].includes(terrain)) {
-        unit.status = 'lost';
-        unit.lost = true;
-        this.lost += 1;
-        this.addLog(`${unit.name} 被${TERRAIN_LABELS[terrain]}吞没。`);
-        this.updateWorldState({ type: 'unit_lost', detail: unit.name });
-        this.emitUnitLostEvent(unit, terrain);
-        this.renderContinuity();
-
-        // Environmental narrative for loss
-        this.addEnvironmentalNarrative('loss', { levelId: this.level.id });
-
-        // Spawn loss particle effect
-        const pos = this.tileToWorld(unit.x, unit.y);
-        this.particleSystem.spawnLossEffect(pos.x, 0.5, pos.z);
+      const isOnHazard = this.isCivilian(unit) && HAZARD_TERRAINS.includes(terrain);
+      if (!isOnHazard) {
+        // Unit is not on hazard terrain — reset hazard tracking
+        unit.hazardCoverTurns = 0;
+        unit.lastHazardTerrain = null;
+        continue;
       }
+
+      // Track hazard coverage duration
+      if (unit.lastHazardTerrain === terrain) {
+        unit.hazardCoverTurns += 1;
+      } else {
+        unit.hazardCoverTurns = 1;
+        unit.lastHazardTerrain = terrain;
+      }
+
+      // First turn exemption: warning only, no lost status
+      if (unit.hazardCoverTurns === 1) {
+        this.addLog(`${unit.name} 被${TERRAIN_LABELS[terrain]}覆盖，尚有一线生机（第一回合豁免）`);
+        continue;
+      }
+
+      // Second turn or later under same hazard — trigger lost status
+      unit.status = 'lost';
+      unit.lost = true;
+      this.lost += 1;
+      this.addLog(`${unit.name} 被${TERRAIN_LABELS[terrain]}吞没（持续覆盖超过一回合）`);
+      this.updateWorldState({ type: 'unit_lost', detail: unit.name });
+      this.emitUnitLostEvent(unit, terrain);
+      this.renderContinuity();
+
+      // Environmental narrative for loss
+      this.addEnvironmentalNarrative('loss', { levelId: this.level.id });
+
+      // Spawn loss particle effect
+      const pos = this.tileToWorld(unit.x, unit.y);
+      this.particleSystem.spawnLossEffect(pos.x, 0.5, pos.z);
     }
   }
 
@@ -1534,8 +1556,7 @@ class CreatorExam3D extends GameEngine {
   // Override canHazardEnter for simpler browser version (no forest block)
   canHazardEnter(x, y, sourceTerrain, terrain) {
     if (this.isProtected(x, y)) return false;
-    const allowIntoUnits = this.level.hazard?.spreadIntoUnits && sourceTerrain === TILE.WATER;
-    if (this.unitAt(x, y) && !allowIntoUnits) return false;
+    // All hazard types can now spread into units (no unit blocking)
     if ([TILE.HIGH, TILE.EXIT, TILE.CITY, TILE.MOUNTAIN, TILE.WALL, TILE.FIELD, TILE.SACRED].includes(terrain)) return false;
     if (terrain === sourceTerrain) return false;
     if (terrain === TILE.BRIDGE && sourceTerrain !== TILE.DARK) return false;
@@ -3990,7 +4011,7 @@ class CreatorExam3D extends GameEngine {
     const terrainPressure = terrain === TILE.WATER
       ? '水已经贴着腿了'
       : terrain === TILE.DARK || terrain === TILE.FOG
-        ? '前面的雾太厚了'
+        ? '雾太厚，看不清前头'
         : `我还站在${terrainText}`;
 
     if (dialogueAction === 'identity') {
@@ -4010,7 +4031,7 @@ class CreatorExam3D extends GameEngine {
     }
 
     if (dialogueAction === 'comfort') {
-      return this.trimNpcReply(`我信你。只要下一步别踏进危险里，我就按你的指引往${goalHint}走。`);
+      return this.trimNpcReply(`我信你。只要下一步不是死路，你指哪我走哪，往${goalHint}靠。`);
     }
 
     return this.trimNpcReply(`我现在最需要一条能落脚的方向。${directionText}，你看准了我就走。`);
@@ -4122,12 +4143,12 @@ class CreatorExam3D extends GameEngine {
 
     const nearbyWater = this.tilesWithin(unit.x, unit.y, 1).some(cell => this.getTerrain(cell.x, cell.y) === TILE.WATER);
     if (this.isMessenger(unit)) {
-      return '我必须把消息带到终点。若路被遮住，请给我一盏光或一条安静的路。';
+      return '我得把口信送到头。路要是被挡了，给我一盏灯，或一段能安静走完的路。';
     }
     if (nearbyWater) {
-      return '水声已经贴近脚边了。请把道路变得能走，哪怕只是一小段也好。';
+      return '水都贴到脚边了。把路弄成能走的，一小段也行。';
     }
-    return '我还能走，但不知道下一步是否安全。你的造物会告诉我们方向吗？';
+    return '我还能走，就是不知道下一步安不安全。你的造物能给个方向吗？';
   }
 
   handleUnitInteraction(unit) {
@@ -4870,51 +4891,51 @@ class CreatorExam3D extends GameEngine {
   addLocalNarrative(eventType, context) {
     const narratives = {
       placement: {
-        absorb_water: '水面上泛起涟漪，仿佛大地在深呼吸。',
-        create_bridge: '一道光芒连接了两岸，断裂的世界重新找到了通路。',
-        illuminate: '光芒刺破黑暗，连空气都变得清澈起来。',
-        gale: '风从裂隙间穿过，迷雾被卷成细碎的白线。',
-        block: '屏障升起的那一刻，周围的风都静止了。',
-        calm: '一种难以言喻的宁静蔓延开来，连巨兽的呼吸都变得缓慢。',
-        guide: '微风中传来低语，为迷失者指引方向。',
-        cleanse: '污浊被净化，大地仿佛松了一口气。',
-        slow_beast: '时间在这一刻变慢，巨兽的步伐变得沉重。',
-        memory_beacon: '记忆的光芒亮起，遗忘的名字重新被想起。',
-        force_field: '结界展开时，空间本身都发出了轻微的共鸣。',
-        transform_land: '大地在你的意志下改变形态，仿佛在做一个漫长的梦。',
-        freeze_water: '冰霜蔓延，水面凝固成镜，倒映着天空。',
-        raise_earth: '地面隆隆作响，新的高地从大地深处升起。',
-        grow_forest: '种子在瞬间发芽，树木以肉眼可见的速度生长。',
-        dig_channel: '水声顺着新开的沟渠低低奔走，危险被引向别处。',
-        trap: '藤蔓悄然生长，编织出等待的网。',
-        dream_link: '两个梦境开始交织，现实与幻象的边界变得模糊。',
-        time_dilation: '周围的一切都变得缓慢，唯有你的心跳如常。',
-        reveal_path: '隐藏的道路显现，仿佛世界揭开了面纱。',
-        sun_blessing: '阳光穿透云层，温暖如母亲的怀抱。'
+        absorb_water: '水面起了圈纹，地像喘了口气。',
+        create_bridge: '一道光把两岸搭上，断了的路又接上了。',
+        illuminate: '光把黑暗戳破，空气也透亮了。',
+        gale: '风从裂隙里钻过，雾被卷成一道道白丝。',
+        block: '屏障立起来那一下，跟前没风了。',
+        calm: '一股说不出的静压下来，巨兽的喘气也慢了。',
+        guide: '风里有人低声说话，给迷路的人指路。',
+        cleanse: '脏东西洗掉了，地像是松了口气。',
+        slow_beast: '时间像是慢了半拍，巨兽的步子沉下来。',
+        memory_beacon: '记忆亮了一下，忘掉的名字又想起来了。',
+        force_field: '结界撑开那会儿，连空间都嗡了一下。',
+        transform_land: '地顺着你的念头换了样，像做了个长梦。',
+        freeze_water: '霜爬开去，水面冻成镜子，照着天。',
+        raise_earth: '地轰隆响，新高地从底下顶上来。',
+        grow_forest: '种子一下就冒了芽，树眼睛看得见地往上窜。',
+        dig_channel: '水顺着新渠低低流走，祸被引到别处去了。',
+        trap: '藤蔓悄悄爬开，织成一张等着人的网。',
+        dream_link: '两个梦缠到一块，真和假分不清了。',
+        time_dilation: '跟前的东西都慢下来，就你的心跳还照旧。',
+        reveal_path: '藏着的路露出来，像世界掀开了帘子。',
+        sun_blessing: '阳光钻透云层，暖得像有人搂着。'
       },
       rescue: {
-        'flood-village': '终于，洪水无法触及的高地上，一个新的故事开始了。',
-        'night-mine': '矿工走出黑暗时，第一缕阳光照在了脸上。',
-        'giant-city': '城市依然完整，巨兽的背上承载着整条河流的未来。',
-        'wordless-war': '使者的脚步跨越了边境，语言的桥梁正在重建。',
-        'memory-plague': '圣树的光芒下，遗忘的名字重新被唤醒。',
-        'final-exam': '在世界的尽头，希望依然站立。'
+        'flood-village': '到底，洪水够不着的高地上，人算是站住了。',
+        'night-mine': '矿工从黑里钻出来，头一缕阳光扑到脸上。',
+        'giant-city': '城还囫囵着，巨兽背上那点水，还养着往后的河。',
+        'wordless-war': '使者跨过了边境，话这头的桥又搭上了。',
+        'memory-plague': '圣树的光底下，忘掉的名字又叫回来了。',
+        'final-exam': '到了世界的边儿上，指望还立着。'
       },
       loss: {
-        'flood-village': '洪水吞没了一切，只留下水面上的涟漪。',
-        'night-mine': '黑暗永远记住那些迷失其中的灵魂。',
-        'giant-city': '巨兽的脚步无法阻挡，城市在颤抖。',
-        'wordless-war': '误会继续发酵，和平的曙光尚未到来。',
-        'memory-plague': '又一个名字被迷雾抹去，圣树在无声地哭泣。',
-        'final-exam': '世界裂隙扩大，造物者的力量在衰退。'
+        'flood-village': '洪水把什么都盖了，只剩水面上一圈圈纹。',
+        'night-mine': '黑暗把那些人收下了，再没还回来。',
+        'giant-city': '巨兽的脚步挡不住，城在打哆嗦。',
+        'wordless-war': '误会还在往上攒，太平的影儿还没见着。',
+        'memory-plague': '又一个名字叫雾抹掉了，圣树没出声，像是哭了。',
+        'final-exam': '裂隙又宽了，造物者的劲在往下掉。'
       },
       hazard: {
-        flood: '水位在上涨，大地逐渐被淹没。',
-        darkness: '黑暗像活物一样蔓延，吞噬着每一丝光芒。',
-        fog: '迷雾从深处涌来，模糊了边界与记忆。',
-        war: '边境的紧张气氛越来越浓，战争的阴影在逼近。',
-        beast: '巨兽的呼吸变得沉重，大地随之震颤。',
-        mixed: '多重灾难同时降临，世界在考验你的极限。'
+        flood: '水还在涨，地一点点没进去。',
+        darkness: '黑跟活物似的爬开，一点光都吃。',
+        fog: '雾从深处涌上来，边界和记忆都糊了。',
+        war: '边境的气越来越紧，仗的影子压过来了。',
+        beast: '巨兽喘得沉，地跟着抖。',
+        mixed: '几样灾一块来，世界在试你能撑到哪。'
       }
     };
 

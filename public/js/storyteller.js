@@ -5,7 +5,7 @@
 export const STORYTELLER_PERSONALITIES = {
   cassandra: {
     name: '卡珊德拉',
-    description: '经典叙事弧：张力上升→事件→缓解',
+    description: '讲究起承转合：绷紧，出事，再松开',
     style: 'dramatic',
     tensionCurve: 'sine', // 正弦波张力曲线
     helpThreshold: 0.3,   // 安全值低于30%时提供帮助
@@ -13,7 +13,7 @@ export const STORYTELLER_PERSONALITIES = {
   },
   phoebe: {
     name: '菲比',
-    description: '温和叙述者：只在玩家很安全时触发事件',
+    description: '心软：只有你安稳了，才肯添些事',
     style: 'gentle',
     tensionCurve: 'flat',
     helpThreshold: 0.5,
@@ -29,7 +29,7 @@ export const STORYTELLER_PERSONALITIES = {
   },
   narrator: {
     name: '说书人',
-    description: '基于玩家行为历史调整事件',
+    description: '看人下菜：照着你走过的路，安排下一着',
     style: 'adaptive',
     tensionCurve: 'adaptive',
     helpThreshold: 0.4,
@@ -194,19 +194,19 @@ export class Storyteller {
     // Event pool
     const events = {
       help: [
-        { name: '村民顿悟', effect: 'guidance', weight: 3 },
-        { name: '巨兽犹豫', effect: 'beastStunned', weight: 2 },
-        { name: '奇迹共鸣', effect: 'resonanceBoost', weight: 2 },
-        { name: '风向改变', effect: 'hazardRedirect', weight: 1 }
+        { name: '村民想通', effect: 'guidance', weight: 3 },
+        { name: '巨兽停步', effect: 'beastStunned', weight: 2 },
+        { name: '造物相和', effect: 'resonanceBoost', weight: 2 },
+        { name: '风转了向', effect: 'hazardRedirect', weight: 1 }
       ],
       challenge: [
-        { name: '突发暴雨', effect: 'floodSpread', weight: 3 },
-        { name: '地震', effect: 'terrainChange', weight: 2 },
-        { name: '裂隙波动', effect: 'entropyFluctuation', weight: 2 }
+        { name: '忽来暴雨', effect: 'floodSpread', weight: 3 },
+        { name: '地动', effect: 'terrainChange', weight: 2 },
+        { name: '裂隙发颤', effect: 'entropyFluctuation', weight: 2 }
       ],
       neutral: [
-        { name: '环境变化', effect: 'atmosphereChange', weight: 1 },
-        { name: 'NPC对话', effect: 'npcDialogue', weight: 1 }
+        { name: '景物变了', effect: 'atmosphereChange', weight: 1 },
+        { name: '有人开口', effect: 'npcDialogue', weight: 1 }
       ]
     };
 
@@ -238,49 +238,49 @@ export class Storyteller {
   generateNarrative(event, game) {
     const narratives = {
       guidance: [
-        '迷雾中传来古老的歌谣，为迷失者指引方向...',
-        '一个模糊的记忆突然变得清晰，正确的道路浮现眼前...',
-        '仿佛有人在耳边低语：往这边走...'
+        '雾里有歌声，断断续续，像谁在喊人回家。',
+        '一段记不起来的路，忽然就想明白了。',
+        '耳根底下有人说话：往这边。'
       ],
       beastStunned: [
-        '巨兽突然停下脚步，仿佛在倾听什么...',
-        '一阵奇异的光芒让巨兽犹豫了...',
-        '巨兽的眼中闪过一丝迷茫...'
+        '巨兽忽然站住了，像是在听什么。',
+        '一道光晃过去，巨兽迟疑了。',
+        '巨兽眼里泛起一层懵，脚步慢下来。'
       ],
       resonanceBoost: [
-        '你的造物之间产生了奇妙的共鸣，力量增强了...',
-        '空气中弥漫着魔法的波动，造物的效果扩大了...',
-        '世界回应了你的创造，奇迹正在发生...'
+        '几个造物撞在一块，劲头反倒更大了。',
+        '造物彼此应和，作用的地界宽了一圈。',
+        '世界接了你的话，奇迹往下生了。'
       ],
       hazardRedirect: [
-        '风向突然改变，灾害的蔓延方向偏移了...',
-        '一股神秘的力量引导着灾害流向别处...',
-        '自然的节奏被打乱，危机暂时缓解...'
+        '风改了向，灾往旁边歪过去了。',
+        '不知什么力道，把灾引到了别处。',
+        '势头一乱，眼前的险先缓了口气。'
       ],
       floodSpread: [
-        '天空突然阴沉，暴雨倾盆而下...',
-        '远处的河流决堤，洪水正在逼近...',
-        '大地在颤抖，水源从地下涌出...'
+        '天说阴就阴，雨兜头浇下来。',
+        '上游的堤开了，水正往这边赶。',
+        '地发着抖，水从底下冒上来。'
       ],
       terrainChange: [
-        '地面突然震动，周围的地形发生了变化...',
-        '一道裂缝出现在大地上，改变了周围的环境...',
-        '古老的魔法唤醒了沉睡的地形...'
+        '地晃了一下，跟前的东西挪了位。',
+        '地上裂开一道口子，周遭全变了样。',
+        '不知什么旧力醒了，地把脸换了一副。'
       ],
       entropyFluctuation: [
-        '世界裂隙在颤动，不稳定的力量正在泄漏...',
-        '空气中弥漫着裂隙的能量，现实变得扭曲...',
-        '造物的力量引起了世界的共鸣，裂隙扩大了...'
+        '裂隙在抖，里头的力道往外渗。',
+        '裂隙的劲儿散在空气里，眼前的景走样了。',
+        '造物惊动了世界，裂隙又宽了一分。'
       ],
       atmosphereChange: [
-        '周围的氛围悄然改变...',
-        '空气中弥漫着新的气息...',
-        '环境在无声中发生了变化...'
+        '周遭的气变了，说不上来哪儿不对。',
+        '空气里多了股味儿，生分的。',
+        '没声没响的，跟前的东西就不一样了。'
       ],
       npcDialogue: [
-        '附近的NPC似乎有话要说...',
-        '一个身影在远处注视着你...',
-        '风中传来低语，有人在呼唤...'
+        '跟前的人像是有话。',
+        '远处有个影子，正望着你这边。',
+        '风里有人喊，听不真切。'
       ]
     };
 
@@ -368,8 +368,8 @@ export class Storyteller {
       // Perfectionists get subtle challenges to break their comfort zone
       if (state.safety > 0.9 && Math.random() < 0.3) {
         return {
-          name: '意外变数',
-          description: '世界似乎想测试你是否能应对不完美',
+          name: '横生枝节',
+          description: '世界想看看，你能不能接住不圆满',
           effect: 'minorSetback',
           severity: 'low',
           weight: 2
@@ -380,8 +380,8 @@ export class Storyteller {
     if (history.patterns.struggling && state.safety < 0.5) {
       // Struggling players get help when things are dire
       return {
-        name: '一线希望',
-        description: '在最黑暗的时刻，奇迹出现了',
+          name: '一线生机',
+          description: '最黑的那阵，偏有光照进来',
         effect: 'miracleHelp',
         severity: 'helpful',
         weight: 3
@@ -391,8 +391,8 @@ export class Storyteller {
     if (history.patterns.highEmpathy && state.lost > 0) {
       // Empathetic players get narrative events when they lose units
       return {
-        name: '逝者之声',
-        description: '失去的生命在记忆中低语，给予你力量',
+          name: '旧人开口',
+          description: '走掉的人在记忆里说话，给你添了把劲',
         effect: 'memorialBoost',
         severity: 'narrative',
         weight: 2
@@ -402,8 +402,8 @@ export class Storyteller {
     if (history.patterns.creativePlayer && state.creationDiversity < 0.5) {
       // Creative players get encouraged to diversify
       return {
-        name: '灵感闪现',
-        description: '你的创造力在呼唤新的可能性',
+          name: '灵感来了',
+          description: '你心里那股造的劲儿，在催你换花样',
         effect: 'creativityBoost',
         severity: 'helpful',
         weight: 2
@@ -413,8 +413,8 @@ export class Storyteller {
     if (history.improving && state.timePressure > 0.7) {
       // Improving players get confidence-building events
       return {
-        name: '成长之证',
-        description: '你的进步被世界看在眼里',
+          name: '看出长进',
+          description: '你长进了，世界看得见',
         effect: 'confidenceBoost',
         severity: 'helpful',
         weight: 2
@@ -434,7 +434,7 @@ export class Storyteller {
         if (game.entropy > 0) {
           game.entropy += 1;
           if (typeof game.log === 'function') {
-            game.log(`【叙事事件】${event.name}：世界裂隙轻微波动 (+1)`);
+            game.log(`【叙事事件】${event.name}：裂隙轻轻抖了一下 (+1)`);
           }
         }
         break;
@@ -446,7 +446,7 @@ export class Storyteller {
           const target = civilians[Math.floor(Math.random() * civilians.length)];
           target.guidedTurns = Math.max(target.guidedTurns, 2);
           if (typeof game.log === 'function') {
-            game.log(`【叙事事件】${event.name}：${target.name} 突然看到了希望的光芒`);
+            game.log(`【叙事事件】${event.name}：${target.name} 眼里突然有了光`);
           }
         }
         break;
@@ -458,7 +458,7 @@ export class Storyteller {
           game.miraclePoints = Math.min(game.miraclePoints + 1, maxMiracle);
         }
         if (typeof game.log === 'function') {
-          game.log(`【叙事事件】${event.name}：记忆化为力量，奇迹点 +1`);
+          game.log(`【叙事事件】${event.name}：记忆成了力气，奇迹点 +1`);
         }
         break;
       }
@@ -469,7 +469,7 @@ export class Storyteller {
           game.creationCharges = Math.min(game.creationCharges + 1, maxCharges);
         }
         if (typeof game.log === 'function') {
-          game.log(`【叙事事件】${event.name}：新的造物灵感涌现，造物次数 +1`);
+          game.log(`【叙事事件】${event.name}：新的造物主意冒出来，造物次数 +1`);
         }
         break;
       }
@@ -479,7 +479,7 @@ export class Storyteller {
           game.level.maxTurns += 1;
         }
         if (typeof game.log === 'function') {
-          game.log(`【叙事事件】${event.name}：世界为你的成长让出更多时间 (+1回合)`);
+          game.log(`【叙事事件】${event.name}：世界给你多让了一手 (+1回合)`);
         }
         break;
       }
@@ -501,29 +501,29 @@ export class Storyteller {
 
     // Opening based on player style
     if (history.patterns.creativePlayer) {
-      narrative += `你的造物风格独特，世界正在学习你的语言。`;
+      narrative += `你造东西的路数独一份，世界正学着听懂你。`;
     } else if (history.patterns.highEmpathy) {
-      narrative += `你对生命的珍视，让裂隙之地感受到了温暖。`;
+      narrative += `你把命当命，裂隙那头也觉出点暖意。`;
     } else if (history.patterns.avoidsRisk) {
-      narrative += `你的谨慎让每一步都踏实，但世界也在等待你大胆的瞬间。`;
+      narrative += `你步步踩实，可世界也等着你豁出去那一回。`;
     }
 
     // Middle based on current state
     if (state.safety < 0.3) {
-      narrative += `危险正在逼近，但${history.improving ? '你已经证明过自己' : '希望依然存在'}。`;
+      narrative += `险就在跟前，但${history.improving ? '你已经撑过来过' : '还留着一口气'}。`;
     } else if (state.safety > 0.8) {
-      narrative += `一切似乎顺利，但${p.style === 'dramatic' ? '平静往往预示着风暴' : '不要掉以轻心'}。`;
+      narrative += `眼下还算顺，可${p.style === 'dramatic' ? '太平日子后头常跟着事' : '别太松心'}。`;
     }
 
     // Closing based on personality
     if (p.style === 'dramatic') {
-      narrative += `故事的下一章，由你书写。`;
+      narrative += `往下怎么走，笔在你手里。`;
     } else if (p.style === 'gentle') {
-      narrative += `无论发生什么，世界相信你的选择。`;
+      narrative += `不管出什么事，世界信你这着。`;
     } else if (p.style === 'chaotic') {
-      narrative += `谁知道接下来会发生什么？`;
+      narrative += `接下来会怎样？谁也说不准。`;
     } else {
-      narrative += `你的故事，正在被记住。`;
+      narrative += `你走过的路，有人记着。`;
     }
 
     return narrative;

@@ -151,19 +151,19 @@ export class CognitiveEffects {
     } else if (ratio < 0.7) {
       return {
         level: 'mild',
-        description: '裂隙开始影响你的认知。文字偶尔闪烁，记忆出现重影。',
+        description: '裂隙开始搅你的脑子。字偶尔闪一下，记忆叠了影。',
         effects: ['text_jitter', 'color_shift']
       };
     } else if (ratio < 0.9) {
       return {
         level: 'moderate',
-        description: '现实变得不可靠。NPC的话前后矛盾，过去的画面在视野边缘闪现。',
+        description: '眼前的东西靠不住了。NPC的话前后对不上，旧画面在眼角晃。',
         effects: ['text_jitter', 'color_shift', 'memory_fragments', 'contradictory_dialogue']
       };
     } else {
       return {
         level: 'severe',
-        description: '认知边界崩溃。世界在重构，记忆在重组，你分不清什么是真实。',
+        description: '脑子里的界限垮了。世界在重搭，记忆在乱拼，你分不清哪是真的。',
         effects: ['text_jitter', 'color_shift', 'memory_fragments', 'contradictory_dialogue', 'reality_break']
       };
     }
@@ -211,10 +211,10 @@ export class CognitiveEffects {
     if (similar.length === 0) return null;
 
     const dejaVuTemplates = [
-      `这一幕...似曾相识。在${similar.length > 1 ? '过去' : '记忆中'}，似乎也发生过类似的事...`,
-      `时间...在回响。你感到一种强烈的既视感。`,
-      `世界在重复自己，还是你的记忆在欺骗你？`,
-      `裂隙不仅扭曲了空间，也扭曲了时间。这一幕...你确定是第一次经历吗？`
+      `这一幕……眼熟。在${similar.length > 1 ? '过去' : '记忆中'}，像是也遇过差不多的。`,
+      `时间……在打转。你觉得这事儿像经历过。`,
+      `世界在转圈，还是你的记忆在糊弄你？`,
+      `裂隙不光拧了空间，也拧了时间。这一幕……你敢说是头一回？`
     ];
 
     return {

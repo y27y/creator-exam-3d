@@ -104,6 +104,8 @@ class GameEngine {
       lost: false,
       stunnedTurns: 0,
       guidedTurns: 0,
+      hazardCoverTurns: 0,
+      lastHazardTerrain: null,
       met: false,
       ...unit,
       residentId: unit.residentId || this.resolveUnitResidentId(unit, unitIndex)
@@ -197,6 +199,8 @@ class GameEngine {
       rescued: false,
       lost: false,
       stunned: false,
+      hazardCoverTurns: 0,
+      lastHazardTerrain: null,
       guidedTurns: Math.max(legacyUnit.guidedTurns || 0, legacyUnit.guideOthers ? 1 : 0),
       met: false,
       isLegacy: true,
@@ -221,7 +225,7 @@ class GameEngine {
     const anyGoal = this.level.units.find(unit => unit.goal)
     const source = sameType || guidedUnit || anyGoal
     if (source?.goal) return { ...source.goal }
-
+ 
     for (let y = 0; y < BOARD_SIZE; y++) {
       for (let x = 0; x < BOARD_SIZE; x++) {
         const terrain = this.getTerrain(x, y)
@@ -1347,14 +1351,6 @@ class GameEngine {
     );
     if (tempCreation) cost += 5;
 
-    if (unit.type === 'beast') {
-      const trapHere = this.creations.some(c =>
-        c.placed && c.remaining > 0 && c.card.ability === 'trap' &&
-        c.x === x && c.y === y
-      );
-      if (trapHere) cost += 10;
-    }
-
     if (this.isCivilian(unit) && unit.guidedTurns > 0) {
       const nearGuide = this.nearActiveAbility(x, y, ['guide', 'memory_beacon']);
       if (nearGuide) cost *= 0.8;
@@ -1410,8 +1406,7 @@ class GameEngine {
 
   canHazardEnter(x, y, sourceTerrain, terrain) {
     if (this.isProtected(x, y)) return false;
-    const allowIntoUnits = this.level.hazard?.spreadIntoUnits && sourceTerrain === TILE.WATER;
-    if (this.unitAt(x, y) && !allowIntoUnits) return false;
+    // All hazard types can now spread into units (no unit blocking)
     if ([TILE.HIGH, TILE.EXIT, TILE.CITY, TILE.MOUNTAIN, TILE.WALL, TILE.FIELD, TILE.SACRED].includes(terrain)) return false;
     if (terrain === sourceTerrain) return false;
     if (terrain === TILE.BRIDGE && sourceTerrain !== TILE.DARK) return false;
@@ -1450,31 +1445,61 @@ class GameEngine {
   // ========== Tile Hazards & Creation Durations ==========
 
   applyTileHazardsToUnits() {
+    const HAZARD_TERRAINS = [TILE.WATER, TILE.DARK, TILE.FOG, TILE.POISON];
     for (const unit of this.units) {
       if (unit.status !== 'active') continue;
       const terrain = this.getTerrain(unit.x, unit.y);
+      const isOnHazard = this.isCivilian(unit) && HAZARD_TERRAINS.includes(terrain);
+      if (!isOnHazard) {
+        // Unit is not on hazard terrain — reset hazard tracking
+        unit.hazardCoverTurns = 0;
+        unit.lastHazardTerrain = null;
+        continue;
+      }
       if (terrain === TILE.HIGH && this.isCivilian(unit)) continue;
       if (unit.shieldTurns > 0) {
         unit.shieldTurns -= 1;
+        unit.hazardCoverTurns = 0;
+        unit.lastHazardTerrain = null;
         this.log(`${unit.name} 的隐形庇护抵消了${TERRAIN_LABELS[terrain]}的伤害`);
         continue;
       }
-      if (this.isCivilian(unit) && [TILE.WATER, TILE.DARK, TILE.POISON].includes(terrain)) {
-        if (terrain === TILE.WATER && unit.waterImmune) {
-          this.log(`${unit.name} 的洪灾幸存者体质使其在水中安然无恙`);
-          continue;
-        }
-        if ((terrain === TILE.DARK || terrain === TILE.POISON) && unit.chaosImmune) {
-          this.log(`${unit.name} 的夜行者之眼使其不受黑暗侵蚀`);
-          continue;
-        }
-        unit.status = 'lost';
-        unit.lost = true;
-        this.lost += 1;
-        this.log(`${unit.name} 被${TERRAIN_LABELS[terrain]}吞没`);
-        this.updateWorldState({ type: 'unit_lost', detail: unit.name });
-        this.emitUnitLostEvent(unit, terrain);
+      if (terrain === TILE.WATER && unit.waterImmune) {
+        this.log(`${unit.name} 的洪灾幸存者体质使其在水中安然无恙`);
+        unit.hazardCoverTurns = 0;
+        unit.lastHazardTerrain = null;
+        continue;
       }
+      if ((terrain === TILE.DARK || terrain === TILE.POISON) && unit.chaosImmune) {
+        this.log(`${unit.name} 的夜行者之眼使其不受黑暗侵蚀`);
+        unit.hazardCoverTurns = 0;
+        unit.lastHazardTerrain = null;
+        continue;
+      }
+
+      // Track hazard coverage duration
+      if (unit.lastHazardTerrain === terrain) {
+        // Same hazard as previous turn — increment counter
+        unit.hazardCoverTurns += 1;
+      } else {
+        // New hazard type or first time — start tracking from turn 1
+        unit.hazardCoverTurns = 1;
+        unit.lastHazardTerrain = terrain;
+      }
+
+      // First turn exemption: only log warning, do NOT trigger lost status
+      if (unit.hazardCoverTurns === 1) {
+        this.log(`${unit.name} 被${TERRAIN_LABELS[terrain]}覆盖，尚有一线生机（第一回合豁免）`);
+        continue;
+      }
+
+      // Second turn or later under same hazard — trigger lost status
+      unit.status = 'lost';
+      unit.lost = true;
+      this.lost += 1;
+      this.log(`${unit.name} 被${TERRAIN_LABELS[terrain]}吞没（持续覆盖超过一回合）`);
+      this.updateWorldState({ type: 'unit_lost', detail: unit.name });
+      this.emitUnitLostEvent(unit, terrain);
     }
   }
 
@@ -2036,7 +2061,35 @@ class GameEngine {
       }
     }
 
-    if (!cameFrom.has(goalKey)) return null;
+    if (!cameFrom.has(goalKey)) {
+      // Goal unreachable: find nearest reachable point via Manhattan distance
+      let bestKey = null;
+      let bestDist = Infinity;
+      for (const key of cameFrom.keys()) {
+        if (key === startKey) continue;
+        const [cx, cy] = key.split(',').map(Number);
+        const dist = this.distance(cx, cy, goal.x, goal.y);
+        if (dist < bestDist || (dist === bestDist && key < (bestKey || ''))) {
+          bestDist = dist;
+          bestKey = key;
+        }
+      }
+      if (!bestKey) return null; // Completely trapped
+      // Mark as fallback so nextStepToward doesn't cache
+      if (unit && typeof unit === 'object') unit._pathfindFallback = true;
+      // Reconstruct path to bestKey
+      const [bx, by] = bestKey.split(',').map(Number);
+      const path = [];
+      let current = { x: bx, y: by };
+      let previous = cameFrom.get(bestKey);
+      while (previous && !(previous.x === unit.x && previous.y === unit.y)) {
+        path.unshift(current);
+        current = previous;
+        previous = cameFrom.get(`${current.x},${current.y}`);
+      }
+      if (current.x !== unit.x || current.y !== unit.y) path.unshift(current);
+      return path;
+    }
 
     const path = [];
     let current = { x: goal.x, y: goal.y };
@@ -2071,7 +2124,12 @@ class GameEngine {
     const path = this.findPath(unit, goal);
     if (!path || path.length === 0) return null;
 
-    unit._pathCache = { goalKey, path, index: 1 };
+    if (!unit._pathfindFallback) {
+      unit._pathCache = { goalKey, path, index: 1 };
+    } else {
+      unit._pathCache = null; // Don't cache fallback paths
+      delete unit._pathfindFallback;
+    }
     return path[0];
   }
 

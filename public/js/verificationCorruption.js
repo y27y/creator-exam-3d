@@ -282,10 +282,10 @@ export class VerificationCorruption {
   // Generate corruption narrative
   generateCorruptionNarrative(paradox, validation) {
     const narratives = [
-      `你强行将「${paradox.description}」塞入验证引擎。引擎发出刺耳的尖叫，然后...沉默了。一张不应该存在的卡牌从裂隙中滑出。`,
-      `悖论在验证引擎中回荡。${paradox.name}——一个逻辑上不可能的存在，却被强制编译为现实。`,
-      `验证引擎试图拒绝，但裂隙的力量更强。${paradox.name}被扭曲地接受了，代价是引擎的稳定性。`,
-      `你听到了引擎内部的碎裂声。${paradox.name}诞生了，带着不属于这个世界的力量。`
+      `你硬把「${paradox.description}」塞进验证引擎。引擎叫了一声，就没声了。一张不该有的卡，从裂隙里掉了出来。`,
+      `悖论在引擎里撞来撞去。${paradox.name}——一个讲不通的东西，硬给编成了真的。`,
+      `引擎想挡，没挡住。${paradox.name}就这么给收下了，引擎自己也折了寿。`,
+      `引擎里头咔嚓一声。${paradox.name}出来了，带着一股这世界里没有的劲。`
     ];
 
     return narratives[Math.floor(Math.random() * narratives.length)];
@@ -294,7 +294,7 @@ export class VerificationCorruption {
   // Generate overload narrative
   generateOverloadNarrative() {
     return cognitiveEffects.distortText(
-      '验证引擎过载。系统崩溃。所有定义失效。欢迎来到真正的混沌。',
+      '验证引擎撑爆了。系统散了。规矩全不作数。这回是真的乱了套。',
       0.8
     );
   }
@@ -329,7 +329,7 @@ export class VerificationCorruption {
     if (this.corruptionLevel >= CORRUPTION_THRESHOLDS.critical) {
       return {
         level: 'critical',
-        description: '验证引擎濒临崩溃。现实与虚幻的边界已经消失。',
+        description: '验证引擎快塌了。真的假的全搅在一块，分不清了。',
         effects: ['all_cards_risky', 'engine_unstable', 'cognitive_bleed']
       };
     } else if (this.corruptionLevel >= CORRUPTION_THRESHOLDS.severe) {

@@ -151,28 +151,28 @@ export class RiftEcho {
 
     const narratives = {
       benevolent: [
-        `你看到了${originalName}的残影——它曾经守护过这里，现在它的记忆仍在守护。`,
-        `裂隙中浮现出${originalName}的温柔回响，像是过去的自己在向你微笑。`,
-        `时光倒流了一瞬，${originalName}的光芒再次照亮这片区域。`,
-        `你听到了熟悉的共鸣...是${originalName}，它从未真正离开。`
+        `你瞥见${originalName}的影子——它护过这地方，那点念想还在护着。`,
+        `裂隙里透出${originalName}的回声，软和和的，像谁在冲你点头。`,
+        `时间像是回了一下头，${originalName}的光又把这地方照亮了。`,
+        `耳熟的声音响起来——是${originalName}，它没走干净。`
       ],
       malicious: [
-        `裂隙扭曲了${originalName}的记忆，它现在以憎恨的形态重现。`,
-        `${originalName}的幽灵被腐化，它的力量现在与你为敌。`,
-        `你看到了${originalName}...但它看起来不对劲，像是被什么东西侵蚀了。`,
-        `过去造物的残骸在裂隙中颤抖，${originalName}变成了你不认识的样子。`
+        `裂隙把${originalName}的记忆拧歪了，这会儿带着恨回来了。`,
+        `${originalName}的影子里进了脏东西，劲儿现在冲着你来。`,
+        `你看见${originalName}……可它不对劲，像是叫什么东西啃过。`,
+        `旧造物的残壳在裂隙里打颤，${originalName}成了你不认得的样子。`
       ],
       paradoxical: [
-        `${originalName}既存在又不存在，你同时看到了它的诞生和毁灭。`,
-        `裂隙让${originalName}陷入了永恒的叠加态——直到你观察它之前，它不会决定自己的形态。`,
-        `你看到了${originalName}的幻影，但当你眨眼时它又消失了。`,
-        `时间在这里折叠，${originalName}的过去和未来同时显现。`
+        `${originalName}在又不在，你一眼看去了它的来和去。`,
+        `裂隙把${originalName}卡在半道上——你不瞧它，它就定不下形。`,
+        `你瞅见${originalName}的影，一眨眼又没了。`,
+        `时间在这儿叠上了，${originalName}的从前和往后一块冒出来。`
       ],
       prophetic: [
-        `${originalName}的未来形态穿越时间来到现在，带着你尚未获得的力量。`,
-        `你瞥见了未来——${originalName}在更强大的形态下闪耀。`,
-        `这不是过去的回响，而是未来的预告：${originalName}将以全新姿态降临。`,
-        `时间之河逆流而上，带来了${originalName}的进化形态。`
+        `${originalName}往后那副样子，趟着时间到了眼前，带着你还没摸着的劲。`,
+        `你瞅了一眼后头——${originalName}比现在更壮实，亮堂堂的。`,
+        `这不是从前的回声，是后头的兆头：${originalName}要换一副新样子来。`,
+        `时间倒着淌了一截，把${originalName}更老练的那面带了过来。`
       ]
     };
 

@@ -296,7 +296,7 @@ export class RitualForge {
         to: distortion
       });
       result.narrative = distortion;
-      result.warnings.push('涌现仪式产生了不可预知的效果...');
+      result.warnings.push('涌现仪式出了点岔子，效果说不准。');
     }
 
     this.performedRituals.push({
@@ -331,29 +331,29 @@ export class RitualForge {
 
     // Combine based on presence
     if (hasWater && hasEarth) {
-      effect.description = '水土交融，地形变得肥沃';
+      effect.description = '水土搅一块了，地肥了起来';
       effect.terrainChanges.push({ type: 'fertile', range: 2 });
       effect.entropyCost = 1;
     } else if (hasLight && hasDark) {
-      effect.description = '光暗交织，产生奇异的平衡';
+      effect.description = '光和暗缠一块，反倒稳住了';
       effect.unitBuffs.push({ type: 'balanced', duration: 2 });
       effect.entropyCost = 2;
     } else if (hasTime && hasWater) {
-      effect.description = '时间之水，万物缓慢流逝';
+      effect.description = '时间跟水似的，什么都慢慢走';
       effect.unitBuffs.push({ type: 'slowed', duration: 1 });
       effect.entropyCost = 1;
     } else if (abilities.length >= 3) {
-      effect.description = '多重力量汇聚，产生强烈的能量波动';
+      effect.description = '几股劲撞一块，炸出一阵乱波';
       effect.terrainChanges.push({ type: 'random', range: 1 });
       effect.entropyCost = 2;
     } else {
-      effect.description = '力量微弱地共鸣，效果不确定';
+      effect.description = '劲太弱，撞不出什么名堂，效果难说';
       effect.entropyCost = 1;
     }
 
     // Compatibility affects strength
     if (compatibility < 0.3) {
-      effect.description += '（但地形极不匹配，效果不稳定）';
+      effect.description += '（可地形太不搭，效果不稳）';
       effect.entropyCost += 1;
       effect.unstable = true;
     }
@@ -381,14 +381,14 @@ export class RitualForge {
     const distortionLevel = Math.min(1, entropy / entropyLimit);
 
     if (distortionLevel > 0.5) {
-      result.warnings.push('裂隙扭曲了仪式的流向...');
+      result.warnings.push('裂隙把仪式的势头拧歪了……');
       result.narrative = cognitiveEffects.generateContradictoryDialogue(
         `仪式${recipe.name}失败了`,
         '世界之灵',
         distortionLevel
       );
     } else {
-      result.narrative = `仪式${recipe.name}未能完成，能量消散在空气中。`;
+      result.narrative = `仪式${recipe.name}没做成，那股劲散在了空气里。`;
     }
 
     // Failure may consume cards anyway
@@ -417,20 +417,20 @@ export class RitualForge {
 
     const narratives = {
       synergy: [
-        `${cardNames}产生共鸣，${recipe.description}。`,
-        `力量在${cardNames}之间流转，${recipe.description}。`
+        `${cardNames}撞出了回响，${recipe.description}。`,
+        `劲在${cardNames}之间来回串，${recipe.description}。`
       ],
       sacrifice: [
-        `你以${cardNames}为祭品，${recipe.description}。`,
-        `${cardNames}在光芒中消散，${recipe.description}。`
+        `你拿${cardNames}当了祭，${recipe.description}。`,
+        `${cardNames}在光里散了，${recipe.description}。`
       ],
       transformation: [
-        `${cardNames}改变了周围的一切，${recipe.description}。`,
-        `在${cardNames}的力量下，世界形态重组——${recipe.description}。`
+        `${cardNames}把跟前的东西全换了样，${recipe.description}。`,
+        `借着${cardNames}的劲，世界换了副模样——${recipe.description}。`
       ],
       invocation: [
-        `三股力量汇聚，${recipe.description}。古老的仪式被唤醒。`,
-        `${cardNames}召唤出超越常理的存在，${recipe.description}。`
+        `三股劲攒到一块，${recipe.description}。老仪式给催醒了。`,
+        `${cardNames}招来个讲不通的东西，${recipe.description}。`
       ]
     };
 
@@ -440,14 +440,14 @@ export class RitualForge {
 
   generateEmergentNarrative(abilities, effect, compatibility) {
     const abilityNames = abilities.join('、');
-    let narrative = `${abilityNames}的力量交织在一起。`;
+    let narrative = `${abilityNames}的劲搅在了一块。`;
 
     if (compatibility > 0.7) {
-      narrative += `出乎意料地和谐，${effect.description}`;
+      narrative += `没想到挺合得来，${effect.description}`;
     } else if (compatibility > 0.4) {
-      narrative += `勉强共鸣，${effect.description}`;
+      narrative += `勉强搭上点边，${effect.description}`;
     } else {
-      narrative += `彼此冲突，${effect.description}`;
+      narrative += `互相别着劲，${effect.description}`;
     }
 
     return narrative;

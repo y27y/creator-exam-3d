@@ -318,7 +318,7 @@ export class CognitiveAbyss {
       if (this.depth >= ABYSS_THRESHOLDS.moderate) {
         return {
           level: 'approaching',
-          description: '裂隙即将打开...世界在边缘颤抖。',
+          description: '裂隙快开了……世界边上在打哆嗦。',
           effects: ['text_jitter', 'subtle_hints']
         };
       }
@@ -333,7 +333,7 @@ export class CognitiveAbyss {
     if (depth >= 0.95) {
       return {
         level: 'apocalyptic',
-        description: '认知边界彻底崩溃。现实是谎言，谎言是现实。只有解码真理才能生存。',
+        description: '脑子里的界限全垮了。真也是假，假也是真。想把出谜语的理清楚，才活得下去。',
         effects: ['full_distortion', 'riddles', 'npc_reversal', 'myth_fragments', 'inverted_validation'],
         riddlesAvailable: true,
         npcReversal: true
@@ -341,7 +341,7 @@ export class CognitiveAbyss {
     } else if (depth >= 0.85) {
       return {
         level: 'deep',
-        description: '深渊全面展开。谜语在视野中浮现，NPC的话语变得不可信。',
+        description: '深渊铺开了。眼前冒出谜语，NPC说的话也信不得了。',
         effects: ['riddles', 'npc_reversal', 'myth_fragments'],
         riddlesAvailable: true,
         npcReversal: true
@@ -349,7 +349,7 @@ export class CognitiveAbyss {
     } else {
       return {
         level: 'shallow',
-        description: '深渊初现。文字开始扭曲，偶尔能瞥见隐藏的真相。',
+        description: '深渊冒头了。字开始扭，时不时能瞅见藏着的东西。',
         effects: ['text_jitter', 'occasional_riddles'],
         riddlesAvailable: Math.random() < 0.3
       };

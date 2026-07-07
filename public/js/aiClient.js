@@ -244,86 +244,86 @@ function chooseName(ability, text, isTooStrong) {
 
 function buildDescription(ability, isTooStrong, needsPlacement) {
   const prefix = isTooStrong ? '世界无法承受完整形态，只降生出幼年版本。' : '';
-  const suffix = needsPlacement ? '点击地图格子放置后生效。' : '放置后持续影响附近单位与地形。';
+  const suffix = needsPlacement ? '在地图上点格子放下去才生效。' : '放下后会一直影响附近的人和地形。';
   const effect = {
-    absorb_water: '每回合吸收附近水域或削弱洪水。',
-    create_bridge: '把水面、沼泽或裂隙临时变成可通行道路。',
-    illuminate: '驱散附近黑暗，并帮助单位找到道路。',
-    gale: '吹散附近迷雾，使被遮蔽的地形重见天日。',
-    block: '生成阻挡灾害或巨兽的屏障。',
-    calm: '降低附近敌意、战争值或巨兽怒气。',
-    guide: '引导附近单位朝目标前进。',
-    cleanse: '净化附近沼泽或毒污染。',
-    slow_beast: '非杀伤地迟缓巨兽或危险单位。',
-    memory_beacon: '让迷路者记起目标并重新定向（在迷雾中无效）。',
-    force_field: '保护一片区域，使灾害短时间无法扩散进入。',
-    transform_land: '改造附近地形，使危险地块变得可通行。',
-    freeze_water: '冻结附近水域，使其可通行2回合，之后融化。',
-    reveal_path: '显示附近单位的最优路径，使其移动速度+1。',
-    sun_blessing: '大范围光照驱散黑暗，并恢复单位体力使其免疫混乱。',
-    raise_earth: '抬升附近地面形成临时高地，可躲避洪水。',
-    grow_forest: '种植森林，阻挡灾害扩散并作为天然屏障。',
-    dig_channel: '挖出水渠，把附近洪水或污染导走并露出可通行地面。',
-    trap: '设置陷阱，使进入的巨兽迟缓2回合。',
-    dream_link: '连接两个单位，使其共享视野和方向感。',
-    time_dilation: '延缓局部时间，增加2回合（消耗大量奇迹点）。',
-    haste: '给附近单位增加行动力，使其一回合最多移动2到3格。',
-    teleport: '将附近一名单位传送到其目标点，范围有限且代价很高。',
-    shield_units: '给附近单位套上短暂护盾，抵消危险地形伤害。',
-    redirect_hazard: '临时改道附近洪水、迷雾或污染，打开安全通路。',
-    steam_burst: '蒸汽爆发，制造遮蔽迷雾并让附近单位短暂失去路径感。',
-    nature_awakening: '自然觉醒，将附近土地化为森林并增强单位行动力。',
-    rift_sealing: '封印裂隙3点，但会消耗范围内记忆信标。',
-    beast_taming: '驯服附近巨兽，使其安静且迟缓2回合。',
-    time_weave: '编织时间，延长所有活跃造物2回合持续时间。'
-  }[ability] || '改写附近世界规则。';
+    absorb_water: '每回合吸走附近的水，把洪水压下去。',
+    create_bridge: '把水面、沼泽或裂隙临时变成能走的路。',
+    illuminate: '点亮附近，把黑暗赶开，帮人找着路。',
+    gale: '起风，把附近迷雾吹散，露出被盖住的地。',
+    block: '起一道屏障，挡住灾或巨兽。',
+    calm: '把附近的敌意、战争值或巨兽火气压低。',
+    guide: '领着附近的人往目标走。',
+    cleanse: '把附近的沼泽或毒洗掉。',
+    slow_beast: '不伤命地把巨兽或危险家伙拖慢。',
+    memory_beacon: '让迷路的人想起目标，重新认得路（雾里没用）。',
+    force_field: '罩住一片地，短时间里灾进不来。',
+    transform_land: '改附近的地，把危险地块弄成能走的。',
+    freeze_water: '把附近的水冻上，能走2回合，过后化开。',
+    reveal_path: '给附近的人显出最顺的路，移动+1。',
+    sun_blessing: '大范围照亮，把黑暗赶开，回人元气，不怕乱。',
+    raise_earth: '把附近地面顶起来，成临时高地，能躲水。',
+    grow_forest: '种一片林子，挡住灾，也当屏障使。',
+    dig_channel: '挖渠，把附近的洪水或毒引走，露出能走的地面。',
+    trap: '下套，踩进来的巨兽迟缓2回合。',
+    dream_link: '把两个人连上，共享视野和方向感。',
+    time_dilation: '把局部时间拖慢，多出2回合（费奇迹点）。',
+    haste: '给附近的人提速，一回合最多走2到3格。',
+    teleport: '把附近一个人送到目标点，范围有限，代价不低。',
+    shield_units: '给附近的人套层短护盾，挡一次危险地形的伤。',
+    redirect_hazard: '临时把附近的洪水、雾或毒拨开，腾出一条通路。',
+    steam_burst: '蒸汽炸开，造一片遮眼雾，让附近的人短时找不着路。',
+    nature_awakening: '附近的地醒过来，长成林子，人也走得快了。',
+    rift_sealing: '封3点裂隙，但要吃掉范围内的记忆信标。',
+    beast_taming: '把附近巨兽降住，安静2回合，走也慢。',
+    time_weave: '把时间续上，所有活跃造物多撑2回合。'
+  }[ability] || '改一改附近世界的规矩。';
   return `${prefix}${effect}${suffix}`.slice(0, 120);
 }
 
 function buildSideEffect(ability, isTooStrong) {
-  if (isTooStrong) return '强行降格仍会使世界裂隙上升。';
+  if (isTooStrong) return '硬降格，世界裂隙照样涨。';
   return {
-    absorb_water: '吸收过多水分会留下湿滑地面。',
-    create_bridge: '桥梁只会维持数回合。',
-    illuminate: '强光会吸引黑暗向边缘聚集。',
-    gale: '大风可能把迷雾吹向周围地块。',
-    block: '完全堵路可能激怒巨兽或拖慢村民。',
-    calm: '和平仪式需要靠近冲突中心。',
-    guide: '引导范围有限，离开范围后单位会恢复自主行动。',
-    cleanse: '净化会消耗奇迹点。',
-    slow_beast: '牵制过久会让巨兽积累怒气。',
-    memory_beacon: '当迷雾侵蚀了信标，它就会失去效果。',
-    force_field: '结界会提升世界裂隙。',
-    transform_land: '改造地形可能产生沼泽边缘。',
-    freeze_water: '冻结的水域融化后会恢复原状。',
-    reveal_path: '显示路径会消耗单位体力。',
+    absorb_water: '水吸多了，地上会又湿又滑。',
+    create_bridge: '桥撑不了几回合。',
+    illuminate: '光太亮，黑暗反而往边上缩。',
+    gale: '风一吹，雾可能被赶到旁边地块。',
+    block: '路堵死了，巨兽会发火，村民也走不动。',
+    calm: '得离冲突中心近，仪式才管用。',
+    guide: '管的一圈有限，出了圈人就自己走了。',
+    cleanse: '净化费奇迹点。',
+    slow_beast: '拖太久，巨兽的火气会攒起来。',
+    memory_beacon: '雾一进信标，它就失效了。',
+    force_field: '结界会抬升世界裂隙。',
+    transform_land: '改地可能留下沼泽边。',
+    freeze_water: '冻上的水化开还是水。',
+    reveal_path: '显路费人元气。',
     sun_blessing: '',
-    raise_earth: '抬升的地面不稳定，可能塌陷。',
-    grow_forest: '森林可能阻挡己方单位的移动。',
-    dig_channel: '水渠会留下新的水路，放错位置可能切断通行。',
-    trap: '陷阱对村民同样有效。',
+    raise_earth: '顶起来的地不稳，可能塌。',
+    grow_forest: '林子可能挡住自己人的路。',
+    dig_channel: '渠会留新的水路，挖错位置可能把路切断。',
+    trap: '套子对村民也管用。',
     dream_link: '',
-    time_dilation: '操控时间会严重撕裂世界稳定性。',
-    haste: '加速效果持续短，离开范围后会消失。',
-    teleport: '空间折叠会显著提升世界裂隙。',
-    shield_units: '护盾会在抵消伤害后快速衰减。',
-    redirect_hazard: '被改道的灾害可能在造物消失后回流。',
-    steam_burst: '蒸汽会短暂阻挡视野。',
-    nature_awakening: '森林可能阻碍己方通行。',
-    rift_sealing: '消耗记忆信标是不可逆的。',
-    beast_taming: '驯服效果可能随时间衰退。',
-    time_weave: '时间编织会进一步撕裂世界稳定性。'
-  }[ability] ?? '世界裂隙轻微上升。';
+    time_dilation: '拨弄时间，世界裂隙要受大罪。',
+    haste: '加速撑不长，出了圈就没了。',
+    teleport: '空间一折，世界裂隙涨得厉害。',
+    shield_units: '护盾挡完一下就快没了。',
+    redirect_hazard: '拨开的灾，造物没了可能又流回来。',
+    steam_burst: '蒸汽挡一会眼。',
+    nature_awakening: '林子可能挡住自己人。',
+    rift_sealing: '吃掉的记忆信标要不回来。',
+    beast_taming: '降住的效果会随时间散。',
+    time_weave: '续时间，世界裂隙还得往上撕。'
+  }[ability] ?? '世界裂隙往上动一点。';
 }
 
 function buildResolvedDescription(ability, range, isTooStrong = false) {
   if (ability === 'haste') {
     const steps = range >= 2 ? 3 : 2;
-    return `给附近单位增加行动力，使其本回合最多移动${steps}格。`;
+    return `给附近的人提速，本回合最多走${steps}格。`;
   }
-  if (ability === 'teleport') return '将附近一名单位传送到其目标点，范围有限且代价很高。';
-  if (ability === 'shield_units') return '给附近单位套上短暂护盾，抵消危险地形伤害。';
-  if (ability === 'redirect_hazard') return '临时改道附近最多两格洪水、迷雾或污染，打开安全通路。';
+  if (ability === 'teleport') return '把附近一个人送到目标点，范围有限，代价不低。';
+  if (ability === 'shield_units') return '给附近的人套层短护盾，挡一次危险地形的伤。';
+  if (ability === 'redirect_hazard') return '临时把附近最多两格洪水、雾或毒拨开，腾出通路。';
   return buildDescription(ability, isTooStrong, true);
 }
 

@@ -48,18 +48,18 @@ export const WORLD_EVENTS = [
   { type: 'disease_outbreak', description: '疾病在居民中蔓延', pressureEffects: { health: -20, stability: -15 }, hookType: 'health_crisis' },
   { type: 'food_shortage', description: '食物储备即将耗尽', pressureEffects: { resources: -30, morale: -20 }, hookType: 'resource_crisis' },
   { type: 'refugee_influx', description: '大量难民涌入，资源紧张', pressureEffects: { resources: -25, stability: -10 }, hookType: 'social_conflict' },
-  { type: 'strange_artifact', description: '发现神秘的古代遗物', pressureEffects: { curiosity: 15, stability: -5 }, hookType: 'discovery' },
-  { type: 'prophecy_whisper', description: '居民听到神秘的预言低语', pressureEffects: { morale: 10, stability: -10 }, hookType: 'supernatural' },
+  { type: 'strange_artifact', description: '挖出件来路不明的古物', pressureEffects: { curiosity: 15, stability: -5 }, hookType: 'discovery' },
+  { type: 'prophecy_whisper', description: '居民听见不知哪来的预言声', pressureEffects: { morale: 10, stability: -10 }, hookType: 'supernatural' },
   { type: 'trade_caravan', description: '商队抵达，带来稀缺物资', pressureEffects: { resources: 20, stability: 10 }, hookType: 'economic_opportunity' },
   { type: 'earthquake', description: '地震摧毁部分建筑', pressureEffects: { safety: -20, infrastructure: -25 }, hookType: 'environmental_crisis' },
   { type: 'plague_rats', description: '鼠群携带瘟疫入侵', pressureEffects: { health: -15, safety: -10 }, hookType: 'health_crisis' },
   { type: 'meteor_shower', description: '流星雨带来稀有矿物', pressureEffects: { resources: 15, curiosity: 20 }, hookType: 'discovery' },
-  { type: 'fog_of_dread', description: '恐惧之雾笼罩区域', pressureEffects: { morale: -25, safety: -15 }, hookType: 'supernatural' },
+  { type: 'fog_of_dread', description: '怕人的雾罩住了一片地', pressureEffects: { morale: -25, safety: -15 }, hookType: 'supernatural' },
   { type: 'rebel_uprising', description: '居民反抗压迫者', pressureEffects: { stability: -30, safety: -20 }, hookType: 'social_conflict' },
-  { type: 'ancient_gate', description: '古代传送门意外激活', pressureEffects: { curiosity: 25, safety: -15 }, hookType: 'discovery' },
+  { type: 'ancient_gate', description: '老传送门冷不丁给激活了', pressureEffects: { curiosity: 25, safety: -15 }, hookType: 'discovery' },
   { type: 'winter_storm', description: '暴风雪封锁道路', pressureEffects: { mobility: -30, resources: -15 }, hookType: 'environmental_crisis' },
-  { type: 'miracle_healing', description: '神秘力量治愈伤者', pressureEffects: { health: 20, morale: 15 }, hookType: 'supernatural' },
-  { type: 'corruption_spread', description: '腐化力量侵蚀土地', pressureEffects: { safety: -20, health: -15, stability: -10 }, hookType: 'supernatural' },
+  { type: 'miracle_healing', description: '一股说不清的劲治好了伤员', pressureEffects: { health: 20, morale: 15 }, hookType: 'supernatural' },
+  { type: 'corruption_spread', description: '腐化的劲在地里头爬', pressureEffects: { safety: -20, health: -15, stability: -10 }, hookType: 'supernatural' },
   { type: 'festival', description: '居民自发举办庆典', pressureEffects: { morale: 20, stability: 10 }, hookType: 'social_event' },
   { type: 'monster_hunt', description: '巨兽出没，威胁居民', pressureEffects: { safety: -25, resources: -10 }, hookType: 'combat' },
   { type: 'lost_expedition', description: '探险队失踪，留下线索', pressureEffects: { curiosity: 15, morale: -10 }, hookType: 'discovery' }
@@ -70,31 +70,31 @@ export const ENDING_SEEDS = [
     id: 'golden_age',
     title: '黄金时代',
     conditions: { safety: 90, reputation: 80, resources: 70 },
-    narrative: '在你的守护下，世界迎来了繁荣的黄金时代。居民们安居乐业，传说你的名字将被永远铭记。'
+    narrative: '你守住了这片地。日子稳下来，人也有了盼头。往后逢年过节，有人会念起你。'
   },
   {
     id: 'bitter_victory',
     title: '苦涩的胜利',
     conditions: { safety: 90, reputation: 30 },
-    narrative: '你拯救了世界，但代价是失去了居民的信任。孤独的王座上，你守望着寂静的疆域。'
+    narrative: '世界是救下来了，可人心散了。你一个人守着空荡荡的地方，没人再来搭话。'
   },
   {
     id: 'forgotten_hero',
     title: '被遗忘的英雄',
     conditions: { safety: 40, reputation: 80 },
-    narrative: '居民们歌颂你的仁慈，但世界仍在崩塌。你的善意终究无法阻止末日的降临。'
+    narrative: '嘴上都说你好，可地还是在塌。好心挡不住祸，到头是一场空。'
   },
   {
     id: 'doomsday',
     title: '末日降临',
     conditions: { safety: 20, reputation: 20 },
-    narrative: '世界在混乱中走向终结。最后的居民在废墟中低语：如果当初……'
+    narrative: '世界就这么乱了套，散了。最后剩几个人在烂摊子里念叨：要是当初……'
   },
   {
     id: 'wandering_sage',
     title: '流浪贤者',
     conditions: { safety: 60, reputation: 60, curiosity: 80 },
-    narrative: '你选择了继续探索未知，成为传说中的流浪贤者。世界虽未完美，但希望的种子已经播下。'
+    narrative: '你没停下，接着往没去过的地方走。世界算不上好，可地里埋下了能发芽的东西。'
   }
 ]
 

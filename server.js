@@ -325,34 +325,34 @@ function wantsGale(text) {
 function buildResolvedDescription(ability, range) {
   if (ability === 'haste') {
     const steps = range >= 2 ? 3 : 2;
-    return `给附近单位增加行动力，使其本回合最多移动${steps}格。`;
+    return `给附近的人提速，本回合最多走${steps}格。`;
   }
-  if (ability === 'teleport') return '将附近一名单位传送到其目标点，范围有限且代价很高。';
-  if (ability === 'shield_units') return '给附近单位套上短暂护盾，抵消危险地形伤害。';
-  if (ability === 'redirect_hazard') return '临时改道附近最多两格洪水、迷雾或污染，打开安全通路。';
-  if (ability === 'reveal_path') return '显示附近单位的最优路径，并让其短时间更快移动。';
-  if (ability === 'steam_burst') return '蒸汽爆发，制造遮蔽迷雾并让附近单位短暂失去路径感。';
-  if (ability === 'nature_awakening') return '自然觉醒，将附近土地化为森林并增强单位行动力。';
-  if (ability === 'rift_sealing') return '封印裂隙3点，消耗范围内记忆信标。';
-  if (ability === 'beast_taming') return '驯服附近巨兽，使其安静且迟缓2回合。';
-  if (ability === 'time_weave') return '延长所有活跃造物2回合持续时间。';
-  if (ability === 'dig_channel') return '挖掘排水渠道，吸收附近水域并引走洪水。';
-  return '由规则系统整理出的可执行造物效果。';
+  if (ability === 'teleport') return '把附近一个人送到目标点，范围有限，代价不低。';
+  if (ability === 'shield_units') return '给附近的人套层短护盾，挡一次危险地形的伤。';
+  if (ability === 'redirect_hazard') return '临时把附近最多两格洪水、雾或毒拨开，腾出通路。';
+  if (ability === 'reveal_path') return '给附近的人显出最顺的路，短时间里走得更快。';
+  if (ability === 'steam_burst') return '蒸汽炸开，造一片遮眼雾，让附近的人短时找不着路。';
+  if (ability === 'nature_awakening') return '附近的地醒过来，长成林子，人也走得快了。';
+  if (ability === 'rift_sealing') return '封3点裂隙，吃掉范围内的记忆信标。';
+  if (ability === 'beast_taming') return '把附近巨兽降住，安静2回合，走也慢。';
+  if (ability === 'time_weave') return '把时间续上，所有活跃造物多撑2回合。';
+  if (ability === 'dig_channel') return '挖排水渠，吸走附近的水，把洪水引开。';
+  return '规则系统理出来的可执行造物效果。';
 }
 
 function buildResolvedSideEffect(ability) {
-  if (ability === 'haste') return '加速效果持续短，离开范围后会消失。';
-  if (ability === 'teleport') return '空间折叠会显著提升世界裂隙。';
-  if (ability === 'shield_units') return '护盾会在抵消伤害后快速衰减。';
-  if (ability === 'redirect_hazard') return '被改道的灾害可能在造物消失后回流。';
-  if (ability === 'reveal_path') return '显示路径会消耗单位体力。';
-  if (ability === 'steam_burst') return '蒸汽会短暂阻挡视野。';
-  if (ability === 'nature_awakening') return '森林可能阻碍己方通行。';
-  if (ability === 'rift_sealing') return '消耗记忆信标不可逆。';
-  if (ability === 'beast_taming') return '驯服效果可能衰退。';
-  if (ability === 'time_weave') return '时间编织会进一步撕裂世界稳定性。';
-  if (ability === 'dig_channel') return '水渠需要持续维护，否则可能被回水淹没。';
-  return '世界裂隙轻微上升。';
+  if (ability === 'haste') return '加速撑不长，出了圈就没了。';
+  if (ability === 'teleport') return '空间一折，世界裂隙涨得厉害。';
+  if (ability === 'shield_units') return '护盾挡完一下就快没了。';
+  if (ability === 'redirect_hazard') return '拨开的灾，造物没了可能又流回来。';
+  if (ability === 'reveal_path') return '显路费人元气。';
+  if (ability === 'steam_burst') return '蒸汽挡一会眼。';
+  if (ability === 'nature_awakening') return '林子可能挡住自己人。';
+  if (ability === 'rift_sealing') return '吃掉的记忆信标要不回来。';
+  if (ability === 'beast_taming') return '降住的效果会随时间散。';
+  if (ability === 'time_weave') return '续时间，世界裂隙还得往上撕。';
+  if (ability === 'dig_channel') return '渠得常看着，不然可能被水倒灌。';
+  return '世界裂隙往上动一点。';
 }
 
 function inferHasteRange(text) {
@@ -467,32 +467,32 @@ async function handleCompileCreation(req, res) {
 - gale：大风、驱散/吹散迷雾（不驱散黑暗），将迷雾地形永久变为陆地
 - block：墙、屏障、封路、阻挡灾害或巨兽
 - calm：安抚、沟通、翻译、降低敌意/战争值
-- guide：引导单位移动、指路、召回、护送
-- cleanse：净化毒、污染、疾病、诅咒
-- slow_beast：迟缓、催眠、牵制巨兽/敌人
+- guide：领着人走、指路、召回、护送
+- cleanse：洗毒、去污染、治病、解咒
+- slow_beast：拖慢、催眠、牵制巨兽/敌人
 - memory_beacon：记忆、路标、歌声、碑文、归家信标
-- force_field：区域保护、结界、隔离灾害
-- transform_land：改变地形、创造可通行/可利用地块
-- freeze_water：冻结水域使其可通行，但会融化
-- reveal_path：显示最优路径、加速单位移动
-- sun_blessing：大范围光照+恢复单位体力
-- raise_earth：抬升地面形成临时高地
-- grow_forest：种植森林阻挡灾害扩散
-- trap：设置陷阱迟缓巨兽
-- dream_link：连接两个单位共享视野
-- time_dilation：延缓时间增加2回合（高代价）
-- haste：增加行动力；加一行动力用range=1，加二行动力用range=2，单位每回合可多走
+- force_field：护一片地、结界、隔开灾
+- transform_land：改地形、弄出能走能用的地块
+- freeze_water：把水冻上能走，但会化
+- reveal_path：显最顺的路、让人走得快
+- sun_blessing：大范围照亮+回人元气
+- raise_earth：顶起地面成临时高地
+- grow_forest：种林子挡灾
+- trap：下套拖慢巨兽
+- dream_link：把两人连上共享视野
+- time_dilation：拖慢时间多2回合（费劲）
+- haste：给人提速；加一用range=1，加二用range=2，每回合可多走
 - teleport：有限范围传送一名相邻/附近单位到目标点，高cost和高stabilityCost
-- shield_units：给附近单位短暂护盾，抵消一次危险地形伤害
-- redirect_hazard：临时改道洪水、迷雾、污染等灾害，打开通路
-- dig_channel：挖掘水渠引导洪水流向，将水域/沼泽转为可通行平地
+- shield_units：给附近人短暂护盾，挡一次危险地形伤害
+- redirect_hazard：临时把洪水、雾、毒等灾害拨开，腾出通路
+- dig_channel：挖渠引洪水，把水域/沼泽弄成能走的平地
 
 【融合能力】（由造物者工坊融合产生，玩家不能直接选择）
-- steam_burst：蒸汽爆发，制造遮蔽迷雾并让附近单位短暂失去路径感
-- nature_awakening：自然觉醒，将附近土地化为森林并增强单位
-- rift_sealing：封印裂隙3点，消耗范围内记忆信标
-- beast_taming：驯服附近巨兽使其安静迟缓
-- time_weave：延长所有活跃造物2回合持续时间
+- steam_burst：蒸汽炸开，造一片遮眼雾，让附近的人短时找不着路
+- nature_awakening：附近的地醒过来，长成林子，人也走得快了
+- rift_sealing：封3点裂隙，吃掉范围内的记忆信标
+- beast_taming：把附近巨兽降住，安静迟缓
+- time_weave：把时间续上，所有活跃造物多撑2回合
 
 【JSON Schema】
 {

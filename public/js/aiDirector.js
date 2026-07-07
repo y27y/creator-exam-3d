@@ -110,16 +110,16 @@ export class AIDirector {
 
   generateLocalNarrative(beat, context) {
     const templates = {
-      inciting_incident: '事态在' + (context.regionId || '此地') + '发生了意想不到的转变...',
-      rising_action: '紧张局势正在升级，每一步都充满风险。',
-      climax: '危机达到顶点，一切悬于一线。',
-      falling_action: '风暴逐渐平息，但余波仍在蔓延。',
-      resolution: '这一段落终于画上了句号，新的篇章即将开启。',
-      twist: '一个出乎意料的转折改变了所有人的命运。',
-      character_moment: '某个角色的真实面目在这一刻显露无遗。',
-      world_reveal: '世界的秘密正在缓缓揭开...'
+      inciting_incident: '在' + (context.regionId || '此地') + '出了岔子，事情拐了个弯。',
+      rising_action: '越往后越紧，每一步都踩在刀刃上。',
+      climax: '到了最要紧的关头，撑住撑不住就看这一下。',
+      falling_action: '风头过去了，可后头的乱子还没完。',
+      resolution: '这一段算是了了，下一段还没起头。',
+      twist: '半路杀出一手，把所有人的盘算都打乱了。',
+      character_moment: '有个人的底，到这会儿才露出来。',
+      world_reveal: '世界藏着的底细，一点点透出来了。'
     };
-    return templates[beat.type] || '故事继续展开...';
+    return templates[beat.type] || '事情还在往前走。';
   }
 
   getActiveArcs() {

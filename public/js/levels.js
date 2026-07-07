@@ -36,17 +36,15 @@ export const SYMBOL_TO_TILE = Object.freeze({
 });
 
 export const INSPIRATIONS = [
-  '创造一群会把洪水搬到天空的透明鲸鱼',
-  '让石头在水面上浮起来，形成临时桥',
-  '造一棵会发光并指路的月亮树',
-  '创造只对悲伤生物开放的花园来安抚巨兽',
-  '让两族的梦境在同一张桌子上相遇',
-  '立一块能唱出每个人家乡歌的记忆碑',
-  '造一台用月光运转的净化机器',
-  '让影子替村民走过危险的沼泽',
-  '创造一种害怕谎言的白鸟，让它们传递真话',
-  '让风把迷路者的名字吹向圣树',
-  '让大风吹散迷雾'
+  '造一群透明的鲸鱼，把洪水驮到天上去',
+  '让石头浮在水面上，搭一段临时的桥',
+  '种一棵会发光的月亮树，给人指路',
+  '造一座只对悲伤生灵开放的花园，让巨兽安静下来',
+  '让两个部落的梦，在同一张桌上碰头',
+  '立一块碑，能唱出每个人老家的歌',
+  '造一台靠月光转的机器，把毒和脏东西洗掉',
+  '让风把迷路人的名字，吹到圣树那边去',
+  '起一阵大风，把雾吹散'
 ];
 
 export const LEVELS = [
@@ -54,8 +52,8 @@ export const LEVELS = [
     id: 'flood-village',
     title: '第 1 关：洪水村庄',
     shortTitle: '洪水村庄',
-    story: '暴雨撕开了河堤，村民必须在水位吞没村庄前抵达右侧高地。你的造物不能直接移动村民，只能改变世界。',
-    objective: '6 回合内至少救下 4 名居民（含邮差）。',
+    story: '暴雨下了几天，河堤没撑住。水正往村里漫，村民得在水位盖过房子前挪到东边高地。你没法直接挪人，只能改这世界。',
+    objective: '6 回合内救下至少 4 名居民，其中得有邮差。',
     maxTurns: 7,
     creationCharges: 3,
     miraclePoints: 6,
@@ -76,16 +74,16 @@ export const LEVELS = [
       { type: 'villager', name: '木匠', x: 2, y: 4, goal: { x: 6, y: 3 } },
       { type: 'villager', name: '邮差', x: 1, y: 2, goal: { x: 6, y: 3 } }
     ],
-    hazard: { type: 'flood', spreadPerTurn: 4, source: 'left', spreadIntoUnits: false },
+    hazard: { type: 'flood', spreadPerTurn: 4, source: 'left', spreadIntoUnits: true },
     win: 'requiredRescue',
-    tips: ['吸水、造桥、屏障和引导类造物都有效。', '洪水不会吞没高地，但会切断道路。']
+    tips: ['吸水、造桥、挡水、引路，这些造物都管用。', '水上不了高地，但会把路断了。']
   },
   {
     id: 'night-mine',
     title: '第 2 关：永夜矿井',
     shortTitle: '永夜矿井',
-    story: '矿井里的光被永夜吃掉。矿工们只知道出口大概在东北方，黑暗每回合都会扩大。',
-    objective: '8 回合内让至少 3 名矿工抵达出口。',
+    story: '矿井里的光叫黑夜吞了。矿工只记得出口大概在东北边，黑暗每回合都在往外爬。',
+    objective: '8 回合内，至少 3 名矿工摸到出口。',
     maxTurns: 8,
     creationCharges: 3,
     miraclePoints: 7,
@@ -108,14 +106,14 @@ export const LEVELS = [
     ],
     hazard: { type: 'darkness', spreadPerTurn: 2 },
     win: 'requiredRescue',
-    tips: ['照明、引导、净化和改变地形类造物都能帮助矿工。', '矿工进入黑暗后会迷失。']
+    tips: ['点灯、引路、净化、改地形，这些造物都能帮上矿工。', '矿工一进黑暗就找不着北。']
   },
   {
     id: 'giant-city',
     title: '第 3 关：巨兽困城',
     shortTitle: '巨兽困城',
-    story: '古水巨兽正向城市移动。不能杀死它，因为巨兽背上的水源维系着整条河。你需要牵制或安抚它。',
-    objective: '撑过 12 回合，城市不能被巨兽抵达，巨兽怒气不能达到 5。',
+    story: '古水巨兽正朝城里挪。杀不得——它背上驮着水，养着整条河。你得想法子拦住它，或者让它安静下来。',
+    objective: '撑过 12 回合：城不能叫巨兽踩进，它的怒气不能涨到 5。',
     maxTurns: 12,
     creationCharges: 4,
     miraclePoints: 8,
@@ -135,14 +133,14 @@ export const LEVELS = [
     hazard: { type: 'beast' },
     win: 'survive',
     beastAngerLimit: 5,
-    tips: ['安抚、迟缓、屏障、引导类造物都有效。', '完全堵死巨兽会让怒气上升。']
+    tips: ['安抚、拖延、挡路、引开，这些造物都管用。', '把路全堵死，巨兽反而更躁。']
   },
   {
     id: 'wordless-war',
     title: '第 4 关：失语战争',
     shortTitle: '失语战争',
-    story: '两个部落都认为对方偷走了星火。语言断裂让误会越来越深，边境上的战争值正在上升。',
-    objective: '6 回合结束时战争值低于 5，并让两名使者在边境会合。',
+    story: '两个部落都咬定是对方偷了星火。话说不通，误会越结越深，边境的战争值正往上走。',
+    objective: '6 回合结束时，战争值压到 5 以下，还得让两名使者在边境碰头。',
     maxTurns: 7,
     creationCharges: 3,
     miraclePoints: 7,
@@ -162,7 +160,7 @@ export const LEVELS = [
     ],
     hazard: { type: 'war', warMeter: 1, warLimit: 8 },
     win: 'peace',
-    tips: ['安抚、翻译、记忆、引导类造物是核心。', '雾会阻碍使者判断路线。']
+    tips: ['安抚、翻译、唤记忆、引路，这几样是关键。', '雾一上来，使者就分不清该往哪走。']
   },
   {
     id: 'memory-plague',
@@ -194,14 +192,14 @@ export const LEVELS = [
     ],
     hazard: { type: 'fog', spreadPerTurn: 2 },
     win: 'requiredRescue',
-    tips: ['记忆信标、引导、净化、照明类造物很关键。', '迷失者有概率随机移动。']
+    tips: ['记忆信标、引路、净化、点灯，这几样很要紧。', '迷了路的人，会瞎走。']
   },
   {
     id: 'final-exam',
     title: '终考：第七天之前',
     shortTitle: '创世终考',
-    story: '洪水、永夜和失语同时回到世界。前五关证明你能制造奇迹，现在你要证明你能让奇迹形成秩序。',
-    objective: '7 回合内救下 3 名居民、守住城市，并让战争值低于 6。',
+    story: '洪水、永夜、失语，一块儿回来了。前五关你证明了自己能造奇迹，这回得证明你能让奇迹变成秩序。',
+    objective: '7 回合内：救下 3 名居民，守住城，战争值压到 6 以下。',
     maxTurns: 8,
     creationCharges: 5,
     miraclePoints: 10,
@@ -227,7 +225,7 @@ export const LEVELS = [
     hazard: { type: 'mixed', spreadPerTurn: 2, warMeter: 2, warLimit: 9 },
     win: 'final',
     beastAngerLimit: 5,
-    tips: ['终考需要组合多种造物，不要只解决一种灾害。', '裂隙过高会直接失败。']
+    tips: ['终考得几样造物一起上，光治一种灾不够。', '裂隙一高，就直接输了。']
   }
 ];
 

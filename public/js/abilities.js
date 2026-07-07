@@ -1,7 +1,7 @@
 /**
  * === 能力元数据单一真相源 ===
  * server.js、aiClient.js、validationEngine.js、creatorWorkshop.js 共享此文件。
- * 包含 25 标准能力 + 5 融合能力 = 30 项。
+ * 包含 26 标准能力 + 5 融合能力 = 31 项。
  */
 
 // ======================== abilities list ========================
@@ -32,8 +32,9 @@ export const ABILITIES = [
   'teleport',
   'shield_units',
   'redirect_hazard',
-  // --- 1 newly added standard ability ---
+  // --- 2 newly added standard abilities ---
   'dig_channel',
+  'attract',
   // --- 5 fusion abilities ---
   'steam_burst',
   'nature_awakening',
@@ -72,6 +73,7 @@ export const ABILITY_LABELS = {
   shield_units: '护盾/庇护',
   redirect_hazard: '灾害改道',
   dig_channel: '挖渠/排水',
+  attract: '吸引',
   steam_burst: '蒸汽爆发',
   nature_awakening: '自然觉醒',
   rift_sealing: '封隙禁仪',
@@ -107,6 +109,7 @@ export const TYPE_BY_ABILITY = {
   shield_units: '奇迹',
   redirect_hazard: '法则',
   dig_channel: '地形',
+  attract: '奇迹',
   steam_burst: '奇迹',
   nature_awakening: '生物',
   rift_sealing: '仪式',
@@ -142,6 +145,7 @@ export const NAME_SEEDS = {
   shield_units: ['守护伞', '避水罩', '庇护灯', '护身铃'],
   redirect_hazard: ['引灾风标', '分洪罗盘', '转流旗', '改道铃'],
   dig_channel: ['引水渠', '排水沟', '导流槽', '疏洪道'],
+  attract: ['引力钟塔', '磁心花', '馋兽灯', '归渊石'],
   steam_burst: ['蒸汽巨兽', '沸水之灵', '雾炎使者', '热浪花'],
   nature_awakening: ['觉醒之藤', '万物复苏', '大地之息', '回春草'],
   rift_sealing: ['缝隙者', '补天石', '安定符印', '缝合针'],
@@ -177,6 +181,7 @@ export const TAGS_BY_ABILITY = {
   shield_units: ['护盾', '庇护', '防护'],
   redirect_hazard: ['改道', '灾害', '引导'],
   dig_channel: ['水', '渠道', '排水', '引流'],
+  attract: ['吸引', '移动', '方向'],
   steam_burst: ['融合', '蒸汽', '破坏'],
   nature_awakening: ['融合', '自然', '生长'],
   rift_sealing: ['融合', '封印', '牺牲'],
@@ -212,6 +217,7 @@ export const KEYWORDS = [
   { ability: 'shield_units', words: ['护盾', '庇护', '保护伞', '雨伞', '罩住', 'shield'] },
   { ability: 'redirect_hazard', words: ['改道', '转向', '引流', '分洪', '风向', '吹走', 'redirect'] },
   { ability: 'dig_channel', words: ['挖', '渠', '沟', '排水', '引流', '导流', '疏洪', '水道', '水槽', '渠道'] },
+  { ability: 'attract', words: ['吸引', '引力', '诱惑', '勾引', '磁石', '磁', '吸过来', '引过来', '拉过来'] },
   { ability: 'steam_burst', words: ['蒸汽', '爆发', '沸腾', '蒸化', 'steam', 'burst'] },
   { ability: 'nature_awakening', words: ['自然觉醒', '万物复苏', '觉醒', '回春', 'nature', 'awakening'] },
   { ability: 'rift_sealing', words: ['封隙', '缝合', '封印', '修补', 'rift', 'sealing'] },
@@ -228,6 +234,7 @@ export const RULE_DESCRIBED_ABILITIES = new Set([
   'shield_units',
   'redirect_hazard',
   'dig_channel',
+  'attract',
   'steam_burst',
   'nature_awakening',
   'rift_sealing',

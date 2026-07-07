@@ -7,7 +7,7 @@
 6 silly config load:file:D:\download\nodejs\node_global\etc\npmrc
 7 verbose title npm start
 8 verbose argv "start"
-9 verbose logfile logs-max:10 dir:d:\download\game\creator-exam-3d\.npm-cache\_logs\2026-07-07T04_55_02_040Z-
-10 verbose logfile d:\download\game\creator-exam-3d\.npm-cache\_logs\2026-07-07T04_55_02_040Z-debug-0.log
-11 silly logfile done cleaning log files
-12 http fetch GET 200 https://registry.npmjs.org/npm 578ms
+9 verbose logfile logs-max:10 dir:d:\download\game\creator-exam-3d\.npm-cache\_logs\2026-07-07T13_31_19_752Z-
+10 verbose logfile d:\download\game\creator-exam-3d\.npm-cache\_logs\2026-07-07T13_31_19_752Z-debug-0.log
+11 silly logfile start cleaning logs, removing 1 files
+12 silly logfile done cleaning log files

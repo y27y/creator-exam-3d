@@ -86,7 +86,8 @@ export function localCompile(text, gameContext = {}) {
     reveal_path: 1, freeze_water: 1, raise_earth: 1,
     time_dilation: 0, haste: 1, teleport: 2, shield_units: 2,
     redirect_hazard: 2, dig_channel: 1, slow_beast: 2, absorb_water: 2, cleanse: 2,
-    steam_burst: 2, nature_awakening: 2, rift_sealing: 1, beast_taming: 2, time_weave: 0
+    steam_burst: 2, nature_awakening: 2, rift_sealing: 1, beast_taming: 2, time_weave: 0,
+    attract: 2
   };
   const range = ability === 'haste' ? inferHasteRange(text) : (rangeMap[ability] ?? 1);
 
@@ -94,7 +95,8 @@ export function localCompile(text, gameContext = {}) {
     create_bridge: 3, freeze_water: 2, trap: 2, time_dilation: 1,
     grow_forest: 4, raise_earth: 3, force_field: 2, sun_blessing: 2, calm: 1,
     haste: 2, teleport: 2, shield_units: 3, redirect_hazard: 3, dig_channel: 3,
-    steam_burst: 3, nature_awakening: 4, rift_sealing: 2, beast_taming: 2, time_weave: 1
+    steam_burst: 3, nature_awakening: 4, rift_sealing: 2, beast_taming: 2, time_weave: 1,
+    attract: 3
   };
   const duration = isTooStrong ? 2 : (durationMap[ability] ?? 3);
 
@@ -105,7 +107,8 @@ export function localCompile(text, gameContext = {}) {
     dig_channel: 2, trap: 2, dream_link: 2, memory_beacon: 2,
     force_field: 2, sun_blessing: 2, transform_land: 3, time_dilation: 4,
     haste: 2, teleport: 3, shield_units: 2, redirect_hazard: 2,
-    steam_burst: 3, nature_awakening: 3, rift_sealing: 3, beast_taming: 2, time_weave: 3
+    steam_burst: 3, nature_awakening: 3, rift_sealing: 3, beast_taming: 2, time_weave: 3,
+    attract: 2
   };
   const cost = isTooStrong ? 3 : (costMap[ability] ?? 2);
 
@@ -116,7 +119,8 @@ export function localCompile(text, gameContext = {}) {
     dig_channel: 1, trap: 1, dream_link: 1, memory_beacon: 1,
     force_field: 1, sun_blessing: 1, transform_land: 1, time_dilation: 2,
     haste: 1, teleport: 2, shield_units: 1, redirect_hazard: 1,
-    steam_burst: 2, nature_awakening: 1, rift_sealing: 2, beast_taming: 1, time_weave: 2
+    steam_burst: 2, nature_awakening: 1, rift_sealing: 2, beast_taming: 1, time_weave: 2,
+    attract: 1
   };
   const stabilityCost = isTooStrong ? 2 : (stabilityMap[ability] ?? 0);
 
@@ -136,11 +140,13 @@ export function localCompile(text, gameContext = {}) {
     stabilityCost,
     description: buildDescription(ability, isTooStrong, needsPlacement),
     side_effect: buildSideEffect(ability, isTooStrong),
+    ...(ability === 'attract' ? { attractTarget: inferAttractTarget(text) } : {}),
     source: 'local'
   }, text, 'local');
 }
 
 function inferAbility(text, gameContext) {
+  if (wantsAttract(text)) return 'attract';
   if (wantsDigChannel(text)) return 'dig_channel';
   if (wantsShield(text)) return 'shield_units';
   if (wantsBridge(text)) return 'create_bridge';
@@ -219,6 +225,18 @@ function wantsPathReveal(text) {
   return /指路|带路|路径|显示路线|显示道路|显现道路|导航|路标/.test(clean);
 }
 
+function wantsAttract(text) {
+  return /吸引|引力|诱惑|勾引|磁石|磁|吸过来|引过来|拉过来/.test(String(text || '').toLowerCase());
+}
+
+function inferAttractTarget(text) {
+  const clean = String(text || '').toLowerCase();
+  if (/所有|全部|一切/.test(clean)) return 'all';
+  if (/村民|平民|居民|信使|使者|npc|人/.test(clean)) return 'human';
+  if (/巨兽|兽/.test(clean)) return 'beast';
+  return 'beast';
+}
+
 function negatesPathReveal(text) {
   return /不要\s*指路|不\s*要\s*指路|无需\s*指路|不用\s*指路|不是\s*指路|不要\s*路径|不\s*显示\s*路径/.test(String(text || '').toLowerCase());
 }
@@ -275,7 +293,8 @@ function buildDescription(ability, isTooStrong, needsPlacement) {
     nature_awakening: '附近的地醒过来，长成林子，人也走得快了。',
     rift_sealing: '封3点裂隙，但要吃掉范围内的记忆信标。',
     beast_taming: '把附近巨兽降住，安静2回合，走也慢。',
-    time_weave: '把时间续上，所有活跃造物多撑2回合。'
+    time_weave: '把时间续上，所有活跃造物多撑2回合。',
+    attract: '在3回合内把范围内的目标吸过来，期间它们会朝这里移动。'
   }[ability] || '改一改附近世界的规矩。';
   return `${prefix}${effect}${suffix}`.slice(0, 120);
 }
@@ -312,7 +331,8 @@ function buildSideEffect(ability, isTooStrong) {
     nature_awakening: '林子可能挡住自己人。',
     rift_sealing: '吃掉的记忆信标要不回来。',
     beast_taming: '降住的效果会随时间散。',
-    time_weave: '续时间，世界裂隙还得往上撕。'
+    time_weave: '续时间，世界裂隙还得往上撕。',
+    attract: '强引力撕裂空间，世界裂隙上升。'
   }[ability] ?? '世界裂隙往上动一点。';
 }
 
@@ -324,12 +344,14 @@ function buildResolvedDescription(ability, range, isTooStrong = false) {
   if (ability === 'teleport') return '把附近一个人送到目标点，范围有限，代价不低。';
   if (ability === 'shield_units') return '给附近的人套层短护盾，挡一次危险地形的伤。';
   if (ability === 'redirect_hazard') return '临时把附近最多两格洪水、雾或毒拨开，腾出通路。';
+  if (ability === 'attract') return '在3回合内把范围内的目标吸过来，期间它们会朝这里移动。';
   return buildDescription(ability, isTooStrong, true);
 }
 
 function sanitizeCard(raw, playerText, source) {
   const card = raw && typeof raw === 'object' ? raw : {};
   let ability = ABILITY_SET.has(card.ability) ? card.ability : 'transform_land';
+  if (wantsAttract(playerText)) ability = 'attract';
   if (wantsDigChannel(playerText)) ability = 'dig_channel';
   else if (wantsShield(playerText)) ability = 'shield_units';
   else if (wantsBridge(playerText)) ability = 'create_bridge';
@@ -378,6 +400,7 @@ function sanitizeCard(raw, playerText, source) {
     description: description.slice(0, 120),
     side_effect: sideEffect.slice(0, 80),
     specialEffect,
+    ...(ability === 'attract' ? { attractTarget: String(card.attractTarget || inferAttractTarget(playerText)).slice(0, 8) } : {}),
     playerText,
     source: card.source || source
   };

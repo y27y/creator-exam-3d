@@ -5100,6 +5100,130 @@ runner.test('NPC runtime - residentId should resolve to the same NPC memory reco
   }
 });
 
+// ========== 灾害扩散逻辑修复测试 ==========
+
+runner.test('灾害扩散 - spreadPerTurn=0 应暂停扩散（尊重手动调整）', () => {
+  const game = new DebugGame();
+  game.levelIndex = 0; // 洪水村庄
+  game.reset();
+  game.triggerRandomEvent = () => null;
+  game.level.hazard = { ...game.level.hazard, spreadPerTurn: 0 };
+
+  const before = countTerrain(game, 'water');
+  game.spreadHazards();
+  const after = countTerrain(game, 'water');
+
+  runner.assertEqual(after, before, 'spreadPerTurn=0 时洪水不应扩散（|| 运算符不应把 0 当成假值回退到默认值）');
+});
+
+runner.test('灾害扩散 - 手动新增的灾害源应作为有效源参与扩散', () => {
+  const game = new DebugGame();
+  game.levelIndex = 0; // 洪水村庄
+  game.reset();
+  game.triggerRandomEvent = () => null;
+
+  // 在远离初始水域的角落手动放置一个水域源
+  game.setTerrain(6, 6, TILE.WATER);
+  const manualKeptBefore = game.getTerrain(6, 6) === TILE.WATER;
+
+  game.spreadHazards();
+
+  const manualKeptAfter = game.getTerrain(6, 6) === TILE.WATER;
+  runner.assertTrue(manualKeptBefore, '手动放置水域前应已生效');
+  runner.assertTrue(manualKeptAfter, '手动新增的灾害源不应被扩散逻辑重置/覆盖');
+});
+
+runner.test('灾害扩散 - 不同灾害类型互不覆盖（水域不应吞没黑暗/迷雾源）', () => {
+  const game = new DebugGame();
+  game.reset();
+  game.triggerRandomEvent = () => null;
+  // 构造一个同时存在水域、黑暗、迷雾源的纯净地图
+  game.terrain = Array.from({ length: 7 }, () => Array.from({ length: 7 }, () => TILE.LAND));
+  game.terrain[0][0] = TILE.WATER;
+  game.terrain[0][1] = TILE.DARK;
+  game.terrain[0][2] = TILE.FOG;
+  game.level.hazard = { type: 'mixed', spreadPerTurn: 2, warMeter: 0, warLimit: 9 };
+
+  const darkBefore = countTerrain(game, 'dark');
+  const fogBefore = countTerrain(game, 'fog');
+
+  game.spreadHazards();
+
+  const darkAfter = countTerrain(game, 'dark');
+  const fogAfter = countTerrain(game, 'fog');
+
+  // 黑暗与迷雾源不应被水域扩散覆盖（源格不应减少）
+  runner.assert(darkAfter >= darkBefore, '水域扩散不应吞没黑暗源格（手动灾害数据不被重置）');
+  runner.assert(fogAfter >= fogBefore, '水域扩散不应吞没迷雾源格（手动灾害数据不被重置）');
+});
+
+runner.test('灾害扩散 - poison 灾害类型应能正常扩散', () => {
+  const game = new DebugGame();
+  game.reset();
+  game.triggerRandomEvent = () => null;
+  game.terrain = Array.from({ length: 7 }, () => Array.from({ length: 7 }, () => TILE.LAND));
+  game.terrain[0][0] = TILE.POISON;
+  game.terrain[1][0] = TILE.LAND;
+  game.terrain[0][1] = TILE.LAND;
+  game.level.hazard = { type: 'poison', spreadPerTurn: 2 };
+
+  const before = countTerrain(game, 'poison');
+  game.spreadHazards();
+  const after = countTerrain(game, 'poison');
+
+  runner.assert(after > before, 'poison 灾害应能正常扩散（spreadHazards 需为 poison 类型实现扩散分支）');
+});
+
+runner.test('灾害扩散 - mixed 类型应尊重配置的 spreadPerTurn', () => {
+  const game = new DebugGame();
+  game.levelIndex = 5; // 终考 mixed
+  game.reset();
+  game.triggerRandomEvent = () => null;
+  const configured = game.level.hazard.spreadPerTurn; // 2
+
+  const waterBefore = countTerrain(game, 'water');
+  game.spreadHazards();
+  const waterAfter = countTerrain(game, 'water');
+  const waterSpread = waterAfter - waterBefore;
+
+  // mixed 应使用配置的 spreadPerTurn，而非硬编码的 1
+  runner.assert(waterSpread <= configured, 'mixed 扩散不应超过配置的 spreadPerTurn');
+  // 当存在足够可扩散目标时，应按配置值扩散（不再被硬编码为 1）
+  const reachableWater = (() => {
+    const seen = new Set();
+    for (let y = 0; y < 7; y++) {
+      for (let x = 0; x < 7; x++) {
+        if (game.getTerrain(x, y) !== TILE.WATER) continue;
+        for (const nb of game.neighbors(x, y)) {
+          const t = game.getTerrain(nb.x, nb.y);
+          if (game.canHazardEnter(nb.x, nb.y, TILE.WATER, t)) seen.add(`${nb.x},${nb.y}`);
+        }
+      }
+    }
+    return seen.size;
+  })();
+  if (reachableWater >= configured) {
+    runner.assertEqual(waterSpread, configured, 'mixed 类型应尊重 spreadPerTurn 配置而非硬编码为 1');
+  }
+});
+
+runner.test('灾害扩散 - resolveSpreadPerTurn 应正确解析 0 与默认值', () => {
+  const game = new DebugGame();
+  game.reset();
+
+  game.level.hazard = { type: 'flood', spreadPerTurn: 0 };
+  runner.assertEqual(game.resolveSpreadPerTurn(), 0, 'spreadPerTurn=0 应解析为 0（暂停）');
+
+  game.level.hazard = { type: 'flood', spreadPerTurn: 3 };
+  runner.assertEqual(game.resolveSpreadPerTurn(), 3, 'spreadPerTurn=3 应解析为 3');
+
+  game.level.hazard = { type: 'flood' };
+  runner.assertEqual(game.resolveSpreadPerTurn(), 2, 'spreadPerTurn 缺省应回退到 2');
+
+  game.level.hazard = { type: 'flood', spreadPerTurn: undefined };
+  runner.assertEqual(game.resolveSpreadPerTurn(), 2, 'spreadPerTurn=undefined 应回退到 2');
+});
+
 runner.run().then(success => {
   process.exit(success ? 0 : 1);
 }).catch(error => {

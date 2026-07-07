@@ -1166,6 +1166,23 @@ class GameEngine {
 
   // ========== Unit Movement ==========
 
+  // 吸引能力优先于单位原目标：被吸引期间有效目标为造物卡放置点
+  getEffectiveGoal(unit) {
+    return (unit.attractTurns > 0 && unit.attractedTo) ? unit.attractedTo : unit.goal;
+  }
+
+  // 单位到达吸引点后，标记为已到达以防重复吸引振荡
+  markAttractArrived(unit) {
+    if (!unit.attractedTo || !unit.attractedTo.creationId) return;
+    const creation = this.creations.find(c => c.id === unit.attractedTo.creationId);
+    if (creation && creation.arrivedIds) {
+      const uid = unit.id ?? unit.name;
+      if (uid != null) creation.arrivedIds.add(uid);
+    }
+    unit.attractedTo = null;
+    unit.attractTurns = 0;
+  }
+
   moveUnits() {
     for (const unit of this.units) {
       if (unit.status !== 'active') continue;
@@ -1196,17 +1213,22 @@ class GameEngine {
       }
     }
 
+    const attractGoal = (unit.attractTurns > 0 && unit.attractedTo) ? unit.attractedTo : null;
     let next = null;
-    if (this.level.memoryChaos && !guided && !immuneChaos && Math.random() < 0.45) {
+    if (this.level.memoryChaos && !guided && !immuneChaos && !attractGoal && Math.random() < 0.45) {
       next = this.randomPassableNeighbor(unit);
       if (next) this.log(`${unit.name} 被记忆瘟疫影响，偏离了道路`);
     }
-    if (!next) next = this.nextStepToward(unit, unit.goal);
+    if (!next) next = this.nextStepToward(unit, this.getEffectiveGoal(unit));
     if (next) {
       unit.x = next.x;
       unit.y = next.y;
+      if (attractGoal && unit.x === attractGoal.x && unit.y === attractGoal.y) {
+        this.markAttractArrived(unit);
+        this.log(`${unit.name} 抵达吸引点，恢复原目标`);
+      }
       if (hasRevealPath && !this.isGoalReached(unit)) {
-        const extraStep = this.nextStepToward(unit, unit.goal);
+        const extraStep = this.nextStepToward(unit, this.getEffectiveGoal(unit));
         if (extraStep) {
           unit.x = extraStep.x;
           unit.y = extraStep.y;
@@ -1217,6 +1239,7 @@ class GameEngine {
     if (unit.guidedTurns > 0) unit.guidedTurns -= 1;
     if (unit.revealedPath > 0) unit.revealedPath -= 1;
     if (unit.immuneChaos > 0) unit.immuneChaos -= 1;
+    if (unit.attractTurns > 0) unit.attractTurns -= 1;
     if (this.isGoalReached(unit)) this.rescueUnit(unit);
   }
 
@@ -1233,12 +1256,17 @@ class GameEngine {
       this.log(`${unit.name} 在迷雾中误判形势，战争值 +1`);
       return;
     }
-    const next = this.nextStepToward(unit, unit.goal);
+    const attractGoal = (unit.attractTurns > 0 && unit.attractedTo) ? unit.attractedTo : null;
+    const next = this.nextStepToward(unit, this.getEffectiveGoal(unit));
     if (next) {
       unit.x = next.x;
       unit.y = next.y;
+      if (attractGoal && unit.x === attractGoal.x && unit.y === attractGoal.y) {
+        this.markAttractArrived(unit);
+        this.log(`${unit.name} 抵达吸引点，恢复原目标`);
+      }
       if (unit.revealedPath > 0 && !this.isGoalReached(unit)) {
-        const extraStep = this.nextStepToward(unit, unit.goal);
+        const extraStep = this.nextStepToward(unit, this.getEffectiveGoal(unit));
         if (extraStep) {
           unit.x = extraStep.x;
           unit.y = extraStep.y;
@@ -1249,6 +1277,7 @@ class GameEngine {
     if (unit.guidedTurns > 0) unit.guidedTurns -= 1;
     if (unit.revealedPath > 0) unit.revealedPath -= 1;
     if (unit.immuneChaos > 0) unit.immuneChaos -= 1;
+    if (unit.attractTurns > 0) unit.attractTurns -= 1;
     if (this.isGoalReached(unit)) {
       unit.met = true;
       this.log(`${unit.name} 抵达边境会谈点`, true);
@@ -1268,7 +1297,8 @@ class GameEngine {
     }
     const fromX = unit.x;
     const fromY = unit.y;
-    const next = this.nextStepToward(unit, unit.goal);
+    const attractGoal = (unit.attractTurns > 0 && unit.attractedTo) ? unit.attractedTo : null;
+    const next = this.nextStepToward(unit, this.getEffectiveGoal(unit));
     if (!next) {
       unit.anger = Math.min(this.level.beastAngerLimit || 5, (unit.anger || 0) + 1);
       this.log(`${unit.name} 被完全堵住，怒气上升到 ${unit.anger}`);
@@ -1277,6 +1307,11 @@ class GameEngine {
     unit.x = next.x;
     unit.y = next.y;
     unit.lastMove = { dx: unit.x - fromX, dy: unit.y - fromY, x: fromX, y: fromY };
+    if (attractGoal && unit.x === attractGoal.x && unit.y === attractGoal.y) {
+      this.markAttractArrived(unit);
+      this.log(`${unit.name} 抵达吸引点，恢复原目标`);
+    }
+    if (unit.attractTurns > 0) unit.attractTurns -= 1;
     const trapHere = this.creations.find(c => c.placed && c.remaining > 0 && c.card.ability === 'trap' && c.x === unit.x && c.y === unit.y);
     if (trapHere) {
       unit.stunnedTurns = 2;
@@ -1338,11 +1373,13 @@ class GameEngine {
   getMoveCost(x, y, unit) {
     const terrain = this.getTerrain(x, y);
     let cost = 1;
-    if (terrain === TILE.FOREST) cost = 2;
+    // Beast passes through forest at no extra cost
+    if (terrain === TILE.FOREST) cost = unit.type === 'beast' ? 1 : 2;
     else if (terrain === TILE.HIGH) cost = 1.5;
     else if (terrain === TILE.BRIDGE) cost = 1.2;
     else if (terrain === TILE.SWAMP) cost = 2.5;
-    else if (terrain === TILE.FOG || terrain === TILE.DARK) cost = 3;
+    else if (terrain === TILE.FOG) cost = 1;
+    else if (terrain === TILE.DARK) cost = unit.hazardPhase ? 1 : 3;
 
     const tempCreation = this.creations.find(c =>
       c.placed && c.remaining > 0 && c.remaining <= 1 &&
@@ -1369,17 +1406,26 @@ class GameEngine {
 
   spreadHazards() {
     const type = this.level.hazard?.type;
-    if (type === 'flood') this.spreadTerrain(TILE.WATER, this.level.hazard.spreadPerTurn || 2);
-    if (type === 'darkness') this.spreadTerrain(TILE.DARK, this.level.hazard.spreadPerTurn || 2);
-    if (type === 'fog') this.spreadTerrain(TILE.FOG, this.level.hazard.spreadPerTurn || 2);
+    const amount = this.resolveSpreadPerTurn();
+    if (type === 'flood') this.spreadTerrain(TILE.WATER, amount);
+    if (type === 'darkness') this.spreadTerrain(TILE.DARK, amount);
+    if (type === 'fog') this.spreadTerrain(TILE.FOG, amount);
+    if (type === 'poison') this.spreadTerrain(TILE.POISON, amount);
     if (type === 'war') this.advanceWar();
     if (type === 'mixed') {
-      this.spreadTerrain(TILE.WATER, 1);
-      this.spreadTerrain(TILE.DARK, 1);
-      this.spreadTerrain(TILE.FOG, 1);
+      this.spreadTerrain(TILE.WATER, amount);
+      this.spreadTerrain(TILE.DARK, amount);
+      this.spreadTerrain(TILE.FOG, amount);
       this.advanceWar();
     }
     if (type) this.hooks.onHazardSpread(type);
+  }
+
+  // 解析每回合扩散格数：尊重手动设置的 0（暂停扩散），仅 undefined/null 回退到默认 2
+  resolveSpreadPerTurn() {
+    const value = this.level.hazard?.spreadPerTurn;
+    if (value === 0) return 0;
+    return value ?? 2;
   }
 
   spreadTerrain(sourceTerrain, amount) {
@@ -1399,7 +1445,7 @@ class GameEngine {
     const picked = unique.slice(0, amount);
     for (const cell of picked) this.setTerrain(cell.x, cell.y, sourceTerrain);
     if (picked.length) {
-      const label = sourceTerrain === TILE.WATER ? '洪水' : sourceTerrain === TILE.DARK ? '黑暗' : '迷雾';
+      const label = sourceTerrain === TILE.WATER ? '洪水' : sourceTerrain === TILE.DARK ? '黑暗' : sourceTerrain === TILE.FOG ? '迷雾' : sourceTerrain === TILE.POISON ? '污染' : '灾害';
       this.log(`${label} 扩散了 ${picked.length} 格`);
     }
   }
@@ -1410,8 +1456,11 @@ class GameEngine {
     if ([TILE.HIGH, TILE.EXIT, TILE.CITY, TILE.MOUNTAIN, TILE.WALL, TILE.FIELD, TILE.SACRED].includes(terrain)) return false;
     if (terrain === sourceTerrain) return false;
     if (terrain === TILE.BRIDGE && sourceTerrain !== TILE.DARK) return false;
+    // 森林天然阻挡灾害扩散
     if (terrain === TILE.FOREST) return false;
-    return [TILE.LAND, TILE.VILLAGE, TILE.FOREST, TILE.BORDER, TILE.SWAMP, TILE.FOG, TILE.DARK].includes(terrain);
+    // 不同灾害类型互不覆盖：水域不吞没黑暗/迷雾/污染，避免手动调整的灾害源被重置。
+    // 灾害仅向非灾害地形（平地/村庄/边境/沼泽）扩散，原有灾害源作为有效源继续参与后续计算。
+    return [TILE.LAND, TILE.VILLAGE, TILE.BORDER, TILE.SWAMP].includes(terrain);
   }
 
   hazardScore(x, y, sourceTerrain) {
@@ -1452,6 +1501,12 @@ class GameEngine {
       const isOnHazard = this.isCivilian(unit) && HAZARD_TERRAINS.includes(terrain);
       if (!isOnHazard) {
         // Unit is not on hazard terrain — reset hazard tracking
+        unit.hazardCoverTurns = 0;
+        unit.lastHazardTerrain = null;
+        continue;
+      }
+      // 迷雾内的居民免疫致死（游戏中"迷失"=死亡）：迷雾只引发混乱（偏离寻路），不会让居民迷失死亡（适用于所有关卡）
+      if (terrain === TILE.FOG) {
         unit.hazardCoverTurns = 0;
         unit.lastHazardTerrain = null;
         continue;
@@ -1886,6 +1941,15 @@ class GameEngine {
         this.setTerrain(item.x, item.y, item.prev);
       }
     }
+    // 清除所有受此造物吸引的单位状态，使其立即恢复原目标
+    if (creation.card?.ability === 'attract' && creation.arrivedIds) {
+      for (const unit of this.units || []) {
+        if (unit.attractedTo?.creationId === creation.id) {
+          unit.attractedTo = null;
+          unit.attractTurns = 0;
+        }
+      }
+    }
   }
 
   inBounds(x, y) {
@@ -1946,6 +2010,10 @@ class GameEngine {
     if (terrain === TILE.MOUNTAIN || terrain === TILE.WALL) return false;
     // Multiple units may occupy the same tile.
     if (unit.type === 'beast') {
+      // 裂隙兽（hazardPhase）可穿越黑暗、迷雾、洪水等灾害地形，仅被田地与墙阻挡
+      if (unit.hazardPhase) {
+        return ![TILE.FIELD, TILE.WALL].includes(terrain);
+      }
       return ![TILE.WATER, TILE.FIELD, TILE.WALL].includes(terrain);
     }
     if (this.isMessenger(unit)) {
@@ -2254,14 +2322,16 @@ class GameEngine {
       }
     }
 
+    // 记忆瘟疫乱走仅在居民身处迷雾内时触发：迷雾内四方向随机移动，迷雾外正常寻路
+    const inFog = this.getTerrain(unit.x, unit.y) === TILE.FOG;
     let moved = 0;
-    if (this.level.memoryChaos && !guided && !immuneChaos && Math.random() < 0.45) {
+    if (inFog && !guided && !immuneChaos) {
       const next = this.randomPassableNeighbor(unit);
       if (next) {
         unit.x = next.x;
         unit.y = next.y;
         moved = 1;
-        this.log(`${unit.name} is confused and wanders off path`);
+        this.log(`${unit.name} 在迷雾中迷失方向，四方向随机移动`);
       }
     } else {
       moved = this.moveUnitTowardGoal(unit, this.getUnitMoveSteps(unit));
@@ -2286,7 +2356,20 @@ class GameEngine {
     const terrain = this.getTerrain(unit.x, unit.y);
     const guided = unit.guidedTurns > 0 || this.nearActiveAbility(unit.x, unit.y, ['calm', 'guide', 'memory_beacon']);
     const immuneChaos = unit.immuneChaos > 0;
-    if ((terrain === TILE.FOG || terrain === TILE.DARK) && !guided && !immuneChaos) {
+    if (terrain === TILE.FOG && !guided && !immuneChaos) {
+      const fogNext = this.randomPassableNeighbor(unit);
+      if (fogNext) {
+        unit.x = fogNext.x;
+        unit.y = fogNext.y;
+        this.log(`${unit.name} 在迷雾中迷失方向，四方向随机移动`);
+      }
+      if (this.isGoalReached(unit)) {
+        unit.met = true;
+        this.log(`${unit.name} reaches the border meeting point`, true);
+      }
+      return;
+    }
+    if (terrain === TILE.DARK && !guided && !immuneChaos) {
       this.warMeter = Math.min(this.level.hazard?.warLimit || 9, this.warMeter + 1);
       this.log(`${unit.name} misjudges the fog; war meter +1`);
       return;

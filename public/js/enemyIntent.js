@@ -11,7 +11,8 @@ export const INTENT_TYPES = {
     charge: { name: '冲锋', icon: '⇒', threat: 'medium', description: '快速接近目标' },
     rampage: { name: '暴走', icon: '☠', threat: 'high', description: '怒气满溢，即将毁灭一切' },
     blocked: { name: '受阻', icon: '⊘', threat: 'low', description: '被地形或造物阻挡' },
-    trapped: { name: '被困', icon: '⛓', threat: 'none', description: '陷入陷阱，无法行动' }
+    trapped: { name: '被困', icon: '⛓', threat: 'none', description: '陷入陷阱，无法行动' },
+    attracted: { name: '被吸引', icon: '◎', threat: 'low', description: '被引力场吸引，向造物移动' }
   },
   // Civilian intents
   civilian: {
@@ -19,13 +20,15 @@ export const INTENT_TYPES = {
     advance: { name: '前进', icon: '→', threat: 'low', description: '向目标移动' },
     guided: { name: '受引导', icon: '★', threat: 'none', description: '被造物引导前进' },
     confused: { name: '混乱', icon: '?', threat: 'medium', description: '受记忆瘟疫影响，方向混乱' },
-    dreamLinked: { name: '梦境连接', icon: '∞', threat: 'none', description: '与另一单位共享视野' }
+    dreamLinked: { name: '梦境连接', icon: '∞', threat: 'none', description: '与另一单位共享视野' },
+    attracted: { name: '被吸引', icon: '◎', threat: 'none', description: '被引力场吸引，偏离原路线' }
   },
   // Messenger intents
   messenger: {
     advance: { name: '前进', icon: '→', threat: 'low', description: '向边境移动' },
     misjudge: { name: '误判', icon: '!', threat: 'high', description: '在迷雾中误判形势' },
-    guided: { name: '受引导', icon: '★', threat: 'none', description: '被引导前进' }
+    guided: { name: '受引导', icon: '★', threat: 'none', description: '被引导前进' },
+    attracted: { name: '被吸引', icon: '◎', threat: 'none', description: '被引力场吸引，偏离原路线' }
   },
   // Hazard intents
   hazard: {
@@ -171,8 +174,44 @@ export class EnemyIntentSystem {
       });
     }
 
+    // Use effective goal (attract overrides original goal when active)
+    const effectiveGoal = engine.getEffectiveGoal(unit);
+    const isAttracted = unit.attractTurns > 0 && unit.attractedTo;
+
+    // Attracted: show intent pointing toward attract point
+    if (isAttracted) {
+      const nextStep = engine.nextStepToward(unit, effectiveGoal);
+      if (!nextStep) {
+        return new IntentPreview({
+          unitId: unit.id,
+          unitName: unit.name,
+          unitType: 'beast',
+          category: 'beast',
+          intentType: 'blocked',
+          ...INTENT_TYPES.beast.blocked,
+          position: { x: unit.x, y: unit.y },
+          predictedAction: `${unit.name} 被吸引但路径受阻`,
+          turn,
+          confidence: 0.9
+        });
+      }
+      return new IntentPreview({
+        unitId: unit.id,
+        unitName: unit.name,
+        unitType: 'beast',
+        category: 'beast',
+        intentType: 'advance',
+        ...INTENT_TYPES.beast.attracted,
+        position: { x: unit.x, y: unit.y },
+        targetPosition: nextStep,
+        predictedAction: `${unit.name} 被引力吸引，向吸引点移动`,
+        turn,
+        confidence: 0.9
+      });
+    }
+
     // Check if path is blocked
-    const nextStep = engine.nextStepToward(unit, unit.goal);
+    const nextStep = engine.nextStepToward(unit, effectiveGoal);
     if (!nextStep) {
       const angerRatio = (unit.anger || 0) / (engine.level.beastAngerLimit || 5);
       if (angerRatio >= 1) {
@@ -204,7 +243,7 @@ export class EnemyIntentSystem {
     }
 
     // Check if near goal
-    const distToGoal = engine.distance(unit.x, unit.y, unit.goal.x, unit.goal.y);
+    const distToGoal = engine.distance(unit.x, unit.y, effectiveGoal.x, effectiveGoal.y);
     if (distToGoal <= 2) {
       return new IntentPreview({
         unitId: unit.id,
@@ -238,10 +277,31 @@ export class EnemyIntentSystem {
 
   // Predict civilian's next action
   predictCivilianIntent(unit, engine, turn) {
-    const nextStep = engine.nextStepToward(unit, unit.goal);
+    const effectiveGoal = engine.getEffectiveGoal(unit);
+    const isAttracted = unit.attractTurns > 0 && unit.attractedTo;
     const guided = unit.guidedTurns > 0 || engine.nearActiveAbility(unit.x, unit.y, ['guide', 'memory_beacon', 'illuminate']);
     const immuneChaos = unit.immuneChaos > 0;
     const hasDreamLink = unit.dreamLinked && engine.units.find(u => u.id === unit.dreamLinked && u.status === 'active');
+
+    // Attracted overrides other intents — show direction toward attract point
+    if (isAttracted) {
+      const nextStep = engine.nextStepToward(unit, effectiveGoal);
+      return new IntentPreview({
+        unitId: unit.id,
+        unitName: unit.name,
+        unitType: 'civilian',
+        category: 'civilian',
+        intentType: 'attracted',
+        ...INTENT_TYPES.civilian.attracted,
+        position: { x: unit.x, y: unit.y },
+        targetPosition: nextStep,
+        predictedAction: `${unit.name} 被引力吸引，向吸引点移动`,
+        turn,
+        confidence: 0.9
+      });
+    }
+
+    const nextStep = engine.nextStepToward(unit, effectiveGoal);
 
     if (guided) {
       return new IntentPreview({
@@ -275,7 +335,7 @@ export class EnemyIntentSystem {
       });
     }
 
-    if (engine.level.memoryChaos && !guided && !immuneChaos) {
+    if (engine.level.memoryChaos && !guided && !immuneChaos && engine.getTerrain(unit.x, unit.y) === 'fog') {
       return new IntentPreview({
         unitId: unit.id,
         unitName: unit.name,
@@ -284,9 +344,10 @@ export class EnemyIntentSystem {
         intentType: 'confused',
         ...INTENT_TYPES.civilian.confused,
         position: { x: unit.x, y: unit.y },
-        predictedAction: `${unit.name} 可能被记忆瘟疫影响，偏离道路`,
+        targetPosition: null,
+        predictedAction: `${unit.name} 在迷雾中迷失方向，四方向随机移动`,
         turn,
-        confidence: 0.45 // Uncertain
+        confidence: 0.9 // 迷雾内必定四方向随机移动
       });
     }
 
@@ -307,10 +368,31 @@ export class EnemyIntentSystem {
 
   // Predict messenger's next action
   predictMessengerIntent(unit, engine, turn) {
-    const nextStep = engine.nextStepToward(unit, unit.goal);
+    const effectiveGoal = engine.getEffectiveGoal(unit);
+    const isAttracted = unit.attractTurns > 0 && unit.attractedTo;
     const terrain = engine.getTerrain(unit.x, unit.y);
     const guided = unit.guidedTurns > 0 || engine.nearActiveAbility(unit.x, unit.y, ['calm', 'guide', 'memory_beacon']);
     const immuneChaos = unit.immuneChaos > 0;
+
+    // Attracted overrides other intents
+    if (isAttracted) {
+      const nextStep = engine.nextStepToward(unit, effectiveGoal);
+      return new IntentPreview({
+        unitId: unit.id,
+        unitName: unit.name,
+        unitType: 'messenger',
+        category: 'messenger',
+        intentType: 'attracted',
+        ...INTENT_TYPES.messenger.attracted,
+        position: { x: unit.x, y: unit.y },
+        targetPosition: nextStep,
+        predictedAction: `${unit.name} 被引力吸引，向吸引点移动`,
+        turn,
+        confidence: 0.9
+      });
+    }
+
+    const nextStep = engine.nextStepToward(unit, effectiveGoal);
 
     if ((terrain === 'fog' || terrain === 'dark') && !guided && !immuneChaos) {
       return new IntentPreview({

@@ -94,7 +94,8 @@ const ABILITY_COLORS = {
   cycle_life: 0x8bdc65,
   temporal_rift: 0xb8a7ff,
   paradox_barrier: 0x7de7ff,
-  chaos_guide: 0xffe07a
+  chaos_guide: 0xffe07a,
+  attract: 0xff7ab6
 };
 
 class CreatorExam3D extends GameEngine {
@@ -1347,6 +1348,12 @@ class CreatorExam3D extends GameEngine {
         unit.lastHazardTerrain = null;
         continue;
       }
+      // 迷雾内的居民免疫致死（游戏中"迷失"=死亡）：迷雾像平地，不会让居民迷失死亡
+      if (terrain === TILE.FOG) {
+        unit.hazardCoverTurns = 0;
+        unit.lastHazardTerrain = null;
+        continue;
+      }
 
       // Track hazard coverage duration
       if (unit.lastHazardTerrain === terrain) {
@@ -1401,6 +1408,20 @@ class CreatorExam3D extends GameEngine {
 
   // Override moveBeast with trap trigger support
 
+  // Override markAttractArrived to clear path cache when attract ends
+  markAttractArrived(unit) {
+    super.markAttractArrived(unit);
+    this.clearPathCache();
+  }
+
+  // Override expireCreation to clear path cache when creation expires
+  expireCreation(creation) {
+    super.expireCreation(creation);
+    if (creation.card?.ability === 'attract') {
+      this.clearPathCache();
+    }
+  }
+
   moveBeast(unit) {
     if (unit.tamed) {
       this.addLog(`${unit.name} 已被驯服，安静地停留在原地。`);
@@ -1414,7 +1435,11 @@ class CreatorExam3D extends GameEngine {
     }
     const fromX = unit.x;
     const fromY = unit.y;
-    const next = this.nextStepToward(unit, unit.goal);
+    const attractGoal = (unit.attractTurns > 0 && unit.attractedTo) ? unit.attractedTo : null;
+    // 迷雾内巨兽/裂隙兽四方向随机移动（被吸引时优先寻路，引力不受视野限制）
+    const next = (this.getTerrain(unit.x, unit.y) === TILE.FOG && !attractGoal)
+      ? this.randomPassableNeighbor(unit)
+      : this.nextStepToward(unit, this.getEffectiveGoal(unit));
     if (!next) {
       unit.anger = Math.min(this.level.beastAngerLimit || 5, (unit.anger || 0) + 1);
       this.addLog(`${unit.name} 被完全堵住，怒气上升到 ${unit.anger}。`);
@@ -1423,6 +1448,11 @@ class CreatorExam3D extends GameEngine {
     unit.x = next.x;
     unit.y = next.y;
     unit.lastMove = { dx: unit.x - fromX, dy: unit.y - fromY, x: fromX, y: fromY };
+    if (attractGoal && unit.x === attractGoal.x && unit.y === attractGoal.y) {
+      this.markAttractArrived(unit);
+      this.addLog(`${unit.name} 抵达吸引点，恢复原目标。`);
+    }
+    if (unit.attractTurns > 0) unit.attractTurns -= 1;
     const trapHere = this.creations.find(c => c.placed && c.remaining > 0 && c.card.ability === 'trap' && c.x === unit.x && c.y === unit.y);
     if (trapHere) {
       unit.stunnedTurns = 2;
@@ -1540,6 +1570,10 @@ class CreatorExam3D extends GameEngine {
     if (terrain === TILE.MOUNTAIN || terrain === TILE.WALL) return false;
     // Multiple units may occupy the same tile.
     if (unit.type === 'beast') {
+      // 裂隙兽（hazardPhase）可穿越洪水/黑暗/迷雾等灾害地形，仅被田地阻挡（墙/山已在上方统一阻挡）
+      if (unit.hazardPhase) {
+        return ![TILE.FIELD].includes(terrain);
+      }
       return ![TILE.WATER, TILE.FIELD].includes(terrain);
     }
     if (this.isMessenger(unit)) {
@@ -2330,6 +2364,10 @@ class CreatorExam3D extends GameEngine {
       const color = threatColor[p.threat] || threatColor.low;
       const isDangerous = p.intentType === 'rampage' || p.intentType === 'intensify';
       const start = this.tileToWorld(p.position.x, p.position.y);
+
+      // 居民在迷雾内时不显示动向箭头（迷雾中看不清下一步方向）
+      const previewUnit = p.unitId ? this.units.find(u => u.id === p.unitId) : null;
+      if (previewUnit && this.getTerrain(previewUnit.x, previewUnit.y) === TILE.FOG) continue;
 
       if (p.targetPosition) {
         const end = this.tileToWorld(p.targetPosition.x, p.targetPosition.y);

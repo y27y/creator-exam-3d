@@ -29,6 +29,16 @@ function canRewriteTerrain(terrain) {
   return ![TILE.MOUNTAIN, TILE.WALL, TILE.EXIT, TILE.CITY, TILE.SACRED].includes(terrain);
 }
 
+// Check whether a unit matches the attract target type
+function matchesAttractTarget(game, unit, target) {
+  if (!unit || unit.status !== 'active') return false;
+  if (target === 'all') return true;
+  if (target === 'beast') return unit.type === 'beast';
+  if (target === 'human') return game.isCivilian(unit) || game.isMessenger(unit);
+  // Default fallback: match beasts
+  return unit.type === 'beast';
+}
+
 function rewriteTerrain(game, x, y, tile) {
   if (typeof game.inBounds === 'function' && !game.inBounds(x, y)) return false;
   const current = game.getTerrain(x, y);
@@ -170,6 +180,21 @@ AbilityHandlers.immediate.set('sun_blessing', (game, creation) => {
     }
   }
   game.addLog(`「${card.name}」降下日华，大范围驱散黑暗并庇佑生灵。`);
+});
+
+AbilityHandlers.immediate.set('attract', (game, creation) => {
+  const { card, x, y } = creation;
+  const target = card.attractTarget || 'beast';
+  creation.arrivedIds = new Set();
+  let attracted = 0;
+  for (const unit of game.units || []) {
+    if (!matchesAttractTarget(game, unit, target)) continue;
+    if (game.distance(unit.x, unit.y, x, y) > card.range + 1) continue;
+    unit.attractedTo = { x, y, creationId: creation.id };
+    unit.attractTurns = card.duration;
+    attracted += 1;
+  }
+  if (attracted) logGame(game, `「${card.name}」的引力场启动，${attracted} 个目标开始向这里移动。`, true);
 });
 
 // ========== Active Turn Handlers ==========
@@ -450,6 +475,20 @@ AbilityHandlers.active.set('redirect_hazard', (game, creation) => {
     changed += 1;
   }
   if (changed) game.addLog(`${card.name} redirects ${changed} hazard tile(s).`);
+});
+
+AbilityHandlers.active.set('attract', (game, creation) => {
+  const { card, x, y } = creation;
+  const target = card.attractTarget || 'beast';
+  if (!creation.arrivedIds) creation.arrivedIds = new Set();
+  for (const unit of game.units || []) {
+    if (!matchesAttractTarget(game, unit, target)) continue;
+    const uid = unit.id ?? unit.name;
+    if (uid != null && creation.arrivedIds.has(uid)) continue;
+    if (game.distance(unit.x, unit.y, x, y) > card.range + 1) continue;
+    unit.attractedTo = { x, y, creationId: creation.id };
+    unit.attractTurns = Math.max(unit.attractTurns || 0, 1);
+  }
 });
 
 // ========== Verification Corruption / Illegal Abilities ==========

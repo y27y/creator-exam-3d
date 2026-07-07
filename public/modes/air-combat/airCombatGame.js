@@ -1,5 +1,7 @@
 (function () {
   const bridge = window.AirCombatBridge;
+  const assets = window.AirCombatAssets || null;
+  assets?.load();
   const canvas = document.getElementById('airspace-canvas');
   const ctx = canvas.getContext('2d');
   const hudStage = document.getElementById('hud-stage');
@@ -49,6 +51,13 @@
     return list[Math.floor(Math.random() * list.length)];
   }
 
+  function shipKeyForLoadout(_difficulty, weapon, resonance = {}) {
+    if (weapon?.kind === 'shield' || (resonance.damageTakenMult || 1) < 1) return 'defender';
+    if (weapon?.kind === 'wing' || (resonance.sidePairs || 0) > 0 || (resonance.missileVolleyBonus || 0) > 0) return 'scout';
+    if (weapon?.kind === 'cannon' || (resonance.bossHunterDamageMult || 0) > 0 || (resonance.executionerDamageMult || 0) > 0) return 'attacker';
+    return 'balanced';
+  }
+
   const bossImageCache = new Map();
   function bossImage(src) {
     if (!src || typeof Image === 'undefined') return null;
@@ -60,6 +69,78 @@
     const img = bossImageCache.get(src);
     return img?.complete && img.naturalWidth > 0 ? img : null;
   }
+
+  function bossImageFor(def, affix) {
+    const index = affix?.skywardBossIndex ?? def?.skywardBossIndex;
+    return (assets ? assets.boss(index) : null) || bossImage(affix?.image);
+  }
+
+  function backgroundWorldForRoute(route, entropy = 0) {
+    const text = route.map(boss => [boss.id, boss.title, boss.memory, boss.affix?.key, boss.affix?.name].filter(Boolean).join(' ')).join(' ');
+    if (/tide|gravity|flood|water|寮曟疆|娼|閲嶅姏|姘?/.test(text)) return 8;
+    if (/iron|carrier|warden|guard|resident|oath|閾佸箷|绌烘瘝|鎶ゅ崼|灞呮皯/.test(text)) return 7;
+    if (/prism|light|fog|beacon|妫遍暅|鎶樺皠|杩烽浘|鑸爣/.test(text)) return 6;
+    return clamp(1 + Math.floor((Number(entropy) || 0) % 8), 1, 8);
+  }
+
+  const SKYWARD_BOSS_PROTOTYPES = {
+    0: { movement: 'sweep', moveSpeed: 1.1, moveRange: 170, phases: [
+      { cd: 1.3, attacks: [{ type: 'fanDown', count: 5, spread: 55, speed: 250 }] },
+      { cd: 0.9, attacks: [{ type: 'aimed', count: 3, spread: 16, speed: 280 }] },
+      { cd: 1.05, attacks: [{ type: 'ring', count: 18, speed: 225 }, { type: 'fanDown', count: 6, spread: 60, speed: 250 }] }
+    ] },
+    1: { movement: 'figure8', moveSpeed: 1, moveRange: 150, phases: [
+      { cd: 0.16, attacks: [{ type: 'spiral', arms: 2, step: 19, speed: 170 }] },
+      { cd: 0.85, attacks: [{ type: 'aimed', count: 5, spread: 22, speed: 260 }] },
+      { cd: 0.14, attacks: [{ type: 'spiral', arms: 3, step: 26, speed: 190 }] }
+    ] },
+    2: { movement: 'dart', dartEvery: 2.2, phases: [
+      { cd: 1.6, attacks: [{ type: 'wall', spacing: 46, gap: 100, speed: 180 }] },
+      { cd: 0.8, attacks: [{ type: 'aimed', count: 5, spread: 26, speed: 270 }] },
+      { cd: 1.4, attacks: [{ type: 'wall', spacing: 40, gap: 90, speed: 200 }, { type: 'ring', count: 12, speed: 210 }] }
+    ] },
+    3: { movement: 'sweep', moveSpeed: 1.5, moveRange: 190, phases: [
+      { cd: 1, attacks: [{ type: 'ring', count: 16, speed: 220 }, { type: 'aimed', count: 3, spread: 14, speed: 280 }] },
+      { cd: 0.15, attacks: [{ type: 'spiral', arms: 3, step: 23, speed: 200 }] },
+      { cd: 1.2, attacks: [{ type: 'ring', count: 20, speed: 230 }, { type: 'wall', spacing: 44, gap: 80, speed: 190 }] }
+    ] },
+    4: { movement: 'figure8', moveSpeed: 1.2, moveRange: 170, phases: [
+      { cd: 0.9, attacks: [{ type: 'fanDown', count: 7, spread: 70, speed: 250 }, { type: 'aimed', count: 3, spread: 12, speed: 290 }] },
+      { cd: 0.14, attacks: [{ type: 'spiral', arms: 4, step: 21, speed: 200 }] },
+      { cd: 1, attacks: [{ type: 'ring', count: 22, speed: 230 }, { type: 'wall', spacing: 38, gap: 80, speed: 200 }, { type: 'laser', warn: 0.6, dur: 0.9, width: 50, cd: 4.8, aimed: true }] }
+    ] },
+    5: { movement: 'figure8', moveSpeed: 1.3, moveRange: 180, phases: [
+      { cd: 0.85, attacks: [{ type: 'fanDown', count: 8, spread: 80, speed: 260 }, { type: 'aimed', count: 3, spread: 12, speed: 300 }] },
+      { cd: 0.13, attacks: [{ type: 'spiral', arms: 4, step: 20, speed: 210 }, { type: 'laser', warn: 0.55, dur: 0.9, width: 54, cd: 3.8, aimed: true }] },
+      { cd: 0.95, attacks: [{ type: 'ring', count: 24, speed: 240 }, { type: 'wall', spacing: 36, gap: 76, speed: 210 }, { type: 'laser', warn: 0.5, dur: 1, width: 60, cd: 3.2, aimed: true }] }
+    ] },
+    6: { movement: 'figure8', moveSpeed: 1.4, moveRange: 190, phases: [
+      { cd: 0.8, attacks: [{ type: 'fanDown', count: 9, spread: 85, speed: 270 }, { type: 'aimed', count: 4, spread: 14, speed: 300 }] },
+      { cd: 0.12, attacks: [{ type: 'spiral', arms: 5, step: 18, speed: 220 }, { type: 'laser', warn: 0.5, dur: 0.9, width: 56, cd: 3.5, aimed: true }] },
+      { cd: 0.85, attacks: [{ type: 'ring', count: 26, speed: 250 }, { type: 'wall', spacing: 34, gap: 72, speed: 220 }, { type: 'laser', warn: 0.45, dur: 1, width: 64, cd: 2.8, aimed: true }] }
+    ] },
+    7: { movement: 'sweep', moveSpeed: 1.35, moveRange: 190, phases: [
+      { cd: 1.05, attacks: [{ type: 'laser', warn: 0.6, dur: 0.75, width: 46, cd: 4.2, aimed: true }, { type: 'fanDown', count: 5, spread: 62, speed: 265 }] },
+      { cd: 1, attacks: [{ type: 'prismBurst', warn: 0.55, dur: 0.7, width: 48, cd: 4, count: 6, speed: 205 }, { type: 'wall', spacing: 48, gap: 100, speed: 195 }] },
+      { cd: 0.92, attacks: [{ type: 'dualLaser', warn: 0.55, dur: 0.85, width: 42, cd: 3.5, offset: 82 }, { type: 'spiral', arms: 2, step: 18, speed: 200 }] }
+    ] },
+    8: { movement: 'figure8', moveSpeed: 1, moveRange: 135, phases: [
+      { cd: 1.25, attacks: [{ type: 'escort', enemy: 'medium', adds: 2, maxAdds: 4 }, { type: 'fanDown', count: 6, spread: 64, speed: 255 }] },
+      { cd: 1.05, attacks: [{ type: 'escort', enemy: 'warden', adds: 1, maxAdds: 4 }, { type: 'wall', spacing: 42, gap: 92, speed: 205 }] },
+      { cd: 0.95, attacks: [{ type: 'escort', enemy: 'gunner', elite: 'berserker', adds: 2, maxAdds: 5 }, { type: 'ring', count: 22, speed: 235 }, { type: 'aimed', count: 3, spread: 16, speed: 300 }] }
+    ] },
+    9: { movement: 'dart', dartEvery: 2, phases: [
+      { cd: 1.2, attacks: [{ type: 'gravity', warn: 0.8, dur: 2, radius: 410, strength: 85 }, { type: 'ring', count: 16, speed: 190 }] },
+      { cd: 1.05, attacks: [{ type: 'gravity', warn: 0.65, dur: 1.8, radius: 430, strength: 100 }, { type: 'wall', spacing: 40, gap: 86, speed: 205 }] },
+      { cd: 0.95, attacks: [{ type: 'gravity', warn: 0.55, dur: 1.6, radius: 450, strength: -115 }, { type: 'laser', warn: 0.5, dur: 0.85, width: 52, cd: 3.2, aimed: true }, { type: 'spiral', arms: 3, step: 19, speed: 205 }] }
+    ] },
+    10: { movement: 'figure8', moveSpeed: 1.25, moveRange: 170, phases: [
+      { cd: 0.95, attacks: [{ type: 'fanDown', count: 8, spread: 82, speed: 265 }, { type: 'escort', enemy: 'beacon', adds: 1, maxAdds: 3 }] },
+      { cd: 0.85, attacks: [{ type: 'prismBurst', warn: 0.55, dur: 0.65, width: 48, cd: 3.8, count: 6, speed: 215 }, { type: 'spiral', arms: 3, step: 21, speed: 210 }] },
+      { cd: 0.85, attacks: [{ type: 'gravity', warn: 0.55, dur: 1.4, radius: 420, strength: 95 }, { type: 'wall', spacing: 36, gap: 78, speed: 220 }, { type: 'ring', count: 24, speed: 245 }] }
+    ] }
+  };
+
 
   function screenPoint(event) {
     const rect = canvas.getBoundingClientRect();
@@ -144,6 +225,7 @@
       this.wings = difficulty.allyWings;
       this.weapon = weapon;
       this.resonance = resonance || {};
+      this.shipKey = shipKeyForLoadout(difficulty, weapon, resonance);
     }
 
     update(dt) {
@@ -200,18 +282,21 @@
       ctx.lineTo(0, 28 + Math.sin(game.time * 20) * 4);
       ctx.closePath();
       ctx.fill();
-      ctx.fillStyle = color;
-      ctx.beginPath();
-      ctx.moveTo(0, -20);
-      ctx.lineTo(-17, 16);
-      ctx.lineTo(0, 8);
-      ctx.lineTo(17, 16);
-      ctx.closePath();
-      ctx.fill();
-      ctx.fillStyle = '#eef3ec';
-      ctx.beginPath();
-      ctx.ellipse(0, -6, 4, 7, 0, 0, Math.PI * 2);
-      ctx.fill();
+      const textured = assets?.draw(ctx, assets.player(this.shipKey), 0, -2, 66);
+      if (!textured) {
+        ctx.fillStyle = color;
+        ctx.beginPath();
+        ctx.moveTo(0, -20);
+        ctx.lineTo(-17, 16);
+        ctx.lineTo(0, 8);
+        ctx.lineTo(17, 16);
+        ctx.closePath();
+        ctx.fill();
+        ctx.fillStyle = '#eef3ec';
+        ctx.beginPath();
+        ctx.ellipse(0, -6, 4, 7, 0, 0, Math.PI * 2);
+        ctx.fill();
+      }
       if (this.shield > 0) {
         ctx.strokeStyle = 'rgba(139,211,255,.8)';
         ctx.lineWidth = 3;
@@ -223,6 +308,7 @@
 
       for (let i = 0; i < this.wings; i += 1) {
         const x = this.x + (i - (this.wings - 1) / 2) * 36;
+        if (assets?.draw(ctx, assets.wingman(this.shipKey), x, this.y + 8, 32)) continue;
         ctx.fillStyle = 'rgba(238,243,236,.82)';
         ctx.beginPath();
         ctx.moveTo(x, this.y + 2);
@@ -238,21 +324,36 @@
     constructor(type, stage) {
       const data = {
         small: { hp: 2, r: 13, speed: 130, score: 80, color: '#f87171', fire: 0 },
-        medium: { hp: 7, r: 21, speed: 95, score: 180, color: '#d8c58a', fire: 1.7 },
-        gunner: { hp: 11, r: 24, speed: 82, score: 260, color: '#8bd3ff', fire: 1.2 },
-        splitter: { hp: 8, r: 22, speed: 100, score: 220, color: '#72d6bd', fire: 0 },
-        detonator: { hp: 6, r: 23, speed: 112, score: 450, color: '#fab005', fire: 0, ringCount: 14, ringSpeed: 210, ringDamage: 9 },
-        phantom: { hp: 6, r: 18, speed: 150, score: 260, color: '#f0a6ca', fire: 1.0 },
+        medium: { hp: 7, r: 21, speed: 95, score: 180, color: '#d8c58a', fire: 1.7, move: 'sine' },
+        large: { hp: 15, r: 31, speed: 72, score: 520, color: '#f06595', fire: 2.2, shots: 3, move: 'orbit' },
+        gunner: { hp: 11, r: 24, speed: 82, score: 260, color: '#8bd3ff', fire: 1.2, shots: 2, move: 'sine' },
+        splitter: { hp: 8, r: 22, speed: 100, score: 220, color: '#72d6bd', fire: 0, move: 'zigzag' },
+        detonator: { hp: 6, r: 23, speed: 112, score: 450, color: '#fab005', fire: 0, ringCount: 14, ringSpeed: 210, ringDamage: 9, move: 'zigzag' },
+        phantom: { hp: 7, r: 18, speed: 150, score: 300, color: '#22d3ee', fire: 1.0, shots: 2, move: 'sine' },
         sniper: { hp: 7, r: 20, speed: 72, score: 340, color: '#e64980', fire: 1.8, warn: 0.55, bulletSpeed: 520, damage: 13, shots: 1 },
-        jammer: { hp: 10, r: 24, speed: 76, score: 300, color: '#75d7e6', fire: 1.6, jamRadius: 210, weaponSlow: 1.28 },
-        support: { hp: 12, r: 24, speed: 68, score: 320, color: '#72d6bd', fire: 0, repairRadius: 130, repairAmount: 2, repairInterval: 2.4 },
-        carrier: { hp: 22, r: 32, speed: 65, score: 900, color: '#9775fa', fire: 0, spawns: 'medium', spawnCount: 2 }
-      }[type];
+        shieldCarrier: { hp: 18, r: 30, speed: 66, score: 640, color: '#74c0fc', fire: 1.9, shots: 3, shield: 18, move: 'sine' },
+        jammer: { hp: 10, r: 24, speed: 76, score: 300, color: '#75d7e6', fire: 1.6, shots: 2, jamRadius: 210, weaponSlow: 1.28, move: 'sine' },
+        support: { hp: 12, r: 24, speed: 68, score: 320, color: '#72d6bd', fire: 0, repairRadius: 130, repairAmount: 2, repairInterval: 2.4, move: 'sine' },
+        carrier: { hp: 22, r: 32, speed: 65, score: 900, color: '#9775fa', fire: 0, spawns: 'medium', spawnCount: 2, move: 'sine' },
+        kamikaze: { hp: 5, r: 21, speed: 155, score: 520, color: '#ff6b6b', fire: 0, move: 'rearChase', fromBottom: true, crashDamage: 45 },
+        beacon: { hp: 6, r: 21, speed: 95, score: 520, color: '#ffd43b', fire: 0, bulletSpeed: 300, damage: 8, markInterval: 2.8, markDelay: 0.75, markShots: 3, move: 'sine' },
+        mineLayer: { hp: 13, r: 27, speed: 68, score: 760, color: '#ff922b', fire: 0, damage: 9, mineInterval: 2.2, mineRadius: 18, triggerRadius: 70, ringCount: 8, ringSpeed: 170, move: 'sine' },
+        phaseWing: { hp: 8, r: 22, speed: 120, score: 680, color: '#be4bdb', fire: 0, bulletSpeed: 275, damage: 8, blinkInterval: 2.4, blinkDelay: 0.55, blinkRange: 170, shots: 5 },
+        mirrorDrone: { hp: 7, r: 20, speed: 105, score: 650, color: '#74c0fc', fire: 0, bulletSpeed: 230, damage: 7, reflectCd: 0.9, move: 'sine' },
+        tether: { hp: 14, r: 26, speed: 62, score: 820, color: '#20c997', fire: 0, pullRadius: 260, pullStrength: 95, move: 'sine' },
+        warden: { hp: 18, r: 30, speed: 58, score: 920, color: '#91a7ff', fire: 0, guardRadius: 155, guardShield: 8, maxTargets: 4, move: 'sine' },
+        harvester: { hp: 10, r: 23, speed: 155, score: 720, color: '#fcc419', fire: 0, stealRadius: 210, escapeSpeed: 230 }
+      }[type] || { hp: 2, r: 13, speed: 130, score: 80, color: '#f87171', fire: 0 };
       this.type = type;
       this.x = 32 + Math.random() * (W - 64);
-      this.y = -data.r - Math.random() * 80;
+      this.y = data.fromBottom ? H + data.r + Math.random() * 60 : -data.r - Math.random() * 80;
       this.baseX = this.x;
       this.t = Math.random() * 4;
+      this.move = data.move || 'straight';
+      this.vx = 0;
+      this.vy = data.fromBottom ? -data.speed : data.speed;
+      this.entered = false;
+      this.phase = 'in';
       this.hp = data.hp + stage;
       this.maxHp = this.hp;
       this.r = data.r;
@@ -260,6 +361,7 @@
       this.score = data.score;
       this.color = data.color;
       this.fire = data.fire ? data.fire + Math.random() : 999;
+      this.crashDamage = data.crashDamage || 18;
       this.jamRadius = data.jamRadius || 0;
       this.weaponSlow = data.weaponSlow || 1;
       this.warn = data.warn || 0;
@@ -281,20 +383,34 @@
       this.spawns = data.spawns || '';
       this.spawnCount = data.spawnCount || 0;
       this.carrierSpawn = 0;
+      this.eliteShieldMax = data.shield || 0;
+      this.eliteShield = this.eliteShieldMax;
+      this.guardShield = 0;
+      this.guardedBy = null;
+      this.beaconTimer = data.markInterval ? data.markInterval * (0.55 + Math.random() * 0.35) : 0;
+      this.beaconWarn = 0;
+      this.beaconX = 0;
+      this.mineTimer = data.mineInterval ? data.mineInterval * (0.55 + Math.random() * 0.35) : 0;
+      this.phaseTimer = data.blinkInterval ? data.blinkInterval * (0.55 + Math.random() * 0.35) : 0;
+      this.phaseWarn = 0;
+      this.phaseTargetX = 0;
+      this.reflectCd = 0;
+      this.wardenPulse = 0;
+      this.stolenKind = '';
+      this.escapeTimer = 0;
+      this.cfg = data;
       this.dead = false;
     }
 
     update(dt) {
       this.t += dt;
-      this.y += this.speed * dt;
-      if (this.type === 'phantom') this.x = this.baseX + Math.sin(this.t * 4) * 70;
-      else if (this.type === 'gunner') this.x = this.baseX + Math.sin(this.t * 2.2) * 44;
-      else if (this.type === 'splitter') this.x = this.baseX + Math.sin(this.t * 3) * 30;
-      else if (this.type === 'detonator') this.x = this.baseX + Math.sin(this.t * 5.2) * 24;
-      else if (this.type === 'jammer') this.x = this.baseX + Math.sin(this.t * 2.8) * 52;
-      else if (this.type === 'support') this.x = this.baseX + Math.sin(this.t * 1.8) * 34;
-      else if (this.type === 'carrier') this.x = this.baseX + Math.sin(this.t * 1.3) * 28;
+      this.applyMove(dt);
       if (this.carrierSpawn > 0) this.carrierSpawn -= dt;
+      if (this.reflectCd > 0) this.reflectCd -= dt;
+      this.updateBeacon(dt);
+      this.updateMineLayer(dt);
+      this.updatePhaseWing(dt);
+      this.updateWarden(dt);
       this.fire -= dt;
       if (this.sniperWarn > 0 && game.player) {
         this.sniperWarn -= dt;
@@ -329,21 +445,270 @@
           }
         }
       }
-      if (this.y > H + this.r) this.dead = true;
+      if (this.y >= -this.r && this.y <= H + this.r) this.entered = true;
+      if (this.entered && (this.y > H + this.r || this.y < -this.r - 80 || this.x < -70 || this.x > W + 70)) this.dead = true;
     }
 
-    damage(amount) {
+    applyMove(dt) {
+      if (this.type === 'harvester') {
+        if (this.escapeTimer > 0) {
+          this.escapeTimer -= dt;
+          this.y -= (this.cfg.escapeSpeed || 220) * dt;
+          return;
+        }
+        const powerup = game.nearestPowerup(this.x, this.y, this.cfg.stealRadius || 180);
+        if (powerup) {
+          const dx = powerup.x - this.x;
+          const dy = powerup.y - this.y;
+          const d = Math.hypot(dx, dy);
+          if (d < this.r + powerup.r + 4) game.stealPowerupFor(this, powerup);
+          else if (d > 1) {
+            const sp = this.speed * 1.25;
+            this.x = clamp(this.x + dx / d * sp * dt, this.r, W - this.r);
+            this.y += dy / d * sp * dt;
+          }
+          return;
+        }
+      }
+      if (this.move === 'rearChase') {
+        const p = game.player || { x: this.x, y: 0 };
+        const warn = 2;
+        const tracking = this.t < 4.5;
+        const phaseMul = this.t < warn ? 0.7 : this.t < warn + 2.5 ? 1.8 : 1.1;
+        const sp = this.speed * phaseMul;
+        const a = Math.atan2(p.y - this.y, p.x - this.x);
+        if (!this.vx && !this.vy) {
+          this.vx = 0;
+          this.vy = -sp;
+        }
+        if (tracking) {
+          const turn = clamp(4 * dt, 0, 1);
+          this.vx += (Math.cos(a) * sp - this.vx) * turn;
+          this.vy += (Math.sin(a) * sp - this.vy) * turn;
+        } else {
+          const d = Math.hypot(this.vx, this.vy) || 1;
+          this.vx = this.vx / d * sp;
+          this.vy = this.vy / d * sp;
+        }
+        this.x = clamp(this.x + this.vx * dt, -this.r, W + this.r);
+        this.y += this.vy * dt;
+      } else if (this.move === 'sine') {
+        this.y += this.speed * dt;
+        this.x = clamp(this.baseX + Math.sin(this.t * (this.type === 'phantom' ? 4 : 2.4)) * (this.type === 'phantom' ? 70 : 48), this.r, W - this.r);
+      } else if (this.move === 'zigzag') {
+        this.y += this.speed * dt;
+        const ph = (this.t % 1.35) / 1.35;
+        const tri = ph < 0.5 ? ph * 2 : 2 - ph * 2;
+        this.x = clamp(this.baseX + (tri * 2 - 1) * 76, this.r, W - this.r);
+      } else if (this.move === 'orbit') {
+        this.y += this.speed * 0.56 * dt;
+        this.x = clamp(this.baseX + Math.cos(this.t * 2.2) * 60, this.r, W - this.r);
+        this.y += Math.sin(this.t * 2.2) * 24 * dt;
+      } else {
+        this.y += this.speed * dt;
+      }
+    }
+
+    updateBeacon(dt) {
+      if (this.type !== 'beacon' || this.y <= 0 || this.y >= H * 0.74 || !game.player) return;
+      if (this.beaconWarn > 0) {
+        this.beaconWarn -= dt;
+        if (this.beaconWarn <= 0) {
+          const n = this.cfg.markShots || 3;
+          for (let i = 0; i < n; i += 1) game.enemyBullets.push({ x: this.beaconX, y: -18 - i * 24, vx: 0, vy: this.cfg.bulletSpeed || 300, r: 5, damage: this.cfg.damage || 8, color: this.color, dead: false });
+          this.beaconTimer = this.cfg.markInterval || 2.8;
+        }
+        return;
+      }
+      this.beaconTimer -= dt;
+      if (this.beaconTimer <= 0) {
+        this.beaconX = clamp(game.player.x, 24, W - 24);
+        this.beaconWarn = this.cfg.markDelay || 0.75;
+      }
+    }
+
+    updateMineLayer(dt) {
+      if (this.type !== 'mineLayer' || this.y <= 0 || this.y >= H * 0.74) return;
+      this.mineTimer -= dt;
+      if (this.mineTimer > 0) return;
+      this.mineTimer = this.cfg.mineInterval || 2.2;
+      game.enemyBullets.push({
+        x: this.x,
+        y: this.y + this.r * 0.45,
+        vx: 0,
+        vy: 58,
+        r: this.cfg.mineRadius || 18,
+        damage: this.cfg.damage || 9,
+        color: this.color,
+        kind: 'mine',
+        triggerRadius: this.cfg.triggerRadius || 70,
+        ringCount: this.cfg.ringCount || 8,
+        ringSpeed: this.cfg.ringSpeed || 170,
+        dead: false
+      });
+    }
+
+    updatePhaseWing(dt) {
+      if (this.type !== 'phaseWing' || this.y <= 0 || this.y >= H * 0.74 || !game.player) return;
+      if (this.phaseWarn > 0) {
+        this.phaseWarn -= dt;
+        if (this.phaseWarn <= 0) {
+          this.x = this.baseX = this.phaseTargetX;
+          game.fireFan(this.x, this.y + this.r, Math.PI / 2, 46 * DEG, this.cfg.shots || 5, this.cfg.bulletSpeed || 275, this.cfg.damage || 8);
+          this.phaseTimer = this.cfg.blinkInterval || 2.4;
+        }
+        return;
+      }
+      this.phaseTimer -= dt;
+      if (this.phaseTimer <= 0) {
+        const side = game.player.x < W / 2 ? 1 : -1;
+        this.phaseTargetX = clamp(game.player.x + side * (this.cfg.blinkRange || 170), this.r + 18, W - this.r - 18);
+        this.phaseWarn = this.cfg.blinkDelay || 0.55;
+      }
+    }
+
+    updateWarden(dt) {
+      if (this.type !== 'warden' || this.y <= 0 || this.y >= H * 0.78) return;
+      this.wardenPulse -= dt;
+      if (this.wardenPulse > 0) return;
+      this.wardenPulse = 0.35;
+      const radius = this.cfg.guardRadius || 155;
+      const max = this.cfg.maxTargets || 4;
+      let guarded = 0;
+      for (const enemy of game.enemies) {
+        if (guarded >= max || enemy.dead || enemy === this || enemy.isBoss || enemy.guardShield > 0) continue;
+        if (dist2(enemy, this) > radius * radius) continue;
+        enemy.guardShield = this.cfg.guardShield || 8;
+        enemy.guardedBy = this;
+        guarded += 1;
+      }
+    }
+
+    reflectShot() {
+      if (this.type !== 'mirrorDrone' || this.reflectCd > 0 || this.dead) return;
+      this.reflectCd = this.cfg.reflectCd || 0.9;
+      const dir = Math.random() < 0.5 ? -1 : 1;
+      game.enemyBullets.push({ x: this.x, y: this.y, vx: dir * (this.cfg.bulletSpeed || 230), vy: 35, r: 5, damage: this.cfg.damage || 7, color: this.color, dead: false });
+      this.carrierSpawn = Math.max(this.carrierSpawn, 0.4);
+    }
+
+    damage(amount, source = '') {
+      if (this.guardShield > 0) {
+        const used = Math.min(this.guardShield, amount);
+        this.guardShield -= used;
+        amount -= used;
+        if (this.guardShield > 0) return false;
+      }
+      if (this.eliteShield > 0) {
+        const used = Math.min(this.eliteShield, amount);
+        this.eliteShield -= used;
+        amount -= used;
+        if (this.eliteShield > 0) return false;
+      }
       this.hp -= amount;
       if (this.hp <= 0) {
         this.dead = true;
         return true;
       }
+      if (source === 'bullet') this.reflectShot();
       return false;
+    }
+
+    drawRoleAura(ctx) {
+      if (this.guardShield > 0) {
+        ctx.strokeStyle = 'rgba(145,167,255,.72)';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(0, 0, this.r + 8 + Math.sin(this.t * 8) * 2, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+      if (this.eliteShield > 0 && this.type === 'shieldCarrier') {
+        ctx.strokeStyle = 'rgba(116,192,252,.72)';
+        ctx.lineWidth = 2.5;
+        ctx.beginPath();
+        ctx.arc(0, 0, this.r + 10 + Math.sin(this.t * 8) * 2, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+      if (this.type === 'beacon' && this.beaconWarn > 0) {
+        ctx.save();
+        ctx.globalAlpha = 0.2 + 0.28 * Math.sin(this.t * 28) ** 2;
+        ctx.fillStyle = this.color;
+        ctx.fillRect(this.beaconX - this.x - 8, -this.y, 16, H);
+        ctx.strokeStyle = '#ffd43b';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(this.beaconX - this.x - 16, (game.player?.y || H * 0.75) - this.y);
+        ctx.lineTo(this.beaconX - this.x + 16, (game.player?.y || H * 0.75) - this.y);
+        ctx.stroke();
+        ctx.restore();
+      }
+      if (this.type === 'phaseWing' && this.phaseWarn > 0) {
+        ctx.save();
+        ctx.globalAlpha = 0.35 + 0.25 * Math.sin(this.t * 28) ** 2;
+        ctx.strokeStyle = this.color;
+        ctx.lineWidth = 2;
+        ctx.setLineDash([6, 6]);
+        ctx.beginPath();
+        ctx.arc(this.phaseTargetX - this.x, 0, this.r + 6, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(this.phaseTargetX - this.x, 0);
+        ctx.lineTo(this.phaseTargetX - this.x, H - this.y);
+        ctx.stroke();
+        ctx.restore();
+      }
+      if (this.type === 'tether') {
+        ctx.save();
+        ctx.globalAlpha = 0.14 + 0.12 * Math.sin(this.t * 6) ** 2;
+        ctx.strokeStyle = this.color;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(0, 0, Math.min(this.cfg.pullRadius || 0, 135), 0, Math.PI * 2);
+        ctx.stroke();
+        if (game.player) {
+          ctx.globalAlpha = 0.2;
+          ctx.setLineDash([5, 6]);
+          ctx.beginPath();
+          ctx.moveTo(0, 0);
+          ctx.lineTo(game.player.x - this.x, game.player.y - this.y);
+          ctx.stroke();
+        }
+        ctx.restore();
+      }
+      if (this.type === 'warden') {
+        ctx.save();
+        ctx.globalAlpha = 0.14 + 0.08 * Math.sin(this.t * 6) ** 2;
+        ctx.strokeStyle = this.color;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(0, 0, this.cfg.guardRadius || 140, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.restore();
+      }
+      if (this.type === 'kamikaze') {
+        ctx.save();
+        ctx.globalAlpha = 0.26 + Math.sin(this.t * 14) * 0.12;
+        ctx.strokeStyle = this.color;
+        ctx.lineWidth = 2.5;
+        ctx.beginPath();
+        ctx.arc(0, 0, this.r + 7, 0, Math.PI * 2);
+        ctx.stroke();
+        if (game.player) {
+          ctx.globalAlpha = 0.18;
+          ctx.setLineDash([6, 6]);
+          ctx.beginPath();
+          ctx.moveTo(0, 0);
+          ctx.lineTo(game.player.x - this.x, game.player.y - this.y);
+          ctx.stroke();
+        }
+        ctx.restore();
+      }
     }
 
     draw(ctx) {
       ctx.save();
       ctx.translate(this.x, this.y);
+      this.drawRoleAura(ctx);
       if (this.type === 'sniper' && this.sniperWarn > 0) {
         ctx.save();
         ctx.globalAlpha = 0.24 + 0.28 * Math.sin(this.t * 30) ** 2;
@@ -362,6 +727,17 @@
         ctx.beginPath();
         ctx.arc(0, 0, rr + Math.sin(game.time * 5) * 3, 0, Math.PI * 2);
         ctx.stroke();
+      }
+      if (assets?.draw(ctx, assets.enemy(this.type), 0, 0, this.r * 2.85, 0, this.phaseWarn > 0 ? 0.62 : 1)) {
+        if (this.carrierSpawn > 0 || this.reflectCd > 0) {
+          ctx.strokeStyle = 'rgba(151,117,250,.72)';
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.arc(0, 0, this.r + 8 + Math.sin(game.time * 12) * 3, 0, Math.PI * 2);
+          ctx.stroke();
+        }
+        ctx.restore();
+        return;
       }
       ctx.fillStyle = this.color;
       ctx.beginPath();
@@ -440,6 +816,8 @@
     constructor(def) {
       this.def = def;
       this.affix = def.affix || null;
+      this.skywardBossIndex = this.affix?.skywardBossIndex ?? def.skywardBossIndex ?? def.stage - 1;
+      this.prototype = SKYWARD_BOSS_PROTOTYPES[this.skywardBossIndex] || null;
       this.x = W / 2;
       this.y = -def.hp / 20;
       this.r = 54 + def.stage * 2;
@@ -458,13 +836,20 @@
       this.wallGapSeed = Math.random() * Math.PI * 2;
       this._weakTimer = 0;
       this._hitFlash = 0;
+      this._targetX = this.x;
+      this._moveT = 0;
+      this._laserCd = 0;
+      this._gravityCd = 0;
     }
 
     update(dt) {
       this.t += dt;
+      this._moveT += dt;
       if (this._hitFlash > 0) this._hitFlash = Math.max(0, this._hitFlash - dt);
+      if (this._laserCd > 0) this._laserCd = Math.max(0, this._laserCd - dt);
+      if (this._gravityCd > 0) this._gravityCd = Math.max(0, this._gravityCd - dt);
       if (this.y < 128) this.y += 75 * dt;
-      this.x = W / 2 + Math.sin(this.t * (0.85 + this.def.stage * 0.04)) * (120 + this.def.stage * 8);
+      else this.move(dt);
       const nextPhase = this.hp / this.maxHp > 0.62 ? 1 : this.hp / this.maxHp > 0.28 ? 2 : 3;
       if (nextPhase !== this.phase) {
         this.phase = nextPhase;
@@ -477,8 +862,34 @@
       this.updateAffix(dt);
       this.fire -= dt;
       if (this.fire <= 0) {
-        this.fire = Math.max(0.42, 1.35 - this.phase * 0.18) * this.fireMult / (game.difficulty.bulletRate * this.bulletRateMult);
+        const phase = this.phaseSpec();
+        this.fire = Math.max(0.12, (phase?.cd || (1.35 - this.phase * 0.18)) * this.fireMult / (game.difficulty.bulletRate * this.bulletRateMult));
         this.attack();
+      }
+    }
+
+    phaseSpec() {
+      return this.prototype?.phases?.[this.phase - 1] || null;
+    }
+
+    move(_dt) {
+      const proto = this.prototype || {};
+      const cx = W / 2;
+      if (proto.movement === 'figure8') {
+        const speed = proto.moveSpeed || 1;
+        this.x = cx + Math.sin(this.t * speed) * (proto.moveRange || 150);
+        this.y = 128 + Math.sin(this.t * speed * 2) * 26;
+      } else if (proto.movement === 'dart') {
+        if (this._moveT > (proto.dartEvery || 2.2)) {
+          this._moveT = 0;
+          const m = this.r + 42;
+          this._targetX = m + Math.random() * (W - 2 * m);
+        }
+        this.x += (this._targetX - this.x) * 0.08;
+      } else {
+        const speed = proto.moveSpeed || (0.85 + this.def.stage * 0.04);
+        const range = proto.moveRange || (120 + this.def.stage * 8);
+        this.x = cx + Math.sin(this.t * speed) * range;
       }
     }
 
@@ -499,6 +910,11 @@
     }
 
     attack() {
+      const phase = this.phaseSpec();
+      if (phase?.attacks?.length) {
+        for (const attack of phase.attacks) this.runSkywardAttack(attack);
+        return;
+      }
       const count = 5 + this.phase * 2 + Math.floor(this.def.stage / 2);
       if (this.def.pattern === 'fan') game.fireFan(this.x, this.y + this.r * 0.5, Math.PI / 2, 65 * DEG, count, 230, 8);
       else if (this.def.pattern === 'aimed') game.fireEnemyAt(this.x, this.y, 300, 10, count, 12 * DEG);
@@ -517,11 +933,60 @@
       }
     }
 
+    runSkywardAttack(attack) {
+      const damage = 8 + this.phase;
+      if (attack.type === 'fanDown') {
+        game.fireFan(this.x, this.y + this.r * 0.5, Math.PI / 2, (attack.spread || 60) * DEG, attack.count || 5, attack.speed || 240, damage);
+      } else if (attack.type === 'aimed') {
+        game.fireEnemyAt(this.x, this.y, attack.speed || 280, damage, attack.count || 3, (attack.spread || 16) * DEG);
+      } else if (attack.type === 'ring') {
+        game.fireRing(this.x, this.y, attack.count || 16, attack.speed || 220, damage);
+      } else if (attack.type === 'spiral') {
+        this.fireSpiralArms(attack.arms || 2, attack.step || 20, attack.speed || 190, damage);
+      } else if (attack.type === 'wall') {
+        this.wallGapStep += 1;
+        game.fireWall(this.x, this.y, attack.speed || 200, this, attack);
+      } else if (attack.type === 'laser') {
+        if (this._laserCd > 0) return;
+        game.fireBossLaser(attack.aimed ? this.playerX() : this.x, attack, damage, this.affix?.color || this.def.color);
+        this._laserCd = attack.cd || 3;
+      } else if (attack.type === 'dualLaser') {
+        if (this._laserCd > 0) return;
+        const x = attack.aimed ? this.playerX() : this.x;
+        const offset = attack.offset || 80;
+        game.fireBossLaser(clamp(x - offset, 32, W - 32), attack, damage, this.affix?.color || this.def.color);
+        game.fireBossLaser(clamp(x + offset, 32, W - 32), attack, damage, this.affix?.color || this.def.color);
+        this._laserCd = attack.cd || 3.4;
+      } else if (attack.type === 'prismBurst') {
+        if (this._laserCd > 0) return;
+        game.firePrismBurst(this, { ...this.affix, ...attack, color: this.affix?.color || '#cc5de8' });
+        this._laserCd = attack.cd || 3.8;
+      } else if (attack.type === 'gravity') {
+        if (this._gravityCd > 0) return;
+        game.fireGravityPulse(this, { ...this.affix, ...attack, color: this.affix?.color || '#4dabf7' });
+        this._gravityCd = attack.cd || 4.4;
+      } else if (attack.type === 'escort') {
+        game.fireBossEscort(this, { ...this.affix, ...attack, color: this.affix?.color || this.def.color });
+      }
+    }
+
+    playerX() {
+      return clamp(game.player?.x || this.x, 36, W - 36);
+    }
+
     fireSpiral(count, speed) {
       this.spiral += 22 * DEG;
       for (let i = 0; i < count; i += 1) {
         const a = this.spiral + i * Math.PI * 2 / count;
         game.enemyBullets.push({ x: this.x, y: this.y, vx: Math.cos(a) * speed, vy: Math.sin(a) * speed, r: 5, damage: 8, dead: false });
+      }
+    }
+
+    fireSpiralArms(arms, step, speed, damage) {
+      this.spiral += step * DEG;
+      for (let i = 0; i < arms; i += 1) {
+        const a = this.spiral + i * Math.PI * 2 / arms;
+        game.enemyBullets.push({ x: this.x, y: this.y, vx: Math.cos(a) * speed, vy: Math.sin(a) * speed, r: 5, damage, dead: false });
       }
     }
 
@@ -561,11 +1026,11 @@
         ctx.arc(0, -6, 24 + Math.sin(game.time * 12) * 4, 0, Math.PI * 2);
         ctx.stroke();
       }
-      const img = bossImage(this.affix?.image);
+      const img = bossImageFor(this.def, this.affix);
       if (img) {
         const size = r * 2.45;
         ctx.globalAlpha = 0.96;
-        ctx.drawImage(img, -size / 2, -size * 0.58, size, size);
+        if (!assets?.draw(ctx, img, 0, 0, size)) ctx.drawImage(img, -size / 2, -size * 0.58, size, size);
         ctx.globalAlpha = 1;
         if (hitFlash > 0) {
           ctx.strokeStyle = `rgba(255, 212, 59, ${0.25 + hitFlash * 0.55})`;
@@ -673,6 +1138,7 @@
     shake: 0,
     nearLineCd: 0,
     commRequestId: 0,
+    backgroundWorld: 1,
 
     syncUiState() {
       const playing = this.state === 'playing';
@@ -781,6 +1247,7 @@
       this.repairLoopTriggers = 0;
       this.score = 0;
       this.time = 0;
+      this.backgroundWorld = backgroundWorldForRoute(this.route, this.segmentIndex);
       menu.classList.add('hidden');
       resultPanel.classList.add('hidden');
       this.syncUiState();
@@ -828,6 +1295,7 @@
       this.segmentStartDamage = this.damageTaken;
       this.lasers.length = 0;
       const boss = this.route[this.segmentIndex];
+      this.backgroundWorld = backgroundWorldForRoute([boss], this.segmentIndex);
       this.say(`${boss.title}正在靠近。${boss.memory}`, 3.6, {
         eventType: 'airspace_segment',
         boss,
@@ -844,8 +1312,9 @@
     spawnEnemy() {
       const stage = this.segmentIndex + 1;
       const pool = stage < 2 ? ['small', 'small', 'medium']
-        : stage < 4 ? ['small', 'medium', 'gunner', 'splitter']
-          : ['medium', 'gunner', 'splitter', 'sniper', 'detonator', 'phantom', 'phantom', 'carrier'];
+        : stage < 3 ? ['small', 'medium', 'large', 'gunner', 'splitter', 'beacon']
+          : stage < 5 ? ['medium', 'large', 'gunner', 'splitter', 'sniper', 'detonator', 'phantom', 'shieldCarrier', 'mirrorDrone']
+            : ['medium', 'gunner', 'sniper', 'detonator', 'phantom', 'carrier', 'jammer', 'support', 'beacon', 'mineLayer', 'phaseWing', 'tether', 'warden', 'harvester', 'kamikaze'];
       const affix = this.currentAffix();
       const biased = affix?.enemyBias && Math.random() < (affix.spawnBias || 0) ? affix.enemyBias : pool;
       const enemy = new Enemy(pick(biased), stage);
@@ -957,6 +1426,13 @@
       }
     },
 
+    explodeMine(mine) {
+      if (!mine || mine.dead) return;
+      mine.dead = true;
+      this.fireRing(mine.x, mine.y, mine.ringCount || 8, mine.ringSpeed || 170, mine.damage || 9);
+      this.burst(mine.x, mine.y, mine.color || '#ff922b', 12);
+    },
+
     fireBarrageRing(boss, affix) {
       this.fireRing(
         boss.x,
@@ -981,13 +1457,30 @@
       return clamp(W / 2 + sweep + drift + playerBias, 78, W - 78);
     },
 
-    fireWall(x, y, speed, boss = null) {
+    fireWall(x, y, speed, boss = null, options = {}) {
       const gap = boss ? this.movingWallGap(boss) : this.player?.x || W / 2;
       const laneOffset = boss ? (Math.round(boss.wallGapStep || 0) % 2) * 19 : 0;
-      for (let bx = 26 + laneOffset; bx < W - 26; bx += 38) {
-        if (Math.abs(bx - gap) < 58) continue;
+      const spacing = options.spacing || 38;
+      const gapSize = options.gap || 58;
+      for (let bx = 26 + laneOffset; bx < W - 26; bx += spacing) {
+        if (Math.abs(bx - gap) < gapSize) continue;
         this.enemyBullets.push({ x: bx, y: y + 20, vx: 0, vy: speed, r: 5, damage: 9, dead: false });
       }
+    },
+
+    fireBossLaser(x, attack, damage, color) {
+      this.lasers.push({
+        x: clamp(x, 28, W - 28),
+        warn: attack.warn || 0.6,
+        dur: attack.dur || 0.8,
+        width: attack.width || 46,
+        damage,
+        color: color || '#cc5de8',
+        t: 0,
+        phase: 'warn',
+        hit: false,
+        dead: false
+      });
     },
 
     firePrismLane(boss, affix) {
@@ -1083,18 +1576,22 @@
     fireBossEscort(boss, affix) {
       const activeAdds = this.enemies.filter(enemy => !enemy.dead).length;
       if (activeAdds >= (affix.maxAdds || 4)) return;
-      const side = Math.random() < 0.5 ? -1 : 1;
-      const escort = new Enemy(affix.enemy || 'gunner', boss.def.stage + 1);
-      escort.x = clamp(boss.x + side * (boss.r + escort.r + 28), escort.r + 12, W - escort.r - 12);
-      escort.baseX = escort.x;
-      escort.y = Math.max(28, boss.y + boss.r * 0.3);
-      escort.hp += 4;
-      escort.maxHp = escort.hp;
-      escort.score += 140;
-      if (affix.key === 'ironCarrier') escort.guardBoss = boss;
-      if (affix.elite === 'jammer') this.applyJammerElite(escort, affix);
-      this.enemies.push(escort);
-      this.burst(escort.x, escort.y, affix.color || escort.color, 10);
+      const count = Math.max(1, Math.min(affix.adds || 1, (affix.maxAdds || 4) - activeAdds));
+      for (let i = 0; i < count; i += 1) {
+        const side = i % 2 ? 1 : -1;
+        const escort = new Enemy(affix.enemy || 'gunner', boss.def.stage + 1);
+        escort.x = clamp(boss.x + side * (boss.r + escort.r + 28 + Math.floor(i / 2) * 28), escort.r + 12, W - escort.r - 12);
+        escort.baseX = escort.x;
+        escort.y = Math.max(28, boss.y + boss.r * 0.3 + Math.floor(i / 2) * 24);
+        escort.hp += 4;
+        escort.maxHp = escort.hp;
+        escort.score += 140;
+        if (affix.key === 'ironCarrier' || boss.skywardBossIndex === 8) escort.guardBoss = boss;
+        if (affix.elite === 'jammer') this.applyJammerElite(escort, affix);
+        else if (affix.elite === 'berserker') this.applyBerserkerElite(escort, affix);
+        this.enemies.push(escort);
+        this.burst(escort.x, escort.y, affix.color || escort.color, 10);
+      }
       const line = affix.key === 'phantomEscort'
         ? '幻影护航投放高速残影僚机，先截断侧翼追击。'
         : affix.elite === 'jammer'
@@ -1189,6 +1686,10 @@
           this.enemies.push(child);
         }
       }
+      if (enemy.stolenKind) {
+        this.powerups.push({ x: enemy.x, y: enemy.y, r: 12, kind: enemy.stolenKind, dead: false });
+        this.say('收割机掉回了被夺走的补给。', 1.6);
+      }
       if (Math.random() < 0.08) this.powerups.push({ x: enemy.x, y: enemy.y, r: 12, kind: pick(['heal', 'shield', 'power']), dead: false });
     },
 
@@ -1254,6 +1755,31 @@
       return repaired;
     },
 
+    nearestPowerup(x, y, range) {
+      let best = null;
+      let bestD = range * range;
+      for (const powerup of this.powerups) {
+        if (powerup.dead) continue;
+        const d = dist2({ x, y }, powerup);
+        if (d >= bestD) continue;
+        bestD = d;
+        best = powerup;
+      }
+      return best;
+    },
+
+    stealPowerupFor(enemy, powerup) {
+      if (!enemy || !powerup || powerup.dead) return false;
+      powerup.dead = true;
+      enemy.stolenKind = powerup.kind || 'power';
+      enemy.escapeTimer = 2.2;
+      enemy.hp = Math.min(enemy.maxHp, enemy.hp + 3);
+      enemy.score += 180;
+      this.burst(powerup.x, powerup.y, enemy.color || '#fcc419', 10);
+      this.say('收割机夺走了补给，先击落它可以把节奏抢回来。', 1.8);
+      return true;
+    },
+
     jamFactor(x, y) {
       let factor = 1;
       if (this.boss?.affix?.jamRadius && dist2({ x, y }, this.boss) <= this.boss.affix.jamRadius * this.boss.affix.jamRadius) {
@@ -1307,7 +1833,7 @@
           if (!e.dead && hit(b, e)) {
             b.dead = true;
             if (this.armorPierces(b, e)) this.burst(b.x, b.y, '#ff922b', 6);
-            if (e.damage(this.playerBulletDamage(b, e))) this.killEnemy(e);
+            if (e.damage(this.playerBulletDamage(b, e), 'bullet')) this.killEnemy(e);
             else this.burst(b.x, b.y, '#eef3ec', 3);
             break;
           }
@@ -1331,7 +1857,8 @@
       for (const e of this.enemies) {
         if (!e.dead && this.player && hit(e, this.player)) {
           e.dead = true;
-          this.player.takeDamage(18);
+          this.player.takeDamage(e.crashDamage || 18);
+          if (e.type === 'kamikaze') this.fireRing(e.x, e.y, 10, 185, 8);
           this.burst(e.x, e.y, e.color, 12);
         }
       }
@@ -1672,6 +2199,7 @@
       for (const b of this.enemyBullets) {
         b.x += b.vx * dt;
         b.y += b.vy * dt;
+        if (b.kind === 'mine' && this.player && dist2(b, this.player) <= (b.triggerRadius || 60) * (b.triggerRadius || 60)) this.explodeMine(b);
         if (b.y > H + 24 || b.y < -24 || b.x < -24 || b.x > W + 24) b.dead = true;
       }
       for (const p of this.powerups) {
@@ -1745,6 +2273,17 @@
         vx += dx / d * k;
         vy += dy / d * k * 0.45;
       }
+      for (const enemy of this.enemies) {
+        if (enemy.dead || enemy.type !== 'tether') continue;
+        const radius = enemy.cfg.pullRadius || 0;
+        const dx = enemy.x - x;
+        const dy = enemy.y - y;
+        const d = Math.hypot(dx, dy);
+        if (d <= 1 || d >= radius) continue;
+        const k = (1 - d / radius) * (enemy.cfg.pullStrength || 80);
+        vx += dx / d * k;
+        vy += dy / d * k * 0.3;
+      }
       return { x: vx, y: vy };
     },
 
@@ -1788,9 +2327,21 @@
       }
     },
 
-    draw() {
-      ctx.save();
-      if (this.shake > 0) ctx.translate((Math.random() * 2 - 1) * this.shake, (Math.random() * 2 - 1) * this.shake);
+    drawSkywardBackground() {
+      const world = this.backgroundWorld || 1;
+      const base = assets?.background(world, 'base');
+      const mid = assets?.background(world, 'mid');
+      const fg = assets?.background(world, 'fg');
+      if (!base || !mid || !fg) return false;
+      assets.drawScrolling(ctx, base, this.time * 24, 1);
+      assets.drawScrolling(ctx, mid, this.time * 58, 0.7);
+      assets.drawScrolling(ctx, fg, this.time * 118, 0.46);
+      ctx.fillStyle = 'rgba(4, 8, 11, .22)';
+      ctx.fillRect(0, 0, W, H);
+      return true;
+    },
+
+    drawFallbackBackground() {
       const bg = ctx.createLinearGradient(0, 0, 0, H);
       bg.addColorStop(0, '#11191d');
       bg.addColorStop(0.52, '#172126');
@@ -1807,6 +2358,12 @@
         ctx.lineTo(W, y - 20);
         ctx.stroke();
       }
+    },
+
+    draw() {
+      ctx.save();
+      if (this.shake > 0) ctx.translate((Math.random() * 2 - 1) * this.shake, (Math.random() * 2 - 1) * this.shake);
+      if (!this.drawSkywardBackground()) this.drawFallbackBackground();
       for (const p of this.powerups) this.drawPowerup(p);
       this.drawLasers();
       this.drawGravityPulses();
@@ -1831,6 +2388,21 @@
     },
 
     drawEnemyBullet(b) {
+      if (b.kind === 'mine') {
+        if (assets?.draw(ctx, assets.effect('floatingMine'), b.x, b.y, b.r * 2.4, game.time * 1.4)) {
+          ctx.strokeStyle = `rgba(255, 146, 43, ${0.22 + 0.16 * Math.sin(game.time * 8) ** 2})`;
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.arc(b.x, b.y, b.triggerRadius || 60, 0, Math.PI * 2);
+          ctx.stroke();
+          return;
+        }
+        ctx.strokeStyle = 'rgba(255, 146, 43, .38)';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(b.x, b.y, b.triggerRadius || 60, 0, Math.PI * 2);
+        ctx.stroke();
+      }
       ctx.fillStyle = b.color || '#f87171';
       ctx.beginPath();
       ctx.arc(b.x, b.y, b.r, 0, Math.PI * 2);
@@ -1958,6 +2530,7 @@
   window.airCombatGame = game;
   window.CREATOR_EXAM_AIR_COMBAT_READY = true;
   document.documentElement.dataset.airCombatReady = 'true';
+  if (document.body) document.body.dataset.airCombatReady = 'true';
   game.renderBriefingStep();
   game.updateHud();
   game.say(bridge.lineFor('intro'), 3, { eventType: 'airspace_intro' });

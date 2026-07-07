@@ -170,6 +170,7 @@ function assertAirCombatIntegration() {
   const gameSource = readSource('public/js/game.js');
   const bridgeSource = readSource('public/modes/air-combat/airCombatBridge.js');
   const airGameSource = readSource('public/modes/air-combat/airCombatGame.js');
+  const airAssetsSource = readSource('public/modes/air-combat/airCombatAssets.js');
   const airIndexSource = readSource('public/modes/air-combat/index.html');
 
   assert.ok(gameSource.includes('buildAirCombatContext()'), 'main game must build air combat context');
@@ -260,6 +261,22 @@ function assertAirCombatIntegration() {
   assert.ok(airGameSource.includes('class Boss'), 'air combat slice must include boss logic');
   assert.ok(airGameSource.includes('class Enemy'), 'air combat slice must include enemy logic');
   assert.ok(airGameSource.includes('useSkill()'), 'air combat slice must include creation weapon pulse');
+  assert.ok(airIndexSource.includes('airCombatAssets.js'), 'air combat page must load the Skyward asset manifest before game runtime');
+  assert.ok(airGameSource.includes('AirCombatAssets') && airGameSource.includes('assets.draw') && airGameSource.includes('assets.drawScrolling'), 'air combat runtime must draw through the unified Skyward asset loader');
+  assert.ok(airGameSource.includes('SKYWARD_BOSS_PROTOTYPES') && airGameSource.includes('runSkywardAttack'), 'air combat Bosses must use migrated Skyward phase attack prototypes');
+  assert.ok(bridgeSource.includes('skywardBossIndex'), 'air bridge must map finite story bosses and Skyward signals to copied Boss prototypes');
+  for (const key of ['shieldWall', 'beaconTrace', 'rearGuard', 'mineLayerRun', 'tetherNet', 'harvestRush']) {
+    assert.ok(bridgeSource.includes(key), `air bridge must derive Skyward enemy pressure affix ${key}`);
+  }
+  for (const type of ['large', 'shieldCarrier', 'kamikaze', 'beacon', 'mineLayer', 'phaseWing', 'mirrorDrone', 'tether', 'warden', 'harvester']) {
+    assert.ok(airGameSource.includes(type), `air combat runtime must include migrated Skyward enemy type ${type}`);
+  }
+  for (const behavior of ['updateBeacon', 'updateMineLayer', 'updatePhaseWing', 'updateWarden', 'reflectShot', 'stealPowerupFor', 'explodeMine']) {
+    assert.ok(airGameSource.includes(behavior), `air combat runtime must include migrated Skyward enemy behavior ${behavior}`);
+  }
+  for (const token of ['player-wingman-attacker.png', 'enemy-warden.png', 'enemy-kamikaze.png', 'boss-11-unstable-prototype.png', 'world-08-base.png']) {
+    assert.ok(airAssetsSource.includes(token), `airCombatAssets.js must include Skyward runtime asset ${token}`);
+  }
   assert.ok(airGameSource.includes('renderWeaponChoices') && airGameSource.includes('airspace-choice'), 'air combat opening must render prior-flow weapon choice cards');
   assert.ok(airGameSource.includes('空域标记') && airGameSource.includes('option.focusText'), 'air combat opening must show compact choice reason tags');
   assert.ok(airGameSource.includes('syncUiState') && airGameSource.includes("this.state === 'playing'"), 'air combat opening must hide battle HUD until combat starts');
@@ -270,6 +287,21 @@ function assertAirCombatIntegration() {
   assert.ok(airGameSource.includes('firePrismBurst') && airGameSource.includes('finishPrismBurst'), 'air combat slice must apply Skyward prism burst as finite laser-side-bullet pressure');
   assert.ok(airGameSource.includes('fireGravityPulse') && airGameSource.includes('gravityPullAt') && airGameSource.includes('drawGravityPulses'), 'air combat slice must apply Skyward tide core as visible finite gravity pressure');
   assert.ok(airGameSource.includes('guardDR') && airGameSource.includes('bossGuardCount') && airGameSource.includes('guardWeakDamageMult'), 'air combat slice must apply Skyward iron carrier guard reduction and weak deck window');
+  assert.ok(airIndexSource.includes('airCombatAssets.js'), 'air combat page must load the Skyward asset manifest before game runtime');
+  assert.ok(airAssetsSource.includes('window.AirCombatAssets') && airAssetsSource.includes('drawScrolling') && airAssetsSource.includes('imageBounds'), 'air combat assets must expose cropped texture drawing and scrolling backgrounds');
+  for (const token of ['player-wingman-attacker.png', 'enemy-warden.png', 'enemy-kamikaze.png', 'enemy-mine-layer.png', 'boss-11-unstable-prototype.png', 'world-08-base.png']) {
+    assert.ok(airAssetsSource.includes(token), `air asset manifest must include ${token}`);
+  }
+  for (const token of ['AirCombatAssets', 'assets.draw', 'assets.drawScrolling', 'assets.player', 'assets.wingman', 'assets.enemy', 'assets.boss', 'SKYWARD_BOSS_PROTOTYPES']) {
+    assert.ok(airGameSource.includes(token), `air combat game must consume ${token}`);
+  }
+  for (const type of ['shieldCarrier', 'kamikaze', 'beacon', 'mineLayer', 'phaseWing', 'mirrorDrone', 'tether', 'warden', 'harvester']) {
+    assert.ok(airGameSource.includes(type), `air combat runtime must migrate Skyward enemy behavior for ${type}`);
+  }
+  assert.ok(airGameSource.includes('updateBeacon') && airGameSource.includes('updateMineLayer') && airGameSource.includes('updatePhaseWing') && airGameSource.includes('updateWarden'), 'air combat runtime must run distinct Skyward enemy skills locally');
+  assert.ok(airGameSource.includes('stealPowerupFor') && airGameSource.includes('nearestPowerup') && airGameSource.includes('reflectShot'), 'air combat runtime must include Skyward harvester and mirror-drone behaviors');
+  assert.ok(airGameSource.includes('enemy.stolenKind') && airGameSource.includes('收割机掉回了被夺走的补给'), 'harvester kills must return stolen powerups instead of only deleting them');
+  assert.ok(bridgeSource.includes('skywardBossIndex') && bridgeSource.includes('shieldWall') && bridgeSource.includes('beaconTrace') && bridgeSource.includes('tetherNet') && bridgeSource.includes('harvestRush'), 'air bridge must route AI/prior-flow context into migrated Skyward boss prototypes and enemy pressures');
   assert.ok(airGameSource.includes('movingWallGap') && airGameSource.includes('wallGapStep') && airGameSource.includes('laneOffset'), 'wall-pattern Boss bullets must scan their safe gap left and right instead of keeping a static center');
   assert.ok(airGameSource.includes('wallGapLanes') && airGameSource.includes('-0.78') && airGameSource.includes('0.78'), 'stage-2 wall Boss gap must sweep visibly across left and right lanes');
   assert.ok(airGameSource.includes('bossContactCd') && airGameSource.includes('this.player.takeDamage(28 + this.boss.def.stage * 2)'), 'Boss body contact must damage the player with a short collision cooldown');
@@ -281,7 +313,7 @@ function assertAirCombatIntegration() {
   assert.ok(airGameSource.includes('repairNearbyEnemies'), 'air combat slice must apply support enemy depth locally');
   assert.ok(airGameSource.includes('jammer') && airGameSource.includes('support'), 'air combat enemy pool must include selected upstream enemy roles');
   assert.ok(airGameSource.includes('sniper') && airGameSource.includes('sniperWarn'), 'air combat slice must adapt upstream sniper warning shots locally');
-  assert.ok(airGameSource.includes('this.sniperAim') && airGameSource.includes("['medium', 'gunner', 'splitter', 'sniper'"), 'sniper enemies must warn before entering late finite route pools');
+  assert.ok(airGameSource.includes('this.sniperAim') && /stage < 5 \? \[[^\]]*'sniper'/.test(airGameSource), 'sniper enemies must warn before entering late finite route pools');
   assert.ok(airGameSource.includes('detonator') && airGameSource.includes('ringCount') && airGameSource.includes("enemy.type === 'detonator'"), 'air combat slice must adapt upstream detonator minefield enemies locally');
   assert.ok(airGameSource.includes('carrier') && airGameSource.includes('spawnCarrierChildren') && airGameSource.includes("enemy.type === 'carrier'"), 'air combat slice must adapt upstream carrier split-spawn enemies locally');
   assert.ok(airGameSource.includes('fireBarrageRing') && airGameSource.includes("this.affix.attack === 'ring'"), 'air combat slice must adapt upstream barrage boss affix locally');
@@ -335,9 +367,9 @@ function assertAirCombatIntegration() {
   assert.ok(airIndexSource.includes('id="airspace-hud" class="airspace-hud hidden"'), 'air combat battle HUD must start hidden during briefing');
   assert.ok(airIndexSource.includes('id="airspace-clearance-card"'), 'air combat markup must expose a boss clearance card');
   for (const asset of [
-    'public/modes/air-combat/assets/bosses/boss-08-prism-judge.png',
-    'public/modes/air-combat/assets/bosses/boss-09-iron-carrier.png',
-    'public/modes/air-combat/assets/bosses/boss-10-tide-core.png'
+    'public/modes/air-combat/assets/images/bosses/boss-08-prism-judge.png',
+    'public/modes/air-combat/assets/images/bosses/boss-09-iron-carrier.png',
+    'public/modes/air-combat/assets/images/bosses/boss-10-tide-core.png'
   ]) {
     assert.ok(existsSync(new URL(asset, rootUrl)), `${asset} must exist for copied Skyward boss art`);
   }
@@ -558,6 +590,35 @@ function assertAirCombatRouteBalance() {
   });
   assert.ok(ewarRoute.route().some(boss => boss.affix.key === 'ewar'), 'failed defense plus memory routes should introduce finite electronic warfare pressure');
 
+  const shieldWallRoute = loadAirBridgeForContext({
+    entropy: 1,
+    endingPressure: 0.72,
+    rescuedResidents: [],
+    lostResidents: [],
+    recentCreations: [{ name: '屏障造物', ability: 'block' }]
+  });
+  assert.ok(shieldWallRoute.route().some(boss => boss.affix.key === 'shieldWall'), 'block routes should introduce finite Skyward shield-wall pressure');
+
+  const rearGuardRoute = loadAirBridgeForContext({
+    entropy: 1,
+    endingPressure: 0.4,
+    rescuedResidents: [],
+    lostResidents: [],
+    recentCreations: [{ name: '尖刺航线', ability: 'terrain' }],
+    playerStyle: 'aggressive'
+  });
+  assert.ok(rearGuardRoute.route().some(boss => boss.affix.key === 'rearGuard'), 'aggressive routes should introduce finite Skyward rear-guard pressure');
+
+  const harvestRoute = loadAirBridgeForContext({
+    entropy: 0,
+    endingPressure: 0.62,
+    rescuedResidents: [],
+    lostResidents: [],
+    recentCreations: [{ name: '补给塔', ability: 'terrain' }],
+    towerDefenseResult: { victory: true }
+  });
+  assert.ok(harvestRoute.route().some(boss => boss.affix.key === 'harvestRush'), 'successful night-watch routes should introduce finite Skyward harvester pressure');
+
   const skywardRoute = loadAirBridgeForContext({
     entropy: 2,
     endingPressure: 0.58,
@@ -581,6 +642,9 @@ function assertAirCombatRouteBalance() {
     ...exposedCoreRoute.route(),
     ...failedDefenseRoute.route(),
     ...ewarRoute.route(),
+    ...shieldWallRoute.route(),
+    ...rearGuardRoute.route(),
+    ...harvestRoute.route(),
     ...skywardRoute.route()
   ].map(boss => boss.affix.key));
   for (const key of configuredAirAffixKeys()) {

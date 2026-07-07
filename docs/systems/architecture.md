@@ -58,7 +58,9 @@
 - 通过 `creatorExamAirCombatContext` 接收主游戏状态（熵值、居民、最近造物、守夜结果）
 - 将造物能力映射为 Canvas 空战武器与造物脉冲
 - 通过 `/api/narrative` 生成空域简报、Boss台词、武器副作用、近身通讯和胜负清算，DeepSeek Flash 等模型可由后端环境变量切换
-- 读取 Skyward 空战仓库的 Boss 设计回响，将棱镜审判者、铁幕空母、引潮核心转为 AI 上下文驱动的有限航线词缀，并使用复制到本模式目录的 Boss 图片资源
+- 通过 `airCombatAssets.js` 统一加载 Skyward 的玩家机、僚机、20 类敌机、11 个 Boss、8 组分层背景和特效贴图；运行时贴图优先，Canvas 几何绘制兜底
+- 读取 Skyward 空战仓库的 Boss 设计回响，将棱镜审判者、铁幕空母、引潮核心等原型转为 AI 上下文驱动的有限航线词缀和阶段弹幕
+- 裁剪迁入信标纵击、浮雷、相位闪现、后追自爆、牵引、监押护盾、镜面反击、收割补给等敌机行为，并由前序造物/守夜/熵值决定出现压力
 - 把实时射击、敌机、弹幕、Boss、碰撞、道具和分数限制在独立模式页
 - 将 6 段 Boss 航线结算为 `creatorExamAirCombatResult`
 - 主游戏收到结果后写入 `airspace_resolved` 世界事件，并生成最终结局钩子

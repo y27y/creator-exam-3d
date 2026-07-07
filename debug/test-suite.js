@@ -4981,6 +4981,7 @@ runner.test('Air Combat integration - should keep finite airspace bridge and res
   const bridge = readFileSync(new URL('../public/modes/air-combat/airCombatBridge.js', import.meta.url), 'utf8');
   const airGame = readFileSync(new URL('../public/modes/air-combat/airCombatGame.js', import.meta.url), 'utf8');
   const airHtml = readFileSync(new URL('../public/modes/air-combat/index.html', import.meta.url), 'utf8');
+  const airAssets = readFileSync(new URL('../public/modes/air-combat/airCombatAssets.js', import.meta.url), 'utf8');
   const game = readFileSync(new URL('../public/js/game.js', import.meta.url), 'utf8');
   const world = readFileSync(new URL('../public/js/worldSimulation.js', import.meta.url), 'utf8');
 
@@ -4993,6 +4994,22 @@ runner.test('Air Combat integration - should keep finite airspace bridge and res
   runner.assert(airGame.includes('class Boss'), 'air combat should include Boss logic');
   runner.assert(airGame.includes('class Enemy'), 'air combat should include enemy logic');
   runner.assert(airGame.includes('useSkill()'), 'air combat should include creation weapon pulse');
+  runner.assert(airHtml.includes('airCombatAssets.js'), 'air combat should load the Skyward asset manifest before game runtime');
+  runner.assert(airGame.includes('AirCombatAssets') && airGame.includes('assets.draw') && airGame.includes('assets.drawScrolling'), 'air combat should draw through the unified Skyward asset loader');
+  runner.assert(airGame.includes('SKYWARD_BOSS_PROTOTYPES') && airGame.includes('runSkywardAttack'), 'air combat should use migrated Skyward Boss phase attack prototypes');
+  runner.assert(bridge.includes('skywardBossIndex'), 'air bridge should map finite story bosses and Skyward signals to copied Boss prototypes');
+  for (const key of ['shieldWall', 'beaconTrace', 'rearGuard', 'mineLayerRun', 'tetherNet', 'harvestRush']) {
+    runner.assert(bridge.includes(key), `air bridge should derive Skyward enemy pressure affix ${key}`);
+  }
+  for (const type of ['large', 'shieldCarrier', 'kamikaze', 'beacon', 'mineLayer', 'phaseWing', 'mirrorDrone', 'tether', 'warden', 'harvester']) {
+    runner.assert(airGame.includes(type), `air combat should include migrated Skyward enemy type ${type}`);
+  }
+  for (const behavior of ['updateBeacon', 'updateMineLayer', 'updatePhaseWing', 'updateWarden', 'reflectShot', 'stealPowerupFor', 'explodeMine']) {
+    runner.assert(airGame.includes(behavior), `air combat should include migrated Skyward enemy behavior ${behavior}`);
+  }
+  for (const token of ['player-wingman-attacker.png', 'enemy-warden.png', 'enemy-kamikaze.png', 'boss-11-unstable-prototype.png', 'world-08-base.png']) {
+    runner.assert(airAssets.includes(token), `airCombatAssets.js should include Skyward runtime asset ${token}`);
+  }
   runner.assert(airGame.includes('movingWallGap') && airGame.includes('wallGapStep') && airGame.includes('laneOffset'), 'air combat wall Boss should sweep the safe gap horizontally');
   runner.assert(airGame.includes('bossContactCd') && airGame.includes('this.player.takeDamage(28 + this.boss.def.stage * 2)'), 'air combat Boss body contact should damage the player with cooldown');
   runner.assert(airGame.includes("finish('victory')"), 'air combat should have a finite victory route');
@@ -5007,10 +5024,11 @@ runner.test('Air Combat integration - should keep finite airspace bridge and res
   runner.assert(airGame.includes('firePrismBurst') && airGame.includes('finishPrismBurst'), 'air combat should apply finite prism burst behavior');
   runner.assert(airGame.includes('fireGravityPulse') && airGame.includes('gravityPullAt'), 'air combat should apply finite gravity pulse behavior');
   runner.assert(airGame.includes('guardDR') && airGame.includes('bossGuardCount'), 'air combat should apply finite iron carrier guard behavior');
+  runner.assert(airGame.includes('enemy.stolenKind') && airGame.includes('收割机掉回了被夺走的补给'), 'air combat should return stolen powerups when a harvester is killed');
   for (const asset of [
-    '../public/modes/air-combat/assets/bosses/boss-08-prism-judge.png',
-    '../public/modes/air-combat/assets/bosses/boss-09-iron-carrier.png',
-    '../public/modes/air-combat/assets/bosses/boss-10-tide-core.png'
+    '../public/modes/air-combat/assets/images/bosses/boss-08-prism-judge.png',
+    '../public/modes/air-combat/assets/images/bosses/boss-09-iron-carrier.png',
+    '../public/modes/air-combat/assets/images/bosses/boss-10-tide-core.png'
   ]) {
     runner.assert(existsSync(new URL(asset, import.meta.url)), `${asset} should exist`);
   }

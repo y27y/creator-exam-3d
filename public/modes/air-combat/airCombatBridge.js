@@ -5,6 +5,7 @@
   const BOSS_ROUTE = [
     {
       id: 'flood-echo',
+      skywardBossIndex: 9,
       title: '洪水残响',
       memory: '第一天留下的水声还在天顶翻涌。',
       color: '#72d6bd',
@@ -17,6 +18,7 @@
     },
     {
       id: 'fog-beacon',
+      skywardBossIndex: 7,
       title: '迷雾航标',
       memory: '雾里所有被点亮的路标正在互相质问。',
       color: '#d8c58a',
@@ -29,6 +31,7 @@
     },
     {
       id: 'war-echo',
+      skywardBossIndex: 2,
       title: '战争回声',
       memory: '两族战争被压缩成一枚会瞄准的弹。',
       color: '#f87171',
@@ -41,6 +44,7 @@
     },
     {
       id: 'beast-shadow',
+      skywardBossIndex: 6,
       title: '巨兽阴影',
       memory: '巨兽的脚印漂浮在云层背面。',
       color: '#b8c2d6',
@@ -53,6 +57,7 @@
     },
     {
       id: 'resident-oath',
+      skywardBossIndex: 8,
       title: '居民誓约',
       memory: '被救下的人把名字刻进了机翼内侧。',
       color: '#f0a6ca',
@@ -65,6 +70,7 @@
     },
     {
       id: 'final-order',
+      skywardBossIndex: 10,
       title: '终考秩序',
       memory: '第六关的答案正在检查自己是否成立。',
       color: '#8bd3ff',
@@ -143,9 +149,10 @@
     },
     prism: {
       key: 'prism',
+      skywardBossIndex: 7,
       name: '棱镜',
       color: '#d8c58a',
-      image: 'assets/bosses/boss-08-prism-judge.png',
+      image: 'assets/images/bosses/boss-08-prism-judge.png',
       attack: 'prism',
       every: 5.6,
       warn: 0.55,
@@ -154,9 +161,10 @@
     },
     prismBurst: {
       key: 'prismBurst',
+      skywardBossIndex: 7,
       name: '棱爆',
       color: '#d8c58a',
-      image: 'assets/bosses/boss-08-prism-judge.png',
+      image: 'assets/images/bosses/boss-08-prism-judge.png',
       attack: 'prismBurst',
       every: 6.4,
       warn: 0.58,
@@ -250,6 +258,61 @@
       scoreMult: 1.16,
       line: '爆雷空域把导弹残骸改成自毁敌机，击杀后也要立刻转向。'
     },
+    shieldWall: {
+      key: 'shieldWall',
+      name: '盾幕',
+      color: '#74c0fc',
+      enemyBias: ['shieldCarrier', 'warden'],
+      spawnBias: 0.44,
+      hpMult: 0.08,
+      scoreMult: 1.12,
+      line: '护盾运输机和监押机会把残影连成盾幕，先拆护盾再贴近 Boss。'
+    },
+    beaconTrace: {
+      key: 'beaconTrace',
+      name: '信标追迹',
+      color: '#ffd43b',
+      enemyBias: ['beacon', 'mirrorDrone'],
+      spawnBias: 0.46,
+      scoreMult: 1.11,
+      line: '被点亮的旧路线会变成信标纵击，看到竖向预警就换航道。'
+    },
+    rearGuard: {
+      key: 'rearGuard',
+      name: '尾袭',
+      color: '#ff6b6b',
+      enemyBias: ['kamikaze', 'phaseWing'],
+      spawnBias: 0.42,
+      scoreMult: 1.13,
+      line: '后追自爆机会从载体背后追上来，不要只盯着屏幕上缘。'
+    },
+    mineLayerRun: {
+      key: 'mineLayerRun',
+      name: '浮雷',
+      color: '#ff922b',
+      enemyBias: ['mineLayer', 'detonator'],
+      spawnBias: 0.44,
+      scoreMult: 1.13,
+      line: '布雷机会把安全线切碎，补给和火力都要绕开浮雷触发圈。'
+    },
+    tetherNet: {
+      key: 'tetherNet',
+      name: '牵引网',
+      color: '#20c997',
+      enemyBias: ['tether', 'phaseWing'],
+      spawnBias: 0.4,
+      scoreMult: 1.12,
+      line: '牵引机会轻拉载体航线，越贴近中心越难脱离。'
+    },
+    harvestRush: {
+      key: 'harvestRush',
+      name: '收割',
+      color: '#fcc419',
+      enemyBias: ['harvester', 'beacon'],
+      spawnBias: 0.38,
+      scoreMult: 1.14,
+      line: '收割机会抢走补给并逃逸，别让它把前序奖励带走。'
+    },
     support: {
       key: 'support',
       name: '修复',
@@ -284,9 +347,10 @@
     },
     ironCarrier: {
       key: 'ironCarrier',
+      skywardBossIndex: 8,
       name: '铁幕',
       color: '#91a7ff',
-      image: 'assets/bosses/boss-09-iron-carrier.png',
+      image: 'assets/images/bosses/boss-09-iron-carrier.png',
       attack: 'escort',
       every: 7.8,
       enemy: 'gunner',
@@ -331,9 +395,10 @@
     },
     tideCore: {
       key: 'tideCore',
+      skywardBossIndex: 9,
       name: '引潮',
       color: '#4dabf7',
-      image: 'assets/bosses/boss-10-tide-core.png',
+      image: 'assets/images/bosses/boss-10-tide-core.png',
       attack: 'gravity',
       every: 7.1,
       warn: 0.82,
@@ -351,6 +416,9 @@
     'support',
     'barrage',
     'minefield',
+    'beaconTrace',
+    'shieldWall',
+    'tetherNet',
     'carrierWing'
   ];
 
@@ -866,6 +934,12 @@
     if (entropy >= 6 || pressure >= 0.7 || /absorb_water|block|force_field/.test(abilityText)) keys.push('minefield');
     if (defense?.victory && (pressure >= 0.66 || residentsCount() >= 2)) keys.push('regenerator');
     if (entropy >= 6 || residentsCount() >= 3 || lostCount() >= 2) keys.push('carrierWing');
+    if (entropy >= 6 || /absorb_water|force_field|dream_link/.test(abilityText)) keys.push('tetherNet');
+    if (pressure >= 0.7 && /block|force_field|memory_beacon/.test(abilityText)) keys.push('shieldWall');
+    if (/illuminate|memory_beacon|dream_link|guide/.test(abilityText)) keys.push('beaconTrace');
+    if (entropy >= 6 || pressure >= 0.74) keys.push('mineLayerRun');
+    if (aggressiveStyle() || entropy >= 5) keys.push('rearGuard');
+    if (defense?.victory && pressure >= 0.62) keys.push('harvestRush');
     if (/memory_beacon|dream_link|guide/.test(abilityText)) keys.push('jammerElite');
     if (entropy >= 6 || /memory_beacon|dream_link|guide/.test(abilityText)) keys.push('jammerCloud');
     if (/illuminate|memory_beacon|dream_link|guide/.test(abilityText)) keys.push('support');

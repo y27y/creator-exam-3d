@@ -63,19 +63,7 @@ export class WorldSession {
 
   tickWorld(context = {}) {
     const residentActions = this.tickResidents(context)
-    const economy = this.worldSimulation.worldEconomySystem?.tickWorldPressure?.({
-      completedRegionCount: this.completedRegionCount,
-      currentRegionId: this.currentRegionId,
-      ...context
-    }) || null
-    return { residentActions, economy }
-  }
-
-  applyManagementDecision(decision = {}) {
-    if (!this.worldSimulation.applyManagementDecision) {
-      return { applied: false, reason: 'management_not_available' }
-    }
-    return this.worldSimulation.applyManagementDecision(decision)
+    return { residentActions }
   }
 
   talkToResident(residentId, playerText) {

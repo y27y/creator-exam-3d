@@ -1291,8 +1291,13 @@ class GameEngine {
     }
     if (unit.stunnedTurns > 0) {
       unit.stunnedTurns -= 1;
-      unit.anger = Math.min(this.level.beastAngerLimit || 5, (unit.anger || 0) + 1);
-      this.log(`${unit.name} 本回合被牵制，怒气上升到 ${unit.anger}`);
+      // 被吸引状态下暂停怒气增长（引力安抚），其他状态正常累积
+      if (unit.attractTurns > 0 && unit.attractedTo) {
+        this.log(`${unit.name} 本回合被牵制，但受引力牵引，怒气维持 ${unit.anger || 0}`);
+      } else {
+        unit.anger = Math.min(this.level.beastAngerLimit || 5, (unit.anger || 0) + 1);
+        this.log(`${unit.name} 本回合被牵制，怒气上升到 ${unit.anger}`);
+      }
       return;
     }
     const fromX = unit.x;
@@ -1300,8 +1305,13 @@ class GameEngine {
     const attractGoal = (unit.attractTurns > 0 && unit.attractedTo) ? unit.attractedTo : null;
     const next = this.nextStepToward(unit, this.getEffectiveGoal(unit));
     if (!next) {
-      unit.anger = Math.min(this.level.beastAngerLimit || 5, (unit.anger || 0) + 1);
-      this.log(`${unit.name} 被完全堵住，怒气上升到 ${unit.anger}`);
+      // 被吸引状态下暂停怒气增长（引力安抚），其他状态正常累积
+      if (attractGoal) {
+        this.log(`${unit.name} 被堵住，但受引力牵引，怒气维持 ${unit.anger || 0}`);
+      } else {
+        unit.anger = Math.min(this.level.beastAngerLimit || 5, (unit.anger || 0) + 1);
+        this.log(`${unit.name} 被完全堵住，怒气上升到 ${unit.anger}`);
+      }
       return;
     }
     unit.x = next.x;

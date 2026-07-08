@@ -13,7 +13,6 @@ import { CognitiveEffects } from './cognitiveEffects.js';
 import { worldLegendSystem } from './worldLegend.js';
 import { legacySystem } from './legacySystem.js';
 import { persistentWorld } from './persistentWorld.js';
-import { buildContinuityViewModel } from './continuityPresenter.js';
 import { buildAdvancedMechanicsViewModel } from './advancedMechanicsPresenter.js';
 import { buildExplorationChoiceViewModel } from './explorationPresenter.js';
 import { buildKnownWorldFacts, filterKnownNarrativeMemories, getKnownRegionIdsFromProgress } from './worldKnowledge.js';
@@ -304,7 +303,6 @@ class CreatorExam3D extends GameEngine {
 
     this.renderWorld();
     this.updateUi();
-    this.renderContinuity();
   }
 
   collectUi() {
@@ -373,9 +371,6 @@ class CreatorExam3D extends GameEngine {
       residentDialogueInput: document.getElementById('resident-dialogue-input'),
       residentDialogueSend: document.getElementById('resident-dialogue-send'),
       residentDialogueLog: document.getElementById('resident-dialogue-log'),
-      continuityResidents: document.getElementById('continuity-residents'),
-      continuityHooks: document.getElementById('continuity-hooks'),
-      continuityPressures: document.getElementById('continuity-pressures'),
       legendMyths: document.getElementById('legend-myths'),
       legendArtifacts: document.getElementById('legend-artifacts'),
       legendFigures: document.getElementById('legend-figures'),
@@ -997,7 +992,6 @@ class CreatorExam3D extends GameEngine {
       entropy: this.entropy
     });
     this.emitRegionResolvedEvent(message);
-    this.renderContinuity();
 
     // Screen effects for victory
     this.screenEffects.flash('#9dffb3', 500);
@@ -1029,7 +1023,6 @@ class CreatorExam3D extends GameEngine {
       entropy: this.entropy
     });
     this.emitRegionLostEvent(message);
-    this.renderContinuity();
 
     // Screen shake for failure
     this.screenEffects.shake(8, 500);
@@ -1233,7 +1226,6 @@ class CreatorExam3D extends GameEngine {
         this.addLog(`【守夜关键时刻】${result.notableMoment}`);
       }
       this.memoryStore?.saveWorld?.(this.worldSession.worldSimulation);
-      this.renderContinuity();
       this.updateUi();
       return;
     }
@@ -1259,7 +1251,6 @@ class CreatorExam3D extends GameEngine {
     this.addLog(`【长夜守城】${outcome} ${result.survivedWaves || 0} 波，裂隙变化 ${delta >= 0 ? '+' : ''}${delta}。`, true);
     if (result.notableMoment) this.addLog(`【守夜传说】${result.notableMoment}`);
     this.memoryStore?.saveWorld?.(this.worldSession.worldSimulation);
-    this.renderContinuity();
     this.updateUi();
   }
 
@@ -1303,7 +1294,6 @@ class CreatorExam3D extends GameEngine {
         this.addLog(`【空域关键时刻】${result.notableMoment}`);
       }
       this.memoryStore?.saveWorld?.(this.worldSession.worldSimulation);
-      this.renderContinuity();
       this.updateUi();
       return;
     }
@@ -1329,7 +1319,6 @@ class CreatorExam3D extends GameEngine {
     this.addLog(`【第七天裂隙空域】${victory ? '清算完成' : '清算失败'}，分数 ${result.score || 0}，裂隙变化 ${delta >= 0 ? '+' : ''}${delta}。`, true);
     if (result.notableMoment) this.addLog(`【空域裁决】${result.notableMoment}`);
     this.memoryStore?.saveWorld?.(this.worldSession.worldSimulation);
-    this.renderContinuity();
     this.updateUi();
   }
 
@@ -1396,7 +1385,6 @@ class CreatorExam3D extends GameEngine {
       this.addLog(`${unit.name} 被${TERRAIN_LABELS[terrain]}吞没（持续覆盖超过一回合）`);
       this.updateWorldState({ type: 'unit_lost', detail: unit.name });
       this.emitUnitLostEvent(unit, terrain);
-      this.renderContinuity();
 
       // Environmental narrative for loss
       this.addEnvironmentalNarrative('loss', { levelId: this.level.id });
@@ -1449,8 +1437,13 @@ class CreatorExam3D extends GameEngine {
     }
     if (unit.stunnedTurns > 0) {
       unit.stunnedTurns -= 1;
-      unit.anger = Math.min(this.level.beastAngerLimit || 5, (unit.anger || 0) + 1);
-      this.addLog(`${unit.name} 本回合被牵制，怒气上升到 ${unit.anger}。`);
+      // 被吸引状态下暂停怒气增长（引力安抚），其他状态正常累积
+      if (unit.attractTurns > 0 && unit.attractedTo) {
+        this.addLog(`${unit.name} 本回合被牵制，但受引力牵引，怒气维持 ${unit.anger || 0}。`);
+      } else {
+        unit.anger = Math.min(this.level.beastAngerLimit || 5, (unit.anger || 0) + 1);
+        this.addLog(`${unit.name} 本回合被牵制，怒气上升到 ${unit.anger}。`);
+      }
       return;
     }
     const fromX = unit.x;
@@ -1461,8 +1454,13 @@ class CreatorExam3D extends GameEngine {
       ? this.randomPassableNeighbor(unit)
       : this.nextStepToward(unit, this.getEffectiveGoal(unit));
     if (!next) {
-      unit.anger = Math.min(this.level.beastAngerLimit || 5, (unit.anger || 0) + 1);
-      this.addLog(`${unit.name} 被完全堵住，怒气上升到 ${unit.anger}。`);
+      // 被吸引状态下暂停怒气增长（引力安抚），其他状态正常累积
+      if (attractGoal) {
+        this.addLog(`${unit.name} 被堵住，但受引力牵引，怒气维持 ${unit.anger || 0}。`);
+      } else {
+        unit.anger = Math.min(this.level.beastAngerLimit || 5, (unit.anger || 0) + 1);
+        this.addLog(`${unit.name} 被完全堵住，怒气上升到 ${unit.anger}。`);
+      }
       return;
     }
     unit.x = next.x;
@@ -5949,41 +5947,6 @@ class CreatorExam3D extends GameEngine {
     return path.length > 1 ? path : null;
   }
 
-  renderContinuity() {
-    if (!this.worldSimulation || !this.ui?.continuityResidents || !this.ui?.continuityHooks) return;
-    const model = buildContinuityViewModel(this.worldSimulation, {
-      currentRegionId: this.level?.id || 'unknown'
-    });
-
-    this.ui.continuityResidents.innerHTML = model.residents.map(resident => `
-      <div class="continuity-item">
-        <strong>${escapeHtml(resident.name)}</strong> · ${escapeHtml(resident.mood)}<br>
-        ${escapeHtml(resident.latestMemory)}
-      </div>
-    `).join('') || '<div class="continuity-item">暂无居民记忆</div>';
-
-    this.ui.continuityHooks.innerHTML = model.futureHooks.map(hook => `
-      <div class="continuity-item">
-        <strong>${escapeHtml(hook.type)}</strong><br>
-        ${escapeHtml(hook.summary)}
-      </div>
-    `).join('') || '<div class="continuity-item">暂无未解决线索</div>';
-
-    if (this.ui.continuityPressures) {
-      this.ui.continuityPressures.innerHTML = model.pressures.map(p => {
-        const pct = Math.max(0, Math.min(100, p.value));
-        let barClass = '';
-        if (pct >= 90) barClass = 'danger';
-        else if (pct >= 70) barClass = 'warning';
-        return `<div class="continuity-item">
-          <strong>${escapeHtml(p.category)}</strong> · ${escapeHtml(p.status)}<br>
-          <div class="meter-bar"><div class="meter-fill ${barClass}" style="width:${pct}%"></div></div>
-          ${pct}% ${p.trend > 0 ? '↑' : p.trend < 0 ? '↓' : '→'}
-        </div>`;
-      }).join('') || '<div class="continuity-item">暂无压力数据</div>';
-    }
-  }
-
   showExplorationChoices(choices, winMessage) {
     const container = document.getElementById('exploration-choices');
     if (!container) return;
@@ -6052,7 +6015,6 @@ class CreatorExam3D extends GameEngine {
     this.worldSimulation = this.worldSession.worldSimulation;
     this.memoryStore?.saveWorld(this.worldSession);
     this.reloadCurrentSessionRegion?.();
-    this.renderContinuity?.();
     this.renderExplorationChoices?.();
     this.renderWorldMap?.();
     this.addLog?.(`World loaded from slot ${this.currentSlotId()}.`);

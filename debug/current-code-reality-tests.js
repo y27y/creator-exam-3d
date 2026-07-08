@@ -96,18 +96,6 @@ async function withNoKeyServer(testBody) {
 
 function assertBrowserImportsAndEscapes() {
   const gameSource = readSource('public/js/game.js');
-  assert.match(
-    gameSource,
-    /import\s+\{\s*buildContinuityViewModel\s*\}\s+from\s+['"]\.\/continuityPresenter\.js['"];/,
-    'game.js must import buildContinuityViewModel before renderContinuity uses it'
-  );
-
-  const continuityBlock = sourceBlock(gameSource, '  renderContinuity() {', '  showExplorationChoices(choices, winMessage) {');
-  assert.ok(continuityBlock.includes('escapeHtml(resident.name)'), 'continuity resident name must be escaped');
-  assert.ok(continuityBlock.includes('escapeHtml(resident.mood)'), 'continuity resident mood must be escaped');
-  assert.ok(continuityBlock.includes('escapeHtml(resident.latestMemory)'), 'continuity resident memory must be escaped');
-  assert.ok(continuityBlock.includes('escapeHtml(hook.type)'), 'continuity hook type must be escaped');
-  assert.ok(continuityBlock.includes('escapeHtml(hook.summary)'), 'continuity hook summary must be escaped');
 
   const explorationBlock = sourceBlock(gameSource, '  showExplorationChoices(choices, winMessage) {', '  async handleExplorationChoice(choiceId) {');
   assert.ok(explorationBlock.includes('escapeHtml(vm.id)'), 'exploration choice id must be escaped before HTML insertion');

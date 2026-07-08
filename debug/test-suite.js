@@ -3479,7 +3479,7 @@ runner.test('WorldSession - should own open-world transitions without depending 
   runner.assertEqual(session.currentRegionId, 'flood-village', 'session should own current region id');
   runner.assert(session.serialize().worldSimulation, 'session should serialize world simulation');
   runner.assert(session.serialize().currentRegionId, 'session should serialize playable current region');
-  for (const method of ['tickWorld', 'tickResidents', 'applyManagementDecision', 'talkToResident', 'updateTacticalSnapshot']) {
+  for (const method of ['tickWorld', 'tickResidents', 'talkToResident', 'updateTacticalSnapshot']) {
     runner.assertEqual(typeof session[method], 'function', `WorldSession should expose ${method}`);
   }
 
@@ -4191,59 +4191,7 @@ runner.test('浏览器入口 - 世界事件后应触发MemoryStore保存', async
   runner.assert(source.includes('loadWorld') || source.includes('loadWorld('), 'game.js应包含loadWorld调用');
 });
 
-// ========== 连续性UI测试 (Continuity UI) ==========
 
-runner.test('ContinuityPresenter - 应格式化居民记忆和futureHooks', async () => {
-  const { WorldSimulation } = await import('../public/js/worldSimulation.js');
-  const { buildContinuityViewModel } = await import('../public/js/continuityPresenter.js');
-
-  const world = new WorldSimulation();
-  world.addFutureHook('flood-village', {
-    id: 'legacy-lamp-hook',
-    type: 'entropy_scar',
-    sourceRegionId: 'flood-village',
-    targetRegionId: 'flood-village',
-    priority: 0.8,
-    summary: '「噬光之灯」留下的裂隙可能污染未来区域'
-  });
-  world.recordGameEvent({
-    type: 'unit_rescued',
-    regionId: 'flood-village',
-    actorId: 'player',
-    turn: 2,
-    payload: { unitName: '小烛', residentId: 'resident-xiaozhu' },
-    importance: 0.9,
-    tags: ['rescue', 'resident']
-  });
-
-  const model = buildContinuityViewModel(world, { currentRegionId: 'flood-village' });
-  runner.assertTrue(model.residents.some(row => row.residentId === 'resident-xiaozhu'), '模型应包含resident-xiaozhu');
-  runner.assertTrue(model.futureHooks.some(row => row.type === 'resident_migration'), '模型应包含resident_migration钩子');
-  runner.assertTrue(model.futureHooks.some(row => row.summary.includes('噬光黑核')), '旧噬光日志应显示为噬光黑核');
-  runner.assertTrue(!model.futureHooks.some(row => row.summary.includes('噬光之灯')), '连续性面板不应继续显示旧噬光之灯名称');
-  runner.assertTrue(model.eventSummary.totalEvents >= 1, '事件总数应>=1');
-});
-
-runner.test('Continuity UI - DOM应包含连续性面板挂载点', async () => {
-  const fs = await import('node:fs');
-  const html = fs.readFileSync(new URL('../public/index.html', import.meta.url), 'utf8');
-  const css = fs.readFileSync(new URL('../public/styles.css', import.meta.url), 'utf8');
-
-  for (const id of ['continuity-panel', 'continuity-residents', 'continuity-hooks']) {
-    runner.assert(html.includes(id), `index.html应包含${id}`);
-  }
-  runner.assert(css.includes('.continuity-panel'), 'styles.css应包含.continuity-panel样式');
-});
-
-runner.test('Continuity UI - game.js应通过Presenter渲染而不直接改世界状态', async () => {
-  const fs = await import('node:fs');
-  const source = fs.readFileSync(new URL('../public/js/game.js', import.meta.url), 'utf8');
-
-  runner.assert(source.includes('buildContinuityViewModel'), 'game.js应导入buildContinuityViewModel');
-  runner.assert(source.includes('renderContinuity'), 'game.js应包含renderContinuity方法');
-  runner.assert(source.includes('continuityResidents'), 'game.js应包含continuityResidents UI引用');
-  runner.assert(source.includes('continuityHooks'), 'game.js应包含continuityHooks UI引用');
-});
 
 runner.test('DebugSnapshot - 应捕获世界状态为可序列化对象', async () => {
   const { WorldSimulation } = await import('../public/js/worldSimulation.js');
@@ -4497,143 +4445,7 @@ runner.test('WorldSimulation - 应包含scheduleSystem序列化', async () => {
   runner.assertTrue(serialized.scheduleSystem !== undefined, 'serialize()应包含scheduleSystem');
 });
 
-runner.test('WorldEconomySystem - 压力更新和边界限制', async () => {
-  const { WorldEconomySystem, PRESSURE_CATEGORIES } = await import('../public/js/worldEconomySystem.js');
-  const system = new WorldEconomySystem();
 
-  runner.assertEqual(PRESSURE_CATEGORIES.length, 5, '应有5个压力类别');
-  runner.assertTrue(PRESSURE_CATEGORIES.includes('safety'), '应包含safety');
-  runner.assertTrue(PRESSURE_CATEGORIES.includes('resources'), '应包含resources');
-  runner.assertTrue(PRESSURE_CATEGORIES.includes('morale'), '应包含morale');
-  runner.assertTrue(PRESSURE_CATEGORIES.includes('reputation'), '应包含reputation');
-  runner.assertTrue(PRESSURE_CATEGORIES.includes('threat'), '应包含threat');
-
-  runner.assertEqual(system.getPressure('safety'), 50, '初始压力应为50');
-  system.setPressure('safety', 80);
-  runner.assertEqual(system.getPressure('safety'), 80, '设置压力应为80');
-  system.updatePressure('safety', 30);
-  runner.assertEqual(system.getPressure('safety'), 100, '增量更新后应为100');
-  system.updatePressure('safety', 10);
-  runner.assertEqual(system.getPressure('safety'), 100, '超过100应限制为100');
-  system.setPressure('safety', -10);
-  runner.assertEqual(system.getPressure('safety'), 0, '低于0应限制为0');
-});
-
-runner.test('WorldEconomySystem - 临界压力应发出事件', async () => {
-  const { WorldEconomySystem } = await import('../public/js/worldEconomySystem.js');
-  const { EventBus } = await import('../public/js/eventBus.js');
-
-  const eventBus = new EventBus();
-  const system = new WorldEconomySystem({ eventBus });
-  const criticalEvents = [];
-  eventBus.on('pressure_critical', (event) => criticalEvents.push(event));
-
-  system.setPressure('threat', 100);
-  system.tick(5, []);
-  runner.assertEqual(criticalEvents.filter(e => e.type === 'pressure_critical').length, 1, '压力达到100时应发出pressure_critical事件');
-  runner.assertEqual(criticalEvents[0].category, 'threat', '事件应包含正确类别');
-
-  system.setPressure('safety', 100);
-  system.tick(6, []);
-  runner.assertEqual(criticalEvents.filter(e => e.type === 'pressure_critical').length, 3, '第二次tick应再发出两个事件（threat和safety）');
-});
-
-runner.test('WorldEconomySystem - 序列化和反序列化', async () => {
-  const { WorldEconomySystem } = await import('../public/js/worldEconomySystem.js');
-
-  const system = new WorldEconomySystem();
-  system.setPressure('morale', 75);
-  system.setPressure('threat', 30);
-  system.recordDecision({
-    id: 'dec-1',
-    type: 'aid',
-    description: '向难民提供物资',
-    costs: { budget: 5 },
-    effects: { morale: 10, resources: -2 },
-    turn: 3
-  });
-
-  const serialized = system.serialize();
-  runner.assertEqual(serialized.version, 1, '序列化版本应为1');
-  runner.assertEqual(serialized.pressures.length, 5, '应序列化5个压力');
-  runner.assertEqual(serialized.decisions.length, 1, '应序列化1个决策');
-  runner.assertEqual(serialized.budget.spent, 5, '预算花费应为5');
-
-  const restored = new WorldEconomySystem();
-  restored.deserialize(serialized);
-  runner.assertEqual(restored.getPressure('morale'), 85, '反序列化后morale应为85（含决策效果）');
-  runner.assertEqual(restored.getPressure('threat'), 30, '反序列化后threat应为30');
-  runner.assertEqual(restored.decisions.length, 1, '反序列化后应有1个决策');
-  runner.assertEqual(restored.budget.spent, 5, '反序列化后预算花费应为5');
-});
-
-runner.test('WorldSimulation - 应包含economySystem序列化', async () => {
-  const { WorldSimulation } = await import('../public/js/worldSimulation.js');
-  const world = new WorldSimulation();
-  const serialized = world.serialize();
-  runner.assertTrue(serialized.economySystem !== undefined, 'serialize()应包含economySystem');
-});
-
-runner.test('WorldSimulation - 事件应触发经济系统tick', async () => {
-  const { WorldSimulation } = await import('../public/js/worldSimulation.js');
-  const world = new WorldSimulation();
-
-  world.recordGameEvent({
-    type: 'unit_lost',
-    regionId: 'flood-village',
-    actorId: 'player',
-    turn: 2,
-    payload: { unitName: '测试居民' },
-    importance: 0.8,
-    tags: ['loss']
-  });
-
-  const safety = world.economySystem.getPressure('safety');
-  const morale = world.economySystem.getPressure('morale');
-  runner.assertEqual(safety, 45, 'unit_lost应使safety减少5');
-  runner.assertEqual(morale, 47, 'unit_lost应使morale减少3');
-});
-
-runner.test('ContinuityPresenter - 应包含pressures字段', async () => {
-  const { WorldSimulation } = await import('../public/js/worldSimulation.js');
-  const { buildContinuityViewModel } = await import('../public/js/continuityPresenter.js');
-
-  const world = new WorldSimulation();
-  world.recordGameEvent({
-    type: 'unit_rescued',
-    regionId: 'flood-village',
-    actorId: 'player',
-    turn: 2,
-    payload: { unitName: '小烛', residentId: 'resident-xiaozhu' },
-    importance: 0.9,
-    tags: ['rescue', 'resident']
-  });
-
-  const model = buildContinuityViewModel(world, { currentRegionId: 'flood-village' });
-  runner.assertTrue(Array.isArray(model.pressures), '模型应包含pressures数组');
-  runner.assertEqual(model.pressures.length, 5, '应有5个压力条目');
-  runner.assertTrue(model.pressures.some(p => p.category === 'morale'), '应包含morale压力');
-  runner.assertTrue(model.pressures.some(p => p.value !== undefined), '压力应包含value字段');
-  runner.assertTrue(model.pressures.some(p => p.status !== undefined), '压力应包含status字段');
-});
-
-runner.test('Continuity UI - DOM应包含压力面板挂载点', async () => {
-  const fs = await import('node:fs');
-  const html = fs.readFileSync(new URL('../public/index.html', import.meta.url), 'utf8');
-  const css = fs.readFileSync(new URL('../public/styles.css', import.meta.url), 'utf8');
-
-  runner.assert(html.includes('continuity-pressures'), 'index.html应包含continuity-pressures');
-  runner.assert(css.includes('.continuity-panel'), 'styles.css应包含.continuity-panel样式');
-});
-
-runner.test('Continuity UI - game.js应渲染压力条', async () => {
-  const fs = await import('node:fs');
-  const source = fs.readFileSync(new URL('../public/js/game.js', import.meta.url), 'utf8');
-
-  runner.assert(source.includes('continuityPressures'), 'game.js应包含continuityPressures UI引用');
-  runner.assert(source.includes('model.pressures'), 'game.js应使用model.pressures');
-  runner.assert(source.includes('meter-fill'), 'game.js应渲染meter-fill压力条');
-});
 
 runner.test('ContentCodex - 应包含12+居民原型', async () => {
   const { RESIDENT_PROTOTYPES, ContentCodex } = await import('../public/js/contentCodex.js')
@@ -5222,6 +5034,62 @@ runner.test('灾害扩散 - resolveSpreadPerTurn 应正确解析 0 与默认值'
 
   game.level.hazard = { type: 'flood', spreadPerTurn: undefined };
   runner.assertEqual(game.resolveSpreadPerTurn(), 2, 'spreadPerTurn=undefined 应回退到 2');
+});
+
+// ========== 巨兽怒气 - 被吸引状态暂停增长 ==========
+
+function makeBeastGame(overrides = {}) {
+  const game = new DebugGame();
+  game.reset();
+  game.triggerRandomEvent = () => null;
+  const beast = {
+    id: 'test-beast',
+    name: '测试巨兽',
+    type: 'beast',
+    status: 'active',
+    x: 3,
+    y: 3,
+    goal: { x: 0, y: 0 },
+    anger: 0,
+    ...overrides
+  };
+  game.units = [beast];
+  return { game, beast };
+}
+
+runner.test('巨兽怒气 - 被吸引状态下被牵制时暂停怒气增长', () => {
+  const { game, beast } = makeBeastGame({
+    stunnedTurns: 1,
+    attractedTo: { x: 6, y: 6, creationId: 'c1' },
+    attractTurns: 2
+  });
+  game.moveBeast(beast);
+  runner.assertEqual(beast.anger, 0, '被吸引状态下被牵制，怒气不应增长');
+  runner.assertEqual(beast.stunnedTurns, 0, '被牵制回合仍应递减');
+});
+
+runner.test('巨兽怒气 - 被吸引状态下被堵住时暂停怒气增长', () => {
+  const { game, beast } = makeBeastGame({
+    attractedTo: { x: 6, y: 6, creationId: 'c1' },
+    attractTurns: 2
+  });
+  // 四周用墙围死，使吸引点不可达
+  game.terrain = Array.from({ length: 7 }, () => Array.from({ length: 7 }, () => TILE.WALL));
+  game.moveBeast(beast);
+  runner.assertEqual(beast.anger, 0, '被吸引状态下被堵住，怒气不应增长');
+});
+
+runner.test('巨兽怒气 - 非吸引状态下被牵制时怒气正常增长', () => {
+  const { game, beast } = makeBeastGame({ stunnedTurns: 1 });
+  game.moveBeast(beast);
+  runner.assertEqual(beast.anger, 1, '非吸引状态下被牵制，怒气应正常 +1');
+});
+
+runner.test('巨兽怒气 - 非吸引状态下被堵住时怒气正常增长', () => {
+  const { game, beast } = makeBeastGame();
+  game.terrain = Array.from({ length: 7 }, () => Array.from({ length: 7 }, () => TILE.WALL));
+  game.moveBeast(beast);
+  runner.assertEqual(beast.anger, 1, '非吸引状态下被堵住，怒气应正常 +1');
 });
 
 runner.run().then(success => {

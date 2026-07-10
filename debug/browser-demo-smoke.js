@@ -10,6 +10,8 @@ function sourceBlock(source, startToken, endToken) {
 }
 
 const gameSource = readFileSync(new URL('../public/js/game.js', import.meta.url), 'utf8');
+const abilitySource = readFileSync(new URL('../public/js/abilities.js', import.meta.url), 'utf8');
+const particleSource = readFileSync(new URL('../public/js/particles.js', import.meta.url), 'utf8');
 const htmlSource = readFileSync(new URL('../public/index.html', import.meta.url), 'utf8');
 const cssSource = readFileSync(new URL('../public/styles.css', import.meta.url), 'utf8');
 const smokeBlock = sourceBlock(gameSource, '  async runBrowserDemoSmoke(options = {}) {', '  demoCard(ability) {');
@@ -17,6 +19,25 @@ const bridgeBlock = sourceBlock(gameSource, '  bindBrowserDemoSmokeBridge() {', 
 const shellCssStart = cssSource.indexOf('/* ===== Map-first shell and context drawers ===== */');
 assert.notEqual(shellCssStart, -1, 'missing map-first shell CSS override');
 const shellCss = cssSource.slice(shellCssStart);
+
+for (const family of ['water', 'light', 'terrain', 'defense', 'mind', 'special']) {
+  assert.ok(abilitySource.includes(`'${family}'`), `ability map should include ${family}`);
+}
+for (const family of ['water', 'light', 'terrain', 'defense', 'mind']) {
+  assert.ok(gameSource.includes(`visual.family === '${family}'`), `creation meshes should render ${family}`);
+}
+assert.ok(gameSource.includes('group.userData.visualFamily = visual.family'), 'creation meshes should publish the selected family');
+assert.ok(particleSource.includes('getAbilityVisualFamily(ability)'), 'particles should use the canonical family mapping');
+assert.ok(particleSource.includes('.clone()'), 'cached particle templates should be cloned per effect');
+assert.ok(particleSource.includes('this.maxParticles = 1000'), 'particle cap must remain unchanged');
+
+for (const check of [
+  'all six ability families render through creation mesh',
+  'family creations retain one icosahedron core',
+  'consume_light preserves absorption visual override'
+]) {
+  assert.ok(smokeBlock.includes(`'${check}'`), `missing live smoke check: ${check}`);
+}
 
 const missingShellContracts = [
   ['mobile drawer resets legacy height', /@media \(max-width: 760px\)\s*\{[\s\S]*?#right-panel\s*\{[^}]*height:\s*auto;[^}]*max-height:\s*none;[^}]*\}/],

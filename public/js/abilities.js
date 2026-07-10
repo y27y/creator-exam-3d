@@ -45,6 +45,19 @@ export const ABILITIES = [
 
 export const ABILITY_SET = new Set(ABILITIES);
 
+export const ABILITY_VISUAL_FAMILIES = Object.freeze({
+  absorb_water: 'water', freeze_water: 'water', dig_channel: 'water', redirect_hazard: 'water', steam_burst: 'water',
+  illuminate: 'light', reveal_path: 'light', sun_blessing: 'light',
+  create_bridge: 'terrain', transform_land: 'terrain', raise_earth: 'terrain', grow_forest: 'terrain', nature_awakening: 'terrain',
+  block: 'defense', slow_beast: 'defense', force_field: 'defense', trap: 'defense', shield_units: 'defense', rift_sealing: 'defense',
+  calm: 'mind', guide: 'mind', memory_beacon: 'mind', dream_link: 'mind', attract: 'mind', beast_taming: 'mind',
+  gale: 'special', cleanse: 'special', time_dilation: 'special', haste: 'special', teleport: 'special', time_weave: 'special'
+});
+
+export function getAbilityVisualFamily(ability) {
+  return ABILITY_VISUAL_FAMILIES[ability] || 'special';
+}
+
 // ======================== labels ========================
 
 export const ABILITY_LABELS = {

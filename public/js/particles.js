@@ -2,6 +2,7 @@
 // Adds visual flair to ability activations and game events
 
 import * as THREE from 'three';
+import { getAbilityVisualFamily } from './abilities.js';
 
 export class ParticleSystem {
   constructor(scene) {
@@ -14,22 +15,18 @@ export class ParticleSystem {
   // Create particle material with caching
   getParticleMaterial(color, options = {}) {
     const key = `${color}-${JSON.stringify(options)}`;
-    if (this.particleMaterials.has(key)) {
-      return this.particleMaterials.get(key);
+    if (!this.particleMaterials.has(key)) {
+      this.particleMaterials.set(key, new THREE.PointsMaterial({
+        color,
+        size: options.size || 0.15,
+        transparent: true,
+        opacity: options.opacity || 0.8,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+        sizeAttenuation: true
+      }));
     }
-
-    const material = new THREE.PointsMaterial({
-      color,
-      size: options.size || 0.15,
-      transparent: true,
-      opacity: options.opacity || 0.8,
-      blending: THREE.AdditiveBlending,
-      depthWrite: false,
-      sizeAttenuation: true
-    });
-
-    this.particleMaterials.set(key, material);
-    return material;
+    return this.particleMaterials.get(key).clone();
   }
 
   // Spawn particles for ability activation
@@ -42,6 +39,7 @@ export class ParticleSystem {
     const velocities = new Float32Array(particleCount * 3);
     const lifetimes = new Float32Array(particleCount);
     const sizes = new Float32Array(particleCount);
+    const family = getAbilityVisualFamily(ability);
 
     for (let i = 0; i < particleCount; i++) {
       const angle = Math.random() * Math.PI * 2;
@@ -52,9 +50,33 @@ export class ParticleSystem {
       positions[i * 3 + 1] = y + height;
       positions[i * 3 + 2] = z + Math.sin(angle) * radius;
 
-      velocities[i * 3] = (Math.random() - 0.5) * 0.02;
-      velocities[i * 3 + 1] = Math.random() * 0.03 + 0.01;
-      velocities[i * 3 + 2] = (Math.random() - 0.5) * 0.02;
+      const radialX = Math.cos(angle) * (0.012 + Math.random() * 0.012);
+      const radialZ = Math.sin(angle) * (0.012 + Math.random() * 0.012);
+      if (family === 'water') {
+        velocities[i * 3] = radialX;
+        velocities[i * 3 + 1] = 0.006;
+        velocities[i * 3 + 2] = radialZ;
+      } else if (family === 'light') {
+        velocities[i * 3] = radialX * 0.25;
+        velocities[i * 3 + 1] = 0.035 + Math.random() * 0.02;
+        velocities[i * 3 + 2] = radialZ * 0.25;
+      } else if (family === 'terrain') {
+        velocities[i * 3] = radialX * 0.45;
+        velocities[i * 3 + 1] = 0.003;
+        velocities[i * 3 + 2] = radialZ * 0.45;
+      } else if (family === 'defense') {
+        velocities[i * 3] = -Math.sin(angle) * 0.018;
+        velocities[i * 3 + 1] = 0.008;
+        velocities[i * 3 + 2] = Math.cos(angle) * 0.018;
+      } else if (family === 'mind') {
+        velocities[i * 3] = -Math.sin(angle) * 0.015;
+        velocities[i * 3 + 1] = 0.018;
+        velocities[i * 3 + 2] = Math.cos(angle) * 0.015;
+      } else {
+        velocities[i * 3] = -radialX;
+        velocities[i * 3 + 1] = 0.024;
+        velocities[i * 3 + 2] = -radialZ;
+      }
 
       lifetimes[i] = 1.0 + Math.random() * 0.5;
       sizes[i] = 0.05 + Math.random() * 0.1;
@@ -477,6 +499,7 @@ export class ParticleSystem {
       if (particle.mesh.geometry) {
         particle.mesh.geometry.dispose();
       }
+      if (particle.mesh.material) particle.mesh.material.dispose();
     }
     this.particles = [];
   }

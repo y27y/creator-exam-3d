@@ -24,6 +24,7 @@ import { MemoryStore } from './memoryStore.js';
 import { WorldSession } from './worldSession.js';
 import { RiftEchoSystem } from './riftEchoes.js';
 import { normalizeCreationDisplayText, normalizeCreationName } from './creationDisplay.js';
+import { getAbilityVisualFamily } from './abilities.js';
 
 const TILE_SIZE = 1.55;
 const BOARD_SIZE = 7;
@@ -2410,28 +2411,75 @@ class CreatorExam3D extends GameEngine {
   }
 
   getCreationVisualStyle(card) {
+    const family = getAbilityVisualFamily(card?.ability);
     const baseColor = ABILITY_COLORS[card?.ability] || 0xffffff;
+    const familyStyles = {
+      water: { coreColor: 0x55cfe3, ringColor: 0x8ee8ef, accentColor: 0x3aa6c4 },
+      light: { coreColor: 0xf1d47b, ringColor: 0xffefb0, accentColor: 0xffd36a },
+      terrain: { coreColor: 0x74906c, ringColor: 0xb59a68, accentColor: 0x59c77f },
+      defense: { coreColor: 0x69cdb2, ringColor: 0xa8ead8, accentColor: 0x4f8f83 },
+      mind: { coreColor: 0x987bc9, ringColor: 0xc1a5e8, accentColor: 0x7b63b2 },
+      special: { coreColor: baseColor, ringColor: 0xf0e4c1, accentColor: 0xd2b86b }
+    };
+    const style = familyStyles[family];
     if (card?.ability === 'consume_light') {
       return {
-        coreColor: 0x4b275d,
-        ringColor: 0xffd166,
-        coreEmissive: 0x14051d,
-        ringEmissive: 0xffa64d,
-        coreEmissiveIntensity: 0.08,
-        ringEmissiveIntensity: 0.95,
-        accentColor: 0xfff0a8,
-        shadowColor: 0x09040d,
-        absorption: true
+        family: 'special', coreColor: 0x4b275d, ringColor: 0xffd166,
+        coreEmissive: 0x14051d, ringEmissive: 0xffa64d,
+        coreEmissiveIntensity: 0.08, ringEmissiveIntensity: 0.95,
+        accentColor: 0xfff0a8, shadowColor: 0x09040d, absorption: true
       };
     }
     return {
-      coreColor: baseColor,
-      ringColor: baseColor,
-      coreEmissive: baseColor,
-      ringEmissive: baseColor,
-      coreEmissiveIntensity: 0.18,
-      ringEmissiveIntensity: 0.25
+      family,
+      ...style,
+      coreEmissive: style.coreColor,
+      ringEmissive: style.ringColor,
+      coreEmissiveIntensity: family === 'light' ? 0.38 : 0.18,
+      ringEmissiveIntensity: family === 'special' ? 0.42 : 0.25
     };
+  }
+
+  addCreationFamilyAccent(group, visual, range) {
+    const material = this.material(visual.accentColor, {
+      transparent: true, opacity: 0.72,
+      emissive: visual.accentColor, emissiveIntensity: 0.28,
+      roughness: 0.5, side: THREE.DoubleSide
+    });
+    const add = (key, factory, position, rotation = [0, 0, 0], scale = [1, 1, 1]) => {
+      const mesh = new THREE.Mesh(this.getCachedGeometry(`creation-${key}`, factory), material);
+      mesh.position.set(...position);
+      mesh.rotation.set(...rotation);
+      mesh.scale.set(...scale);
+      group.add(mesh);
+    };
+
+    if (visual.family === 'water') {
+      add('water-ripple-a', () => new THREE.TorusGeometry(0.46, 0.018, 6, 32), [0, 0.08, 0], [Math.PI / 2, 0, 0]);
+      add('water-ripple-b', () => new THREE.TorusGeometry(0.62, 0.012, 6, 32), [0, 0.02, 0], [Math.PI / 2, 0, 0]);
+    } else if (visual.family === 'light') {
+      add('light-beam', () => new THREE.CylinderGeometry(0.035, 0.08, 0.72, 10), [0, 0.34, 0]);
+    } else if (visual.family === 'terrain') {
+      for (let i = 0; i < 3; i += 1) {
+        const angle = i * Math.PI * 2 / 3;
+        add('terrain-rock', () => new THREE.DodecahedronGeometry(0.12, 0), [Math.cos(angle) * 0.34, 0.02, Math.sin(angle) * 0.34], [i * 0.3, angle, 0]);
+      }
+    } else if (visual.family === 'defense') {
+      for (let i = 0; i < 4; i += 1) {
+        const angle = i * Math.PI / 2;
+        add('defense-wall', () => new THREE.BoxGeometry(0.28, 0.18, 0.06), [Math.cos(angle) * 0.44, 0.12, Math.sin(angle) * 0.44], [0, -angle, 0]);
+      }
+    } else if (visual.family === 'mind') {
+      add('mind-link', () => new THREE.TorusGeometry(0.34, 0.014, 6, 32), [0, 0.28, 0], [0, 0, Math.PI / 2]);
+      add('mind-link', () => new THREE.TorusGeometry(0.34, 0.014, 6, 32), [0, 0.28, 0], [Math.PI / 2, 0, 0]);
+    } else {
+      for (let i = 0; i < 3; i += 1) {
+        const angle = i * Math.PI * 2 / 3;
+        add('special-fracture', () => new THREE.BoxGeometry(0.035, 0.42, 0.035), [Math.cos(angle) * 0.34, 0.24, Math.sin(angle) * 0.34], [0.2, angle, -0.3]);
+      }
+    }
+    group.userData.visualFamily = visual.family;
+    group.userData.visualRange = range;
   }
 
   createCreationMesh(creation) {
@@ -2443,7 +2491,7 @@ class CreatorExam3D extends GameEngine {
     const visual = this.getCreationVisualStyle(card);
     const range = Math.max(0, card.range || 0);
     const core = new THREE.Mesh(
-      new THREE.IcosahedronGeometry(0.25, 1),
+      this.getCachedGeometry('creation-core', () => new THREE.IcosahedronGeometry(0.25, 1)),
       this.material(visual.coreColor, { emissive: visual.coreEmissive, emissiveIntensity: visual.coreEmissiveIntensity, roughness: 0.45 })
     );
     core.castShadow = true;
@@ -2451,28 +2499,32 @@ class CreatorExam3D extends GameEngine {
     group.add(core);
 
     const ring = new THREE.Mesh(
-      new THREE.TorusGeometry(0.38 + range * 0.08, 0.025, 8, 32),
+      this.getCachedGeometry('creation-range-ring', () => new THREE.TorusGeometry(0.38, 0.025, 8, 32)),
       this.material(visual.ringColor, { transparent: true, opacity: 0.72, emissive: visual.ringEmissive, emissiveIntensity: visual.ringEmissiveIntensity })
     );
     ring.rotation.x = Math.PI / 2;
     ring.position.y = 0.02;
+    ring.scale.setScalar(1 + range * 0.16);
     group.add(ring);
+    this.addCreationFamilyAccent(group, visual, range);
 
     if (visual.absorption) {
       const warningRing = new THREE.Mesh(
-        new THREE.TorusGeometry(0.48 + range * 0.08, 0.018, 8, 40),
+        this.getCachedGeometry('creation-warning-ring', () => new THREE.TorusGeometry(0.48, 0.018, 8, 40)),
         this.material(visual.accentColor, { transparent: true, opacity: 0.86, emissive: visual.accentColor, emissiveIntensity: 0.75, roughness: 0.35 })
       );
       warningRing.rotation.x = Math.PI / 2;
       warningRing.position.y = 0.16;
+      warningRing.scale.setScalar(1 + range / 6);
       group.add(warningRing);
 
       const shadowPool = new THREE.Mesh(
-        new THREE.CircleGeometry(0.32 + range * 0.04, 32),
+        this.getCachedGeometry('creation-shadow-pool', () => new THREE.CircleGeometry(0.32, 32)),
         this.material(visual.shadowColor, { transparent: true, opacity: 0.5, depthWrite: false, roughness: 1, side: THREE.DoubleSide })
       );
       shadowPool.rotation.x = -Math.PI / 2;
       shadowPool.position.y = -0.04;
+      shadowPool.scale.setScalar(1 + range * 0.125);
       group.add(shadowPool);
 
       for (let i = 0; i < 3; i += 1) {
@@ -3485,6 +3537,45 @@ class CreatorExam3D extends GameEngine {
       levelId: initialDebugState?.levelId || '',
       unitCount: initialDebugState?.units?.length || 0
     });
+
+    const familyMeshes = Object.entries({
+      absorb_water: 'water',
+      illuminate: 'light',
+      raise_earth: 'terrain',
+      force_field: 'defense',
+      memory_beacon: 'mind',
+      time_dilation: 'special'
+    }).map(([ability, family]) => ({
+      ability,
+      family,
+      mesh: this.createCreationMesh({
+        card: { ability, name: ability, range: 2 },
+        x: 0,
+        y: 0,
+        remaining: 1
+      })
+    }));
+    record('all six ability families render through creation mesh',
+      familyMeshes.every(({ family, mesh }) => mesh.userData.visualFamily === family),
+      { families: familyMeshes.map(({ mesh }) => mesh.userData.visualFamily) }
+    );
+    record('family creations retain one icosahedron core',
+      familyMeshes.every(({ mesh }) => mesh.children.filter(child => child.geometry?.type === 'IcosahedronGeometry').length === 1)
+    );
+    const absorptionVisual = this.getCreationVisualStyle({ ability: 'consume_light' });
+    record('consume_light preserves absorption visual override',
+      absorptionVisual.family === 'special'
+      && absorptionVisual.absorption === true
+      && absorptionVisual.coreColor === 0x4b275d
+      && absorptionVisual.ringColor === 0xffd166
+    );
+    for (const { mesh } of familyMeshes) {
+      mesh.traverse(child => {
+        if (!child.isSprite) return;
+        child.material?.map?.dispose();
+        child.material?.dispose();
+      });
+    }
 
     const signalA = this.notifyDrawer('world', {
       id: 'smoke-myth-a', priority: 'ambient', title: '新的传说正在流传',

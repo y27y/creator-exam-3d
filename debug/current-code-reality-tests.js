@@ -4,8 +4,25 @@ import { spawn } from 'node:child_process';
 import { createServer as createNetServer } from 'node:net';
 import { fileURLToPath } from 'node:url';
 import { runInNewContext } from 'node:vm';
+import { ABILITIES, getAbilityVisualFamily } from '../public/js/abilities.js';
 import { WorldSimulation } from '../public/js/worldSimulation.js';
 import { ResidentRegistry } from '../public/js/residentRegistry.js';
+
+const VISUAL_FAMILIES = new Set(['water', 'light', 'terrain', 'defense', 'mind', 'special']);
+for (const [ability, expected] of Object.entries({
+  absorb_water: 'water',
+  illuminate: 'light',
+  raise_earth: 'terrain',
+  force_field: 'defense',
+  memory_beacon: 'mind',
+  time_dilation: 'special'
+})) {
+  assert.equal(getAbilityVisualFamily(ability), expected, `${ability} should use ${expected} visuals`);
+}
+for (const ability of ABILITIES) {
+  assert.ok(VISUAL_FAMILIES.has(getAbilityVisualFamily(ability)), `${ability} must have a visual family`);
+}
+assert.equal(getAbilityVisualFamily('unknown_live_creation'), 'special');
 
 const rootUrl = new URL('../', import.meta.url);
 const rootPath = fileURLToPath(rootUrl);

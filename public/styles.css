@@ -2244,8 +2244,7 @@ body { margin: 0; background: var(--world-bg); color: var(--text-main); }
     position: absolute; left: 80px; right: 0; bottom: calc(100% + 10px); margin-top: 0;
     max-height: calc(100vh - var(--dock-height) - 112px); overflow: auto; pointer-events: auto;
   }
-  #creation-dock #card-panel[data-placing="true"] { pointer-events: none; }
-  #creation-dock #place-btn { pointer-events: auto; }
+  #creation-dock #card-panel.placement-collapsed { display: none; }
 }
 
 @media (max-width: 760px) {

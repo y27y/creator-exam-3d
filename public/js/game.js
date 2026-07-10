@@ -287,7 +287,7 @@ class CreatorExam3D extends GameEngine {
     super.loadLevel(index);
     this.activeCard = null;
     this.placementMode = false;
-    delete this.ui.cardPanel.dataset.placing;
+    this.ui.cardPanel.classList.remove('placement-collapsed');
     this.selectedRitualCreations.clear();
     this.selectedWorkshopItems.clear();
     this.currentAbyssRiddle = null;
@@ -1044,7 +1044,7 @@ class CreatorExam3D extends GameEngine {
 
   showCard(card) {
     this.placementMode = false;
-    delete this.ui.cardPanel.dataset.placing;
+    this.ui.cardPanel.classList.remove('placement-collapsed');
     this.ui.cardPanel.classList.remove('hidden');
     this.ui.cardType.textContent = card.type;
     this.ui.cardName.textContent = this.getCreationDisplayName(card);
@@ -1069,8 +1069,8 @@ class CreatorExam3D extends GameEngine {
       return;
     }
     this.placementMode = true;
-    this.ui.cardPanel.dataset.placing = 'true';
-    this.showToast('点击 3D 地图上的一个格子放置造物。');
+    this.ui.cardPanel.classList.add('placement-collapsed');
+    this.showToast(`正在放置「${this.getCreationDisplayName(this.activeCard)}」：点击地图格子。`);
   }
 
   onPointerDown(event) {
@@ -1107,7 +1107,7 @@ class CreatorExam3D extends GameEngine {
     };
     this.creations.push(creation);
     this.placementMode = false;
-    delete this.ui.cardPanel.dataset.placing;
+    this.ui.cardPanel.classList.remove('placement-collapsed');
     this.activeCard = null;
     this.ui.input.value = '';
     this.ui.cardPanel.classList.add('hidden');
@@ -1304,14 +1304,16 @@ class CreatorExam3D extends GameEngine {
     this.screenEffects.shake(8, 500);
     this.screenEffects.vignette('rgba(255, 0, 50, 0.3)', 1000);
 
-    this.showModal('考核失败', message, '重试', '重试');
+    this.showModal('考核失败', message, '重试', null);
   }
 
   showModal(title, text, primary, secondary) {
+    const showSecondary = Boolean(secondary && secondary !== primary);
     this.ui.modalTitle.textContent = title;
     this.ui.modalText.textContent = text;
     this.ui.modalPrimary.textContent = primary;
-    this.ui.modalSecondary.textContent = secondary;
+    this.ui.modalSecondary.textContent = showSecondary ? secondary : '';
+    this.ui.modalSecondary.hidden = !showSecondary;
     this.ui.modal.classList.remove('hidden');
   }
 
@@ -1949,7 +1951,7 @@ class CreatorExam3D extends GameEngine {
   }
 
   handleLose(message) {
-    this.showModal('考核失败', message, '重试', '重试');
+    this.showModal('考核失败', message, '重试', null);
   }
 
   handleRescue(unit) {

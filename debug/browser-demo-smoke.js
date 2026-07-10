@@ -21,6 +21,10 @@ const environmentConfigBlock = sourceBlock(gameSource, 'const LEVEL_ENVIRONMENTS
 const environmentMethodsBlock = sourceBlock(gameSource, '  clearLevelEnvironment() {', '  renderWorld() {');
 const bridgeBlock = sourceBlock(gameSource, '  bindBrowserDemoSmokeBridge() {', '  // Override loadLevel to add browser-specific initialization');
 const showCardBlock = sourceBlock(gameSource, '  showCard(card) {', '  startPlacement() {');
+const startPlacementBlock = sourceBlock(gameSource, '  startPlacement() {', '  onPointerDown(event) {');
+const failLevelBlock = sourceBlock(gameSource, '  failLevel(message) {', '  showModal(title, text, primary, secondary) {');
+const showModalBlock = sourceBlock(gameSource, '  showModal(title, text, primary, secondary) {', '  nextLevel() {');
+const handleLoseBlock = sourceBlock(gameSource, '  handleLose(message) {', '  handleRescue(unit) {');
 const airResultBlock = sourceBlock(gameSource, '  applyAirCombatResult(result) {', '  renderAirCombatPanel() {');
 const cinematicKeyBlock = sourceBlock(gameSource, "    this.ui.cinematic?.addEventListener('keydown', event => {", '    for (const button of this.ui.drawerButtons) {');
 const turnPendingBlock = sourceBlock(gameSource, '  setTurnControlsPending(pending) {', '  releaseTurnResolutionLock() {');
@@ -105,13 +109,16 @@ const missingShellContracts = [
   ['glass override clears legacy effects', /\.glass\s*\{[^}]*background:\s*rgba\(21,\s*25,\s*35,\s*\.96\);[^}]*box-shadow:\s*none;[^}]*backdrop-filter:\s*none;[^}]*-webkit-backdrop-filter:\s*none;/],
   ['desktop creation dock permits the card preview to escape', /@media \(min-width: 761px\)\s*\{[\s\S]*?#creation-dock\s*\{[^}]*overflow:\s*visible;[^}]*clip-path:\s*none;[^}]*\}/],
   ['desktop card preview remains usable above the dock', /@media \(min-width: 761px\)\s*\{[\s\S]*?#creation-dock #card-panel\s*\{[^}]*position:\s*absolute;[^}]*bottom:\s*calc\(100%\s*\+\s*10px\);[^}]*max-height:\s*calc\(100vh\s*-\s*var\(--dock-height\)\s*-\s*112px\);[^}]*overflow:\s*auto;[^}]*pointer-events:\s*auto;[^}]*\}/],
-  ['placement mode lets board clicks pass through the card preview', /#creation-dock #card-panel\[data-placing="true"\]\s*\{[^}]*pointer-events:\s*none;[^}]*\}[\s\S]*?#creation-dock #place-btn\s*\{[^}]*pointer-events:\s*auto;[^}]*\}/]
+  ['placement mode removes the card preview from the map', /#creation-dock #card-panel\.placement-collapsed\s*\{[^}]*display:\s*none;[^}]*\}/]
 ].filter(([, pattern]) => !pattern.test(shellCss)).map(([name]) => name);
 
 assert.deepEqual(missingShellContracts, [], `missing map-first CSS contracts: ${missingShellContracts.join(', ')}`);
-assert.ok(gameSource.includes("this.ui.cardPanel.dataset.placing = 'true'"), 'placement mode should publish card click-through state');
 assert.ok(showCardBlock.includes('this.placementMode = false'), 'compiling a new card should exit the previous placement mode');
-assert.ok(showCardBlock.includes('delete this.ui.cardPanel.dataset.placing'), 'a new card should clear click-through state');
+assert.ok(showCardBlock.includes("classList.remove('placement-collapsed')"), 'a new card should restore its preview');
+assert.ok(startPlacementBlock.includes("classList.add('placement-collapsed')"), 'placement mode should collapse the card away from the map');
+assert.ok(failLevelBlock.includes("this.showModal('考核失败', message, '重试', null)"), 'failure should expose one retry action');
+assert.ok(handleLoseBlock.includes("this.showModal('考核失败', message, '重试', null)"), 'loss hook should expose one retry action');
+assert.ok(showModalBlock.includes('this.ui.modalSecondary.hidden = !showSecondary'), 'modal should hide unused secondary actions');
 
 for (const id of [
   'creation-input', 'compile-btn', 'place-btn', 'end-turn-btn',

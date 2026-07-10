@@ -20,9 +20,17 @@ const loadLevelBlock = sourceBlock(gameSource, '  loadLevel(index) {', '  applyD
 const environmentConfigBlock = sourceBlock(gameSource, 'const LEVEL_ENVIRONMENTS = Object.freeze({', 'const ABILITY_COLORS = {');
 const environmentMethodsBlock = sourceBlock(gameSource, '  clearLevelEnvironment() {', '  renderWorld() {');
 const bridgeBlock = sourceBlock(gameSource, '  bindBrowserDemoSmokeBridge() {', '  // Override loadLevel to add browser-specific initialization');
+const airResultBlock = sourceBlock(gameSource, '  applyAirCombatResult(result) {', '  renderAirCombatPanel() {');
 const shellCssStart = cssSource.indexOf('/* ===== Map-first shell and context drawers ===== */');
 assert.notEqual(shellCssStart, -1, 'missing map-first shell CSS override');
 const shellCss = cssSource.slice(shellCssStart);
+
+for (const asset of ['cg-prologue.webp', 'cg-ending.webp']) {
+  assert.ok(gameSource.includes(asset) || cssSource.includes(asset), `main flow should use ${asset}`);
+}
+assert.ok(htmlSource.includes('id="cinematic"'), 'main page should expose a fixed cinematic dialog');
+assert.ok(gameSource.includes("creatorExamPrologueSeen"), 'prologue should be session-scoped');
+assert.ok(airResultBlock.includes('showEndingCinematic(result)'), 'air result should open the ending plate');
 
 for (const levelId of ['flood-village', 'night-mine', 'giant-city', 'wordless-war', 'memory-plague', 'final-exam']) {
   assert.ok(environmentConfigBlock.includes(`'${levelId}'`), `environment config should include ${levelId}`);

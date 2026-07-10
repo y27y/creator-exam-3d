@@ -224,6 +224,15 @@ button {
   transform: translate(-50%, -50%);
 }
 
+.airspace-menu {
+  background-color: rgba(9, 13, 16, .96);
+  background-image:
+    linear-gradient(90deg, rgba(7, 10, 17, .86), rgba(7, 10, 17, .54) 58%, rgba(7, 10, 17, .9)),
+    url('../../assets/art/cg-airspace-bridge.webp');
+  background-position: center;
+  background-size: cover;
+}
+
 .airspace-menu h1,
 .airspace-result h2,
 .airspace-pause h2 {

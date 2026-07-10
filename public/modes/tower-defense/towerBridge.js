@@ -301,17 +301,20 @@
       {
         kicker: '第六关之后',
         title: '第七关之前的长夜',
-        body: `主线的六场考核已经把世界撕开。${creationText}没有消失，它们像临时写下的答案，停在所有区域合并后的裂隙边缘。`
+        body: `主线的六场考核已经把世界撕开。${creationText}没有消失，它们像临时写下的答案，停在所有区域合并后的裂隙边缘。`,
+        artPosition: '0% 50%'
       },
       {
         kicker: '六段守夜',
         title: '30 波被切成 6 个夜段',
-        body: `这里不是第一关到第六关的重复插播。30 波裂隙潮会被分成六段，每 5 波推进一夜；被救下的 ${rescued} 名居民会在这六夜里守住第七关的入口。`
+        body: `这里不是第一关到第六关的重复插播。30 波裂隙潮会被分成六段，每 5 波推进一夜；被救下的 ${rescued} 名居民会在这六夜里守住第七关的入口。`,
+        artPosition: '50% 50%'
       },
       {
         kicker: '守夜配置',
         title: '把白天的答案搬上防线',
-        body: `接下来是第六关到第七关之间的守夜。选择要带上城墙的器械，防线会从这些器械里成型；裂隙来袭者会在战场上回应你的塔和造物。`
+        body: `接下来是第六关到第七关之间的守夜。选择要带上城墙的器械，防线会从这些器械里成型；裂隙来袭者会在战场上回应你的塔和造物。`,
+        artPosition: '100% 50%'
       }
     ];
   }
@@ -323,6 +326,7 @@
     const overlay = document.createElement('section');
     overlay.id = 'night-watch-cinematic';
     overlay.setAttribute('role', 'dialog');
+    overlay.setAttribute('aria-modal', 'true');
     overlay.setAttribute('aria-label', '长夜守城过场');
     overlay.innerHTML = `
       <div class="night-watch-cg">
@@ -346,6 +350,7 @@
       overlay.querySelector('.night-watch-cg-kicker').textContent = slide.kicker;
       overlay.querySelector('h2').textContent = slide.title;
       overlay.querySelector('p').textContent = slide.body;
+      overlay.querySelector('.night-watch-cg-visual').style.setProperty('--night-watch-cg-position', slide.artPosition);
       overlay.querySelector('[data-cg-next]').textContent = index === slides.length - 1 ? '进入守夜配置' : '继续';
       overlay.querySelector('.night-watch-cg-dots').innerHTML = slides
         .map((_, i) => `<span class="night-watch-cg-dot${i === index ? ' active' : ''}"></span>`)
@@ -613,15 +618,14 @@
         line-height: 1.75;
       }
       .night-watch-cg-visual {
-        position: absolute;
-        right: 38px;
-        bottom: 34px;
-        width: 180px;
-        height: 95px;
-        opacity: .72;
-        background:
-          linear-gradient(90deg, transparent 0 14%, rgba(216, 197, 138, .55) 14% 17%, transparent 17% 31%, rgba(121, 208, 176, .42) 31% 35%, transparent 35%),
-          linear-gradient(180deg, transparent 0 48%, rgba(216, 197, 138, .36) 48% 52%, transparent 52%);
+        min-height: min(58vh, 620px);
+        background-color: #0b0f18;
+        background-image:
+          linear-gradient(90deg, rgba(7,10,17,.82), rgba(7,10,17,.2) 58%, rgba(7,10,17,.62)),
+          url('../../assets/art/cg-night-watch.webp');
+        background-position: center, var(--night-watch-cg-position, 50% 50%);
+        background-size: cover;
+        transition: background-position 520ms ease;
       }
       .night-watch-cg-footer {
         display: flex;
@@ -665,6 +669,9 @@
         .night-watch-cg-frame { padding: 28px; }
         .night-watch-cg h2 { font-size: 1.55rem; }
         .night-watch-cg p { font-size: 13px; }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .night-watch-cg-visual { transition: none; }
       }
     `;
     document.head.appendChild(style);

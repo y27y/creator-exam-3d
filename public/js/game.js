@@ -205,6 +205,8 @@ class CreatorExam3D extends GameEngine {
     this.lastAirCombatResult = null;
     this.processedAirCombatResults = new Set();
     this.isResolvingTurn = false;
+    this.cinematicCloseAction = null;
+    this.cinematicWasResolving = false;
     this.turnUnlockTimer = null;
     this.activeDrawer = null;
     this.drawerFocusReturn = null;
@@ -224,6 +226,7 @@ class CreatorExam3D extends GameEngine {
     this.bindSaveSlotUI();
     this.bindResidentDialogueUI();
     this.loadLevel(0);
+    window.requestAnimationFrame(() => this.showPrologueCinematic());
     this.animate();
   }
 
@@ -354,6 +357,12 @@ class CreatorExam3D extends GameEngine {
       worldSignalDismiss: document.getElementById('world-signal-dismiss'),
       worldSignalTitle: document.getElementById('world-signal-title'),
       worldSignalSummary: document.getElementById('world-signal-summary'),
+      cinematic: document.getElementById('cinematic'),
+      cinematicKicker: document.getElementById('cinematic-kicker'),
+      cinematicTitle: document.getElementById('cinematic-title'),
+      cinematicText: document.getElementById('cinematic-text'),
+      cinematicSkip: document.getElementById('cinematic-skip'),
+      cinematicPrimary: document.getElementById('cinematic-primary'),
       levelChip: document.getElementById('level-chip'),
       title: document.getElementById('level-title'),
       story: document.getElementById('level-story'),
@@ -721,6 +730,14 @@ class CreatorExam3D extends GameEngine {
     this.ui.nextBtn.addEventListener('click', () => this.nextLevel());
     this.ui.nightWatchBtn?.addEventListener('click', () => this.openNightWatch());
     this.ui.airCombatBtn?.addEventListener('click', () => this.openAirCombatMode());
+    this.ui.cinematicSkip?.addEventListener('click', () => this.closeCinematic());
+    this.ui.cinematicPrimary?.addEventListener('click', () => this.closeCinematic());
+    this.ui.cinematic?.addEventListener('keydown', event => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        this.closeCinematic();
+      }
+    });
     for (const button of this.ui.drawerButtons) {
       button.addEventListener('click', () => {
         if (this.activeDrawer === button.dataset.drawer) this.closeDrawer();
@@ -901,6 +918,58 @@ class CreatorExam3D extends GameEngine {
         this.showPaths = false;
         this.updatePathLines();
       }
+    });
+  }
+
+  showCinematic({ variant, kicker, title, text, primary = '继续', onClose = null }) {
+    this.cinematicWasResolving = this.isResolvingTurn;
+    this.cinematicCloseAction = onClose;
+    this.ui.cinematic.dataset.cinematic = variant;
+    this.ui.cinematicKicker.textContent = kicker;
+    this.ui.cinematicTitle.textContent = title;
+    this.ui.cinematicText.textContent = text;
+    this.ui.cinematicPrimary.textContent = primary;
+    this.ui.cinematic.hidden = false;
+    this.setTurnControlsPending(true);
+    window.requestAnimationFrame(() => this.ui.cinematicTitle.focus());
+  }
+
+  closeCinematic() {
+    if (this.ui.cinematic.hidden) return false;
+    const action = this.cinematicCloseAction;
+    this.cinematicCloseAction = null;
+    this.ui.cinematic.hidden = true;
+    this.setTurnControlsPending(this.cinematicWasResolving);
+    action?.();
+    return true;
+  }
+
+  showPrologueCinematic() {
+    let seen = false;
+    try { seen = sessionStorage.getItem('creatorExamPrologueSeen') === '1'; } catch (_error) {}
+    if (seen) return;
+    this.showCinematic({
+      variant: 'prologue',
+      kicker: '考核开始',
+      title: '世界只接受能落在棋盘上的答案',
+      text: '读懂眼前的灾难，用一句话造物，再把它放到真正需要它的格子。',
+      primary: '开始造物',
+      onClose: () => {
+        try { sessionStorage.setItem('creatorExamPrologueSeen', '1'); } catch (_error) {}
+        this.ui.input.focus();
+      }
+    });
+  }
+
+  showEndingCinematic(result) {
+    const victory = result?.outcome === 'victory';
+    this.showCinematic({
+      variant: victory ? 'ending-victory' : 'ending-loss',
+      kicker: '第七日清算',
+      title: victory ? '世界记住了你的答案' : '裂隙记住了这次代价',
+      text: `${result?.notableMoment || '空域已经给出裁决。'} 结局修饰：${result?.endingModifier || '未命名'}`,
+      primary: '回到世界志',
+      onClose: () => this.openDrawer('world', 'air-combat-panel', document.getElementById('drawer-world-btn'))
     });
   }
 
@@ -1512,6 +1581,7 @@ class CreatorExam3D extends GameEngine {
     if (result.notableMoment) this.addLog(`【空域裁决】${result.notableMoment}`);
     this.memoryStore?.saveWorld?.(this.worldSession.worldSimulation);
     this.updateUi();
+    this.showEndingCinematic(result);
   }
 
   renderAirCombatPanel() {

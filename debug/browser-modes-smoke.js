@@ -12,6 +12,7 @@ const towerBridge = read('public/modes/tower-defense/towerBridge.js');
 const airHtml = read('public/modes/air-combat/index.html');
 const airBridge = read('public/modes/air-combat/airCombatBridge.js');
 const airGame = read('public/modes/air-combat/airCombatGame.js');
+const airCss = read('public/modes/air-combat/style.css');
 
 for (const id of ['test-night-watch-btn', 'test-air-combat-btn']) {
   assert.ok(mainHtml.includes(`id="${id}"`), `main page should expose #${id}`);
@@ -39,6 +40,11 @@ assert.ok(towerBridge.includes('complete,'), 'Night Watch bridge should expose c
 assert.ok(towerHtml.includes('function startRandomNightWatchMap()'), 'Night Watch test path should start its default map directly');
 assert.ok(towerHtml.includes('window.NightWatchBridge?.complete?.(isVictory'), 'Night Watch game should publish settlement through the bridge');
 assert.ok(towerHtml.includes('startWaveBtn.onclick = spawnWave'), 'Night Watch should expose the real wave button path');
+assert.ok(towerBridge.includes('../../assets/art/cg-night-watch.webp'), 'Night Watch should use the local panorama');
+for (const position of ['0% 50%', '50% 50%', '100% 50%']) {
+  assert.ok(towerBridge.includes(position), `Night Watch should include crop ${position}`);
+}
+assert.ok(airCss.includes('../../assets/art/cg-airspace-bridge.webp'), 'Air briefing should use the local bridge CG');
 
 for (const id of [
   'airspace-start',

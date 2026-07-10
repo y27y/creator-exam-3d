@@ -194,6 +194,8 @@ class CreatorExam3D extends GameEngine {
     this.processedAirCombatResults = new Set();
     this.isResolvingTurn = false;
     this.turnUnlockTimer = null;
+    this.activeDrawer = null;
+    this.drawerFocusReturn = null;
 
     this.ui = this.collectUi();
     this.applyDebugGate();
@@ -316,6 +318,21 @@ class CreatorExam3D extends GameEngine {
   collectUi() {
     return {
       testJumpPanel: document.getElementById('test-jump-panel'),
+      drawer: document.getElementById('right-panel'),
+      drawerTitle: document.getElementById('drawer-title'),
+      drawerCloseBtn: document.getElementById('drawer-close-btn'),
+      drawerButtons: [...document.querySelectorAll('[data-drawer]')],
+      drawerViews: [...document.querySelectorAll('[data-drawer-view]')],
+      drawerBadges: {
+        people: document.getElementById('drawer-people-badge'),
+        world: document.getElementById('drawer-world-badge'),
+        systems: document.getElementById('drawer-systems-badge')
+      },
+      worldSignal: document.getElementById('world-signal'),
+      worldSignalOpen: document.getElementById('world-signal-open'),
+      worldSignalDismiss: document.getElementById('world-signal-dismiss'),
+      worldSignalTitle: document.getElementById('world-signal-title'),
+      worldSignalSummary: document.getElementById('world-signal-summary'),
       levelChip: document.getElementById('level-chip'),
       title: document.getElementById('level-title'),
       story: document.getElementById('level-story'),
@@ -421,8 +438,7 @@ class CreatorExam3D extends GameEngine {
       advancedLog: document.getElementById('advanced-log'),
       advancedMechanicsPanel: document.getElementById('advanced-mechanics-panel'),
       cardRune: document.getElementById('card-rune'),
-      explorationChoices: document.getElementById('exploration-choices'),
-      rightPanel: document.getElementById('right-panel')
+      explorationChoices: document.getElementById('exploration-choices')
     };
   }
 
@@ -547,6 +563,52 @@ class CreatorExam3D extends GameEngine {
     return hash;
   }
 
+  openDrawer(name, targetId = null, trigger = null) {
+    const titles = { people: '人物', world: '世界志', systems: '造物术' };
+    const view = this.ui.drawerViews.find(node => node.dataset.drawerView === name);
+    if (!view || !titles[name]) return false;
+
+    this.drawerFocusReturn = trigger || document.activeElement;
+    this.activeDrawer = name;
+    this.ui.drawer.hidden = false;
+    this.ui.drawer.setAttribute('aria-hidden', 'false');
+    this.ui.drawerTitle.textContent = titles[name];
+
+    for (const button of this.ui.drawerButtons) {
+      button.setAttribute('aria-expanded', button.dataset.drawer === name ? 'true' : 'false');
+    }
+    for (const candidate of this.ui.drawerViews) {
+      candidate.hidden = candidate !== view;
+    }
+
+    window.requestAnimationFrame(() => {
+      if (this.activeDrawer !== name) return;
+      const target = targetId ? document.getElementById(targetId) : null;
+      if (target) {
+        const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        target.scrollIntoView({ block: 'start', behavior: reducedMotion ? 'auto' : 'smooth' });
+        const focusable = target.querySelector('button, input, textarea, select, [tabindex]');
+        (focusable || this.ui.drawerTitle).focus({ preventScroll: true });
+      } else {
+        this.ui.drawerTitle.focus();
+      }
+    });
+    return true;
+  }
+
+  closeDrawer() {
+    if (!this.activeDrawer) return false;
+    this.activeDrawer = null;
+    this.ui.drawer.hidden = true;
+    this.ui.drawer.setAttribute('aria-hidden', 'true');
+    for (const button of this.ui.drawerButtons) button.setAttribute('aria-expanded', 'false');
+    for (const view of this.ui.drawerViews) view.hidden = true;
+    const focusReturn = this.drawerFocusReturn;
+    this.drawerFocusReturn = null;
+    focusReturn?.focus?.();
+    return true;
+  }
+
   bindEvents() {
     window.addEventListener('resize', () => this.onResize());
     this.renderer.domElement.addEventListener('pointerdown', (event) => this.onPointerDown(event));
@@ -560,6 +622,19 @@ class CreatorExam3D extends GameEngine {
     this.ui.nextBtn.addEventListener('click', () => this.nextLevel());
     this.ui.nightWatchBtn?.addEventListener('click', () => this.openNightWatch());
     this.ui.airCombatBtn?.addEventListener('click', () => this.openAirCombatMode());
+    for (const button of this.ui.drawerButtons) {
+      button.addEventListener('click', () => {
+        if (this.activeDrawer === button.dataset.drawer) this.closeDrawer();
+        else this.openDrawer(button.dataset.drawer, null, button);
+      });
+    }
+    this.ui.drawerCloseBtn?.addEventListener('click', () => this.closeDrawer());
+    window.addEventListener('keydown', event => {
+      if (event.key === 'Escape' && this.activeDrawer) {
+        event.preventDefault();
+        this.closeDrawer();
+      }
+    });
     document.querySelectorAll('[data-test-level]').forEach(btn => {
       btn.addEventListener('click', () => this.jumpToTestLevel(Number(btn.dataset.testLevel)));
     });
@@ -3382,6 +3457,26 @@ class CreatorExam3D extends GameEngine {
       detail: this.ui.advancedDetail?.textContent?.slice(0, 260) || ''
     });
 
+    const peopleButton = document.getElementById('drawer-people-btn');
+    const systemsButton = document.getElementById('drawer-systems-btn');
+    peopleButton.focus();
+    peopleButton.click();
+    systemsButton.click();
+    record('context drawers are mutually exclusive',
+      this.activeDrawer === 'systems'
+      && document.getElementById('drawer-people').hidden
+      && !document.getElementById('drawer-systems').hidden
+    );
+    systemsButton.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    record('drawer Escape restores focus', this.activeDrawer === null && document.activeElement === systemsButton);
+
+    const normalDebug = this.applyDebugGate('');
+    const explicitDebug = this.applyDebugGate('?debug=1');
+    record('debug gate hides normal URL and shows ?debug=1',
+      normalDebug === false && explicitDebug === true && !this.ui.testJumpPanel.hidden
+    );
+    this.applyDebugGate(window.location.search);
+
     this.updateUi();
     const tacticalDebugState = readDebugState();
     const tacticalFailed = checks.filter(item => !item.passed);
@@ -4533,13 +4628,11 @@ class CreatorExam3D extends GameEngine {
     if (!this.ui?.npcDialoguePanel) return;
     if (!this.selectedDialogueUnit && !this.selectedDialogueGroup) {
       this.ui.npcDialoguePanel.classList.add('hidden');
-      this.ui.rightPanel?.classList.remove('dialogue-active');
       return;
     }
     const unit = this.selectedDialogueUnit;
     const npc = this.selectedDialogueNpc;
     this.ui.npcDialoguePanel.classList.remove('hidden');
-    this.ui.rightPanel?.classList.add('dialogue-active');
     this.ui.npcDialogueTitle.textContent = this.selectedDialogueGroup ? '救援群聊' : (unit?.name || 'NPC');
     if (this.ui.npcDialogueMeta) {
       const trust = npc?.dynamicTraits?.trustLevel;
@@ -4686,7 +4779,6 @@ class CreatorExam3D extends GameEngine {
     this.selectedDialogueGroup = false;
     this.dialogueMessages = [];
     this.ui?.npcDialoguePanel?.classList.add('hidden');
-    this.ui?.rightPanel?.classList.remove('dialogue-active');
   }
 
   getDialogueParticipants() {
@@ -5087,6 +5179,7 @@ class CreatorExam3D extends GameEngine {
       this.showToast(`${unit.name} 暂时无法交谈。`);
       return;
     }
+    this.openDrawer('people', 'npc-dialogue-panel', document.getElementById('drawer-people-btn'));
     const npcId = unit.residentId || unit.name;
     const npc = this.npcManager?.getNPC(npcId);
     this.openNpcDialogue(unit, npc);

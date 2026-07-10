@@ -11,8 +11,36 @@ function sourceBlock(source, startToken, endToken) {
 
 const gameSource = readFileSync(new URL('../public/js/game.js', import.meta.url), 'utf8');
 const htmlSource = readFileSync(new URL('../public/index.html', import.meta.url), 'utf8');
+const cssSource = readFileSync(new URL('../public/styles.css', import.meta.url), 'utf8');
 const smokeBlock = sourceBlock(gameSource, '  async runBrowserDemoSmoke(options = {}) {', '  demoCard(ability) {');
 const bridgeBlock = sourceBlock(gameSource, '  bindBrowserDemoSmokeBridge() {', '  // Override loadLevel to add browser-specific initialization');
+
+for (const id of [
+  'creation-input', 'compile-btn', 'place-btn', 'end-turn-btn',
+  'creation-dock', 'drawer-rail', 'right-panel',
+  'drawer-people', 'drawer-world', 'drawer-systems', 'world-signal'
+]) {
+  assert.equal(
+    (htmlSource.match(new RegExp(`id="${id}"`, 'g')) || []).length,
+    1,
+    `missing or duplicated UI id: ${id}`
+  );
+}
+
+for (const check of [
+  'context drawers are mutually exclusive',
+  'drawer Escape restores focus',
+  'debug gate hides normal URL and shows ?debug=1'
+]) {
+  assert.ok(smokeBlock.includes(`'${check}'`), `missing live smoke check: ${check}`);
+}
+
+assert.ok(cssSource.includes('@media (max-width: 760px)'), 'UI should define the approved mobile breakpoint');
+assert.match(
+  cssSource,
+  /#right-panel\[hidden\]\s*\{\s*display:\s*none;/,
+  'closed drawer must remain hidden despite the legacy display rule'
+);
 
 assert.match(
   htmlSource,

@@ -17,18 +17,26 @@
   <body>
     <div id="game-root">
       <canvas id="game-canvas"></canvas>
-      <div id="topbar" class="glass panel-row">
-        <div>
+      <header id="topbar" class="glass panel-row">
+        <div class="brand-block">
           <div class="eyebrow">七格战术 · 自然语言造物</div>
           <h1>裂隙考核：造物者</h1>
         </div>
-        <div class="topbar-actions">
-          <a id="wiki-link" class="wiki-link" href="./wiki.html" target="_blank" rel="noopener">玩法WIKI</a>
+        <div class="topbar-status" aria-label="当前关卡状态">
+          <div class="stat"><span>回合</span><strong id="turn-stat">1 / 6</strong></div>
+          <div class="stat"><span>还能造</span><strong id="charges-stat">3</strong></div>
+          <div class="stat"><span>奇迹点</span><strong id="miracle-stat">6</strong></div>
+          <div class="stat"><span>裂隙</span><strong id="entropy-stat">0 / 7</strong></div>
           <div id="level-chip" class="chip">第 1 关</div>
         </div>
-      </div>
+        <details class="secondary-menu">
+          <summary>更多</summary>
+          <a id="wiki-link" class="wiki-link" href="./wiki.html" target="_blank" rel="noopener">玩法 WIKI</a>
+          <button id="restart-btn" class="secondary" type="button">重开本关</button>
+        </details>
+      </header>
 
-      <section id="left-panel" class="glass panel">
+      <section id="left-panel" class="glass panel mission-panel">
         <div class="mission-dossier">
           <div class="mission-head">
             <div>
@@ -44,37 +52,10 @@
           </div>
           <div id="mission-goals" class="mission-goals"></div>
         </div>
-
-        <div class="stat-grid">
-          <div class="stat"><span>回合</span><strong id="turn-stat">1 / 6</strong></div>
-          <div class="stat"><span>还能造</span><strong id="charges-stat">3</strong></div>
-          <div class="stat"><span>奇迹点</span><strong id="miracle-stat">6</strong></div>
-          <div class="stat"><span>裂隙</span><strong id="entropy-stat">0 / 7</strong></div>
-        </div>
-
         <div id="special-meters" class="meters"></div>
-
-        <div class="section-title with-margin">交流对象</div>
-        <div id="unit-list" class="unit-list"></div>
-
-        <div class="section-title with-margin">行动指引</div>
-        <div id="intent-preview-list" class="intent-preview-list"></div>
       </section>
 
-      <section id="right-panel" class="glass panel">
-        <div class="section-title">讲述方式</div>
-        <div class="storyteller-bar">
-          <label for="storyteller-select">旁白：</label>
-          <select id="storyteller-select">
-            <option value="cassandra">卡珊德拉（经典戏剧）</option>
-            <option value="phoebe">菲比（慢慢加压）</option>
-            <option value="randy">兰迪（混沌随机）</option>
-            <option value="narrator">说书人（看局面）</option>
-          </select>
-          <div id="storyteller-desc" class="storyteller-desc"></div>
-        </div>
-
-        <div class="section-title">造物输入</div>
+      <section id="creation-dock" class="glass creation-dock" aria-label="造物操作">
         <textarea id="creation-input" maxlength="120" placeholder="例如：造一群透明鲸鱼，把洪水驮到云上"></textarea>
         <div class="button-row">
           <button id="compile-btn" class="primary">生成造物卡</button>
@@ -104,223 +85,275 @@
 
         <div class="button-row with-margin">
           <button id="end-turn-btn" class="primary">结束回合</button>
-          <button id="restart-btn" class="secondary">重开本关</button>
         </div>
         <button id="next-btn" class="secondary wide hidden">进入下一关</button>
+      </section>
 
-        <details id="test-jump-panel" class="test-jump-panel" open hidden>
-          <summary>考官沙盘</summary>
-          <div class="test-jump-grid">
-            <button class="secondary small" type="button" data-test-level="0">第1关</button>
-            <button class="secondary small" type="button" data-test-level="1">第2关</button>
-            <button class="secondary small" type="button" data-test-level="2">第3关</button>
-            <button class="secondary small" type="button" data-test-level="3">第4关</button>
-            <button class="secondary small" type="button" data-test-level="4">第5关</button>
-            <button class="secondary small" type="button" data-test-level="5">第6关</button>
-            <button class="secondary small" type="button" id="test-night-watch-btn">长夜守城</button>
-            <button class="secondary small" type="button" id="test-air-combat-btn">空战预演</button>
-            <button class="secondary small" type="button" id="test-browser-smoke-btn">跑烟测</button>
+      <nav id="drawer-rail" class="drawer-rail" aria-label="情境档案">
+        <button id="drawer-people-btn" type="button" data-drawer="people" aria-controls="right-panel" aria-expanded="false">人 <span id="drawer-people-badge" class="drawer-badge" hidden>0</span></button>
+        <button id="drawer-world-btn" type="button" data-drawer="world" aria-controls="right-panel" aria-expanded="false">志 <span id="drawer-world-badge" class="drawer-badge" hidden>0</span></button>
+        <button id="drawer-systems-btn" type="button" data-drawer="systems" aria-controls="right-panel" aria-expanded="false">术 <span id="drawer-systems-badge" class="drawer-badge" hidden>0</span></button>
+      </nav>
+
+      <section id="right-panel" class="glass context-drawer" aria-hidden="true" hidden>
+        <header class="drawer-head">
+          <div>
+            <div class="eyebrow">情境档案</div>
+            <h2 id="drawer-title" tabindex="-1">人物</h2>
           </div>
-        </details>
+          <button id="drawer-close-btn" class="secondary small" type="button" aria-label="关闭情境档案">关闭</button>
+        </header>
 
-        <section id="night-watch-panel" class="continuity-panel hidden">
-          <div class="panel-title">长夜守城</div>
-          <div class="continuity-block">
-            <h3 id="night-watch-title">第七天之前</h3>
-            <div id="night-watch-summary" class="night-watch-summary"></div>
-            <button id="night-watch-btn" class="primary wide" type="button">开启守夜</button>
-          </div>
-        </section>
+        <div id="drawer-people" class="drawer-view" data-drawer-view="people" hidden>
+          <section class="drawer-section">
+            <div class="section-title">当前单位</div>
+            <div id="unit-list" class="unit-list"></div>
+          </section>
 
-        <section id="air-combat-panel" class="continuity-panel hidden">
-          <div class="panel-title">裂隙空域</div>
-          <div class="continuity-block">
-            <h3 id="air-combat-title">第七天裂隙空域</h3>
-            <div id="air-combat-summary" class="night-watch-summary"></div>
-            <button id="air-combat-btn" class="primary wide" type="button">进入空域</button>
-          </div>
-        </section>
-
-        <section id="npc-dialogue-panel" class="npc-dialogue-panel hidden">
-          <div class="dialogue-head">
-            <div>
-              <div class="section-title">居民交谈</div>
-              <h3 id="npc-dialogue-title">未选择居民</h3>
+          <section id="npc-dialogue-panel" class="npc-dialogue-panel hidden">
+            <div class="dialogue-head">
+              <div>
+                <div class="section-title">居民交谈</div>
+                <h3 id="npc-dialogue-title">未选择居民</h3>
+              </div>
+              <button id="npc-dialogue-close" class="secondary small" type="button">关闭</button>
             </div>
-            <button id="npc-dialogue-close" class="secondary small" type="button">关闭</button>
-          </div>
-          <div id="npc-dialogue-meta" class="dialogue-meta"></div>
-          <div id="npc-dialogue-roster" class="dialogue-roster"></div>
-          <div id="npc-dialogue-history" class="dialogue-history"></div>
-          <div id="npc-dialogue-actions" class="dialogue-actions">
-            <button class="secondary" type="button" data-dialogue-action="need" data-prompt="你现在最需要我创造什么？">询问需求</button>
-            <button class="secondary" type="button" data-dialogue-action="route" data-prompt="你觉得下一步应该往哪里走？">询问路线</button>
-            <button class="secondary" type="button" data-dialogue-action="memory" data-prompt="你还记得这里发生过什么吗？">询问记忆</button>
-            <button class="secondary" type="button" data-dialogue-action="comfort" data-prompt="请相信我，我会尽量救下大家。">安抚</button>
-            <button class="secondary" type="button" data-dialogue-action="group-chat">群聊</button>
-          </div>
-          <textarea id="npc-dialogue-input" maxlength="160" placeholder="对这个人说点什么"></textarea>
-          <button id="npc-dialogue-send" class="primary wide" type="button">发送回应</button>
-        </section>
+            <div id="npc-dialogue-meta" class="dialogue-meta"></div>
+            <div id="npc-dialogue-roster" class="dialogue-roster"></div>
+            <div id="npc-dialogue-history" class="dialogue-history"></div>
+            <div id="npc-dialogue-actions" class="dialogue-actions">
+              <button class="secondary" type="button" data-dialogue-action="need" data-prompt="你现在最需要我创造什么？">询问需求</button>
+              <button class="secondary" type="button" data-dialogue-action="route" data-prompt="你觉得下一步应该往哪里走？">询问路线</button>
+              <button class="secondary" type="button" data-dialogue-action="memory" data-prompt="你还记得这里发生过什么吗？">询问记忆</button>
+              <button class="secondary" type="button" data-dialogue-action="comfort" data-prompt="请相信我，我会尽量救下大家。">安抚</button>
+              <button class="secondary" type="button" data-dialogue-action="group-chat">群聊</button>
+            </div>
+            <textarea id="npc-dialogue-input" maxlength="160" placeholder="对这个人说点什么"></textarea>
+            <button id="npc-dialogue-send" class="primary wide" type="button">发送回应</button>
+          </section>
 
-        <section id="advanced-mechanics-panel" class="advanced-mechanics-panel collapsible">
-          <button type="button" class="panel-title collapse-toggle" aria-expanded="false" aria-controls="advanced-body">
-            AI 战术室
-            <span class="collapse-icon" aria-hidden="true">+</span>
-          </button>
-          <div id="advanced-body" class="collapse-body">
-            <div id="advanced-detail" class="advanced-detail"></div>
-            <div id="advanced-action-list" class="advanced-action-list"></div>
-            <div id="advanced-mechanic-list" class="advanced-mechanic-list"></div>
-            <textarea id="advanced-decode-input" maxlength="80" placeholder="输入深渊解码，或让考核者替你冒险猜一次"></textarea>
-            <div id="advanced-log" class="advanced-log"></div>
-          </div>
-        </section>
+          <section id="resident-dialogue-panel" class="resident-dialogue-panel">
+            <header>
+              <h2>常驻居民</h2>
+              <p>他们会记住你说过什么，也会记住你怎么救人。</p>
+            </header>
+            <div id="resident-dialogue-list" class="resident-dialogue-list"></div>
+            <div class="resident-dialogue-compose">
+              <input id="resident-dialogue-input" type="text" aria-label="给选中的居民发话" placeholder="问他还记得什么">
+              <button id="resident-dialogue-send" type="button">发送</button>
+            </div>
+            <ol id="resident-dialogue-log" class="resident-dialogue-log"></ol>
+          </section>
 
-        <section id="legend-panel" class="continuity-panel">
-          <div class="panel-title">民间说法</div>
-          <div class="continuity-block">
-            <h3>新传闻</h3>
-            <div id="legend-myths" class="continuity-list"></div>
-          </div>
-          <div class="continuity-block">
-            <h3>被记住的物件</h3>
-            <div id="legend-artifacts" class="continuity-list"></div>
-          </div>
-          <div class="continuity-block">
-            <h3>封神者</h3>
-            <div id="legend-figures" class="continuity-list"></div>
-          </div>
-          <div class="continuity-block">
-            <h3>蝴蝶效应</h3>
-            <div id="legend-butterfly" class="continuity-list"></div>
-          </div>
-        </section>
-
-        <section id="ritual-panel" class="continuity-panel">
-          <div class="panel-title">仪式熔炉</div>
-          <div class="continuity-block">
-            <h3>选择 2-3 张已放置造物</h3>
-            <div id="ritual-creation-list" class="ritual-creation-list"></div>
-            <button id="perform-ritual-btn" class="primary wide">执行仪式</button>
-            <div id="ritual-result" class="ritual-result"></div>
-          </div>
-        </section>
-
-        <section id="oath-panel" class="continuity-panel">
-          <div class="panel-title">言灵誓约</div>
-          <div class="continuity-block">
-            <h3>与居民缔结誓约</h3>
-            <div id="oath-npc-list" class="oath-npc-list"></div>
-          </div>
-          <div class="continuity-block">
-            <h3>活跃誓约</h3>
-            <div id="active-oath-list" class="continuity-list"></div>
-          </div>
-        </section>
-
-        <section id="enemy-intent-panel" class="continuity-panel">
-          <div class="panel-title">敌方意图</div>
-          <div class="continuity-block">
-            <h3>敌人行动计划</h3>
-            <div id="enemyIntentList" class="continuity-list"></div>
-          </div>
-          <div class="continuity-block">
-            <h3>棋盘旁白</h3>
-            <div id="enemyIntentNarrative" class="continuity-list"></div>
-          </div>
-        </section>
-
-        <section id="abyss-panel" class="continuity-panel">
-          <div class="panel-title">认知深渊</div>
-          <div class="continuity-block">
-            <h3>谜题</h3>
-            <div id="abyssRiddleText" class="continuity-list"></div>
-          </div>
-          <div class="continuity-block">
-            <h3>解码输入</h3>
-            <textarea id="abyssRiddleInput" placeholder="输入你的解码答案"></textarea>
-            <button id="abyssDecodeBtn" class="primary wide">提交解码</button>
-            <div id="abyssResult" class="continuity-list"></div>
-          </div>
-        </section>
-
-        <section id="corruption-panel" class="continuity-panel">
-          <div class="panel-title">验证腐化</div>
-          <div class="continuity-block">
-            <h3>腐化造物列表</h3>
-            <div id="corruptionList" class="continuity-list"></div>
-            <button id="corruptionCreateBtn" class="primary wide">制造腐化造物</button>
-          </div>
-        </section>
-
-        <section id="workshop-panel" class="continuity-panel">
-          <div class="panel-title">造物者工坊</div>
-          <div class="continuity-block">
-            <h3>库存造物</h3>
-            <div id="workshopInventoryList" class="continuity-list"></div>
-          </div>
-          <div class="continuity-block">
-            <h3>可拆解材料</h3>
-            <div id="workshopMaterialsList" class="continuity-list"></div>
-          </div>
-          <div class="button-row with-margin">
-            <button id="workshopDismantleBtn" class="secondary">拆解</button>
-            <button id="workshopModifyBtn" class="secondary">改造</button>
-            <button id="workshopFuseBtn" class="primary">熔合</button>
-          </div>
-        </section>
-
-        <section id="legacy-panel" class="continuity-panel">
-          <div class="panel-title">留下的人</div>
-          <div class="continuity-block">
-            <h3>传承单位</h3>
-            <div id="legacy-unit-list" class="continuity-list"></div>
-          </div>
-          <div class="continuity-block">
-            <h3>裂隙与名望</h3>
-            <div id="legacy-world-stats" class="continuity-list"></div>
-          </div>
-          <div class="continuity-block">
-            <h3>持久居民</h3>
-            <div id="legacy-resident-list" class="continuity-list"></div>
-          </div>
-        </section>
-      </section>
-
-      <section id="bottom-log" class="glass log-panel">
-        <div class="section-title">回合记录</div>
-        <div id="log-list" class="log-list"></div>
-      </section>
-
-      <section id="save-slot-panel" class="save-slot-panel">
-        <header>
-          <h2>存档</h2>
-          <p>先记一份。下次从这里接着走。</p>
-        </header>
-        <div class="save-slot-controls">
-          <input id="save-slot-name" type="text" value="main" aria-label="存档名">
-          <button id="save-slot-save" type="button">保存</button>
-          <button id="save-slot-load" type="button">读取</button>
-          <button id="save-slot-delete" type="button">删除</button>
-          <button id="save-slot-export" type="button">导出</button>
-          <button id="save-slot-import" type="button">导入</button>
+          <section id="legacy-panel" class="continuity-panel">
+            <div class="panel-title">留下的人</div>
+            <div class="continuity-block">
+              <h3>传承单位</h3>
+              <div id="legacy-unit-list" class="continuity-list"></div>
+            </div>
+            <div class="continuity-block">
+              <h3>裂隙与名望</h3>
+              <div id="legacy-world-stats" class="continuity-list"></div>
+            </div>
+            <div class="continuity-block">
+              <h3>持久居民</h3>
+              <div id="legacy-resident-list" class="continuity-list"></div>
+            </div>
+          </section>
         </div>
-        <textarea id="save-slot-import-data" aria-label="存档导入导出数据"></textarea>
-        <ol id="save-slot-list" class="save-slot-list"></ol>
+
+        <div id="drawer-world" class="drawer-view" data-drawer-view="world" hidden>
+          <section class="drawer-section">
+            <div class="section-title">行动指引</div>
+            <div id="intent-preview-list" class="intent-preview-list"></div>
+          </section>
+
+          <section id="enemy-intent-panel" class="continuity-panel">
+            <div class="panel-title">敌方意图</div>
+            <div class="continuity-block">
+              <h3>敌人行动计划</h3>
+              <div id="enemyIntentList" class="continuity-list"></div>
+            </div>
+            <div class="continuity-block">
+              <h3>棋盘旁白</h3>
+              <div id="enemyIntentNarrative" class="continuity-list"></div>
+            </div>
+          </section>
+
+          <section id="legend-panel" class="continuity-panel">
+            <div class="panel-title">民间说法</div>
+            <div class="continuity-block">
+              <h3>新传闻</h3>
+              <div id="legend-myths" class="continuity-list"></div>
+            </div>
+            <div class="continuity-block">
+              <h3>被记住的物件</h3>
+              <div id="legend-artifacts" class="continuity-list"></div>
+            </div>
+            <div class="continuity-block">
+              <h3>封神者</h3>
+              <div id="legend-figures" class="continuity-list"></div>
+            </div>
+            <div class="continuity-block">
+              <h3>蝴蝶效应</h3>
+              <div id="legend-butterfly" class="continuity-list"></div>
+            </div>
+          </section>
+
+          <section id="bottom-log" class="glass log-panel">
+            <div class="section-title">回合记录</div>
+            <div id="log-list" class="log-list"></div>
+          </section>
+
+          <section id="night-watch-panel" class="continuity-panel hidden">
+            <div class="panel-title">长夜守城</div>
+            <div class="continuity-block">
+              <h3 id="night-watch-title">第七天之前</h3>
+              <div id="night-watch-summary" class="night-watch-summary"></div>
+              <button id="night-watch-btn" class="primary wide" type="button">开启守夜</button>
+            </div>
+          </section>
+
+          <section id="air-combat-panel" class="continuity-panel hidden">
+            <div class="panel-title">裂隙空域</div>
+            <div class="continuity-block">
+              <h3 id="air-combat-title">第七天裂隙空域</h3>
+              <div id="air-combat-summary" class="night-watch-summary"></div>
+              <button id="air-combat-btn" class="primary wide" type="button">进入空域</button>
+            </div>
+          </section>
+        </div>
+
+        <div id="drawer-systems" class="drawer-view" data-drawer-view="systems" hidden>
+          <div class="section-title">讲述方式</div>
+          <div class="storyteller-bar">
+            <label for="storyteller-select">旁白：</label>
+            <select id="storyteller-select">
+              <option value="cassandra">卡珊德拉（经典戏剧）</option>
+              <option value="phoebe">菲比（慢慢加压）</option>
+              <option value="randy">兰迪（混沌随机）</option>
+              <option value="narrator">说书人（看局面）</option>
+            </select>
+            <div id="storyteller-desc" class="storyteller-desc"></div>
+          </div>
+
+          <section id="advanced-mechanics-panel" class="advanced-mechanics-panel collapsible">
+            <button type="button" class="panel-title collapse-toggle" aria-expanded="false" aria-controls="advanced-body">
+              AI 战术室
+              <span class="collapse-icon" aria-hidden="true">+</span>
+            </button>
+            <div id="advanced-body" class="collapse-body">
+              <div id="advanced-detail" class="advanced-detail"></div>
+              <div id="advanced-action-list" class="advanced-action-list"></div>
+              <div id="advanced-mechanic-list" class="advanced-mechanic-list"></div>
+              <textarea id="advanced-decode-input" maxlength="80" placeholder="输入深渊解码，或让考核者替你冒险猜一次"></textarea>
+              <div id="advanced-log" class="advanced-log"></div>
+            </div>
+          </section>
+
+          <section id="ritual-panel" class="continuity-panel">
+            <div class="panel-title">仪式熔炉</div>
+            <div class="continuity-block">
+              <h3>选择 2-3 张已放置造物</h3>
+              <div id="ritual-creation-list" class="ritual-creation-list"></div>
+              <button id="perform-ritual-btn" class="primary wide">执行仪式</button>
+              <div id="ritual-result" class="ritual-result"></div>
+            </div>
+          </section>
+
+          <section id="oath-panel" class="continuity-panel">
+            <div class="panel-title">言灵誓约</div>
+            <div class="continuity-block">
+              <h3>与居民缔结誓约</h3>
+              <div id="oath-npc-list" class="oath-npc-list"></div>
+            </div>
+            <div class="continuity-block">
+              <h3>活跃誓约</h3>
+              <div id="active-oath-list" class="continuity-list"></div>
+            </div>
+          </section>
+
+          <section id="abyss-panel" class="continuity-panel">
+            <div class="panel-title">认知深渊</div>
+            <div class="continuity-block">
+              <h3>谜题</h3>
+              <div id="abyssRiddleText" class="continuity-list"></div>
+            </div>
+            <div class="continuity-block">
+              <h3>解码输入</h3>
+              <textarea id="abyssRiddleInput" placeholder="输入你的解码答案"></textarea>
+              <button id="abyssDecodeBtn" class="primary wide">提交解码</button>
+              <div id="abyssResult" class="continuity-list"></div>
+            </div>
+          </section>
+
+          <section id="corruption-panel" class="continuity-panel">
+            <div class="panel-title">验证腐化</div>
+            <div class="continuity-block">
+              <h3>腐化造物列表</h3>
+              <div id="corruptionList" class="continuity-list"></div>
+              <button id="corruptionCreateBtn" class="primary wide">制造腐化造物</button>
+            </div>
+          </section>
+
+          <section id="workshop-panel" class="continuity-panel">
+            <div class="panel-title">造物者工坊</div>
+            <div class="continuity-block">
+              <h3>库存造物</h3>
+              <div id="workshopInventoryList" class="continuity-list"></div>
+            </div>
+            <div class="continuity-block">
+              <h3>可拆解材料</h3>
+              <div id="workshopMaterialsList" class="continuity-list"></div>
+            </div>
+            <div class="button-row with-margin">
+              <button id="workshopDismantleBtn" class="secondary">拆解</button>
+              <button id="workshopModifyBtn" class="secondary">改造</button>
+              <button id="workshopFuseBtn" class="primary">熔合</button>
+            </div>
+          </section>
+
+          <section id="save-slot-panel" class="save-slot-panel">
+            <header>
+              <h2>存档</h2>
+              <p>先记一份。下次从这里接着走。</p>
+            </header>
+            <div class="save-slot-controls">
+              <input id="save-slot-name" type="text" value="main" aria-label="存档名">
+              <button id="save-slot-save" type="button">保存</button>
+              <button id="save-slot-load" type="button">读取</button>
+              <button id="save-slot-delete" type="button">删除</button>
+              <button id="save-slot-export" type="button">导出</button>
+              <button id="save-slot-import" type="button">导入</button>
+            </div>
+            <textarea id="save-slot-import-data" aria-label="存档导入导出数据"></textarea>
+            <ol id="save-slot-list" class="save-slot-list"></ol>
+          </section>
+
+          <details id="test-jump-panel" class="test-jump-panel" open hidden>
+            <summary>考官沙盘</summary>
+            <div class="test-jump-grid">
+              <button class="secondary small" type="button" data-test-level="0">第1关</button>
+              <button class="secondary small" type="button" data-test-level="1">第2关</button>
+              <button class="secondary small" type="button" data-test-level="2">第3关</button>
+              <button class="secondary small" type="button" data-test-level="3">第4关</button>
+              <button class="secondary small" type="button" data-test-level="4">第5关</button>
+              <button class="secondary small" type="button" data-test-level="5">第6关</button>
+              <button class="secondary small" type="button" id="test-night-watch-btn">长夜守城</button>
+              <button class="secondary small" type="button" id="test-air-combat-btn">空战预演</button>
+              <button class="secondary small" type="button" id="test-browser-smoke-btn">跑烟测</button>
+            </div>
+          </details>
+        </div>
       </section>
 
-      <section id="resident-dialogue-panel" class="resident-dialogue-panel">
-        <header>
-          <h2>常驻居民</h2>
-          <p>他们会记住你说过什么，也会记住你怎么救人。</p>
-        </header>
-        <div id="resident-dialogue-list" class="resident-dialogue-list"></div>
-        <div class="resident-dialogue-compose">
-          <input id="resident-dialogue-input" type="text" aria-label="给选中的居民发话" placeholder="问他还记得什么">
-          <button id="resident-dialogue-send" type="button">发送</button>
-        </div>
-        <ol id="resident-dialogue-log" class="resident-dialogue-log"></ol>
+      <section id="world-signal" class="world-signal" aria-live="polite" hidden>
+        <button id="world-signal-open" type="button">
+          <span id="world-signal-kicker">世界有了新说法</span>
+          <strong id="world-signal-title"></strong>
+          <span id="world-signal-summary"></span>
+        </button>
+        <button id="world-signal-dismiss" type="button" aria-label="忽略这条提示">×</button>
       </section>
 
       <div id="toast" class="toast hidden"></div>

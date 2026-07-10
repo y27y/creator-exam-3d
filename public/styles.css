@@ -2222,6 +2222,7 @@ body { margin: 0; background: var(--world-bg); color: var(--text-main); }
 .cinematic {
   position: fixed; inset: 0; z-index: 110; display: grid; place-items: center;
   padding: clamp(18px, 4vw, 64px); overflow-y: auto; background: #070a11;
+  transition: background-color .9s ease;
 }
 .cinematic[hidden] { display: none; }
 .cinematic-art { position: absolute; inset: 0; background-color: #0b0f18; background-position: center; background-size: cover; }
@@ -2258,6 +2259,33 @@ body { margin: 0; background: var(--world-bg); color: var(--text-main); }
   12% { opacity: 1; }
   100% { opacity: 1; transform: scale(1); }
 }
+.cinematic.chapter-transition { background-color: rgba(7, 10, 17, 0); }
+.cinematic.chapter-transition .cinematic-copy {
+  pointer-events: none; animation: chapter-copy-exit .42s ease forwards;
+}
+.cinematic.chapter-transition .cinematic-art {
+  transform-origin: center center; will-change: clip-path, opacity, transform, filter;
+  animation: chapter-scroll-close 1.15s cubic-bezier(.68, 0, .2, 1) forwards !important;
+}
+.cinematic.chapter-transition::before {
+  content: ''; position: absolute; z-index: 1; top: 5%; bottom: 5%; left: 50%; width: 2px;
+  pointer-events: none; background: linear-gradient(transparent, rgba(210, 184, 107, .72), transparent);
+  box-shadow: 0 0 18px rgba(210, 184, 107, .32); animation: chapter-scroll-spine 1.15s ease forwards;
+}
+@keyframes chapter-copy-exit {
+  to { opacity: 0; transform: translateY(18px); }
+}
+@keyframes chapter-scroll-close {
+  0% { opacity: 1; clip-path: inset(0 0 0 0); transform: scale(1); filter: brightness(1); }
+  42% { opacity: .96; clip-path: inset(1.5% 9% 1.5% 9%); transform: scale(1.012); filter: brightness(.92); }
+  76% { opacity: .72; clip-path: inset(3% 36% 3% 36%); transform: scale(1.025); filter: brightness(.72); }
+  100% { opacity: 0; clip-path: inset(4% 50% 4% 50%); transform: scale(1.035); filter: brightness(.5); }
+}
+@keyframes chapter-scroll-spine {
+  0%, 28% { opacity: 0; transform: scaleY(.72); }
+  58% { opacity: .78; transform: scaleY(1); }
+  100% { opacity: 0; transform: scaleY(.9); }
+}
 .cinematic-copy {
   position: relative; justify-self: start; width: min(540px, 88vw); padding: clamp(20px, 4vw, 48px);
   color: var(--text-main); background: rgba(7, 10, 17, .78); border-left: 3px solid var(--narrative);
@@ -2289,6 +2317,9 @@ body { margin: 0; background: var(--world-bg); color: var(--text-main); }
 
 @media (prefers-reduced-motion: reduce) {
   .cinematic-art, .cinematic[data-cinematic^="chapter-"] .cinematic-art.chapter-frame-enter { transition: none; transform: none; animation: none; }
+  .cinematic.chapter-transition .cinematic-art { clip-path: none; animation: chapter-copy-exit 180ms linear forwards !important; }
+  .cinematic.chapter-transition .cinematic-copy { animation-duration: 120ms; }
+  .cinematic.chapter-transition::before { display: none; }
   #right-panel, .world-signal, #creation-dock, .drawer-view * { scroll-behavior: auto !important; transition: none !important; animation: none !important; }
 }
 

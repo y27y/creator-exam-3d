@@ -145,3 +145,142 @@ These three development-time generated images form one continuous first-act sequ
 - Final prompt: Create the third 16:9 still immediately before the live board appears, using the supplied flood-village image as the same fully flooded settlement. Show the quiet aftermath: half-submerged slate roofs, broken walkways disappearing into dark water, isolated windows and lanterns, and a distant pale strip of high ground visible through continuous rain. The subject is isolation, last lights, and a restrained possibility of safety. Closely preserve the reference geography, palette, matte materials and painterly low-poly finish so the image can dissolve naturally into the existing level background. Keep the center, lower-left and top 18% dark and uncluttered for mission text. No bright sunrise, triumph, board, grid, hero, vehicle, rescue object, weapon, specific player creation, text, UI, logo, signature or watermark.
 - Post-processing: Sharp attention crop to 1920×1080, WebP quality 84, effort 6, smart subsample
 - SHA-256: `0DEC9F218B8BFA5BECE4859B3B8351EF4F5C14166720C714178A26F5FE156884`
+
+## Level 02-06 chapter-opening stills
+
+These fifteen development-time generated images form five continuous three-shot chapter openings. Each level's local backplate was supplied as a visual-continuity reference. The shared direction was: premium 16:9 AAA environment key art, matte gouache fused with elegant low-poly facets, recognizable geography and materials, quiet top and lower-left HTML-copy zones, no central hero, and no text, watermark, UI, board, gameplay pieces, or concrete player creation. All raster outputs were visually reviewed before being copied into the project; titles and story copy remain HTML overlays.
+
+### chapters/level-02/shot-01-lamps-descend.webp
+
+- Model: OpenAI image-2, built-in image generation
+- Generated: 2026-07-10
+- Dimensions: 1920x1080
+- Final prompt: In the eternal-night stepped quarry, show an earlier shift when a long chain of antique-gold work lamps still descends from the rim toward the deep mine. Preserve the reference cave mouth, charcoal terraces, curving rails, timber braces, carts, mineral seams, starless blue-black palette, and tiny anonymous miners. Make the fragile route of light the subject, with a dark lower-left and quiet top band; avoid sci-fi machinery, giant crystals, readable signs, or spectacle.
+- Post-processing: Sharp attention crop to 1920x1080, WebP quality 84, effort 6, smart subsample
+- SHA-256: `4A2090B6130FD961A49674CE5F4D8200482C6DB85AEE79704C089ABB4A432020`
+
+### chapters/level-02/shot-02-lights-fail.webp
+
+- Model: OpenAI image-2, built-in image generation
+- Generated: 2026-07-10
+- Dimensions: 1920x1080
+- Final prompt: Return to the exact same quarry as its lamps fail one after another, leaving separated pools of warm light and cutting the route home into darkness. Keep the familiar terraces, rails, timber braces, carts, mineral dust, pale northern passage, matte graphite rock, and elegant low-poly gouache treatment. Let darkness advance from the far mine while the lower-left remains readable; show no cave-in, explosion, monster, neon beam, or readable symbol.
+- Post-processing: Sharp attention crop to 1920x1080, WebP quality 84, effort 6, smart subsample
+- SHA-256: `794FCAD059C7052F96D6A40748D39D791657724F00762273E1F2DE8ED5720B8B`
+
+### chapters/level-02/shot-03-northern-glow.webp
+
+- Model: OpenAI image-2, built-in image generation
+- Generated: 2026-07-10
+- Dimensions: 1920x1080
+- Final prompt: Show the same mine in its immediate pre-board state after almost every lamp has died: a broad subdued basin, rails disappearing into shadow, dark braces and shelves, only three or four isolated lights, and a faint cold northern opening suggesting one possible exit. Closely align the reference geography and keep the center and lower-left dark for mission text. The mood is grave but not hopeless; no bright portal, sunrise, close-up character, or central glowing object.
+- Post-processing: Sharp attention crop to 1920x1080, WebP quality 84, effort 6, smart subsample
+- SHA-256: `00E2AB403F30E99AA5FD39BB893CDC96F9B3AD5F3DC5144A5281E2BB7D619F30`
+
+### chapters/level-03/shot-01-footprint-beyond.webp
+
+- Model: OpenAI image-2, built-in image generation
+- Generated: 2026-07-10; regenerated after visual QA for clearer footprint evidence
+- Dimensions: 1920x1080
+- Final prompt: In the ancient forest city, show the moment sentries discover one colossal fresh footprint beyond the weathered wall while narrow irrigation channels still carry weak water. Preserve the reference wall, watchtowers, pine canopy, pale reservoir, bent saplings, old stone and wet-earth palette. The single footprint must read as pressed earth rather than an impact crater, and the unseen giant must remain entirely offscreen. Keep the lower-left forest shadow and top band calm; no battle, gore, hero, or defense pieces.
+- Post-processing: Sharp attention crop to 1920x1080, WebP quality 84, effort 6, smart subsample
+- SHA-256: `0F9A93059949391C9CDA28DE2A5B8C01A449FC4391B8423C550F6CD1DE47E258`
+
+### chapters/level-03/shot-02-channels-dry.webp
+
+- Model: OpenAI image-2, built-in image generation
+- Generated: 2026-07-10; regenerated after visual QA for fully dry channels and a clearer trail
+- Dimensions: 1920x1080
+- Final prompt: Show the same city's irrigation failure at deepening dusk: channels and aqueduct beds are cracked and dry, farms near the intact wall have lost their water, the reservoir has retreated, and a readable trail of immense footprints presses through bent forest toward the watchtowers. Follow a dry channel from the dark lower-left toward the horizon. Preserve the established geography and materials; keep the beast offscreen and avoid fire, explosions, central soldiers, or readable banners.
+- Post-processing: Sharp attention crop to 1920x1080, WebP quality 84, effort 6, smart subsample
+- SHA-256: `6185E88D05F810ADBFBF9A85AD74BEC92A20AF8ED331C5518B001724CC1E39B6`
+
+### chapters/level-03/shot-03-shadow-at-wall.webp
+
+- Model: OpenAI image-2, built-in image generation
+- Generated: 2026-07-10; regenerated after visual QA for stronger atmospheric evidence
+- Dimensions: 1920x1080
+- Final prompt: Show the intact forest-city wall at deep dusk as treetops beyond it bend in sequence and an enormous soft, low-contrast shadow crosses the far forest. Keep the dry channels, old watchtowers, last reservoir glimmer, muted beacons, and reference-aligned elevated panorama. The shadow is only atmospheric evidence, never a giant silhouette; preserve a calm dark center and lower-left for the handoff to the board. No attack pose, monster reveal, fire, weapons, or combat units.
+- Post-processing: Sharp attention crop to 1920x1080, WebP quality 84, effort 6, smart subsample
+- SHA-256: `5734CA823634AF93F6E62ED3D850624715E740A83D3BE5C8492DC0D96CD5DD45`
+
+### chapters/level-04/shot-01-forgotten-table.webp
+
+- Model: OpenAI image-2, built-in image generation
+- Generated: 2026-07-10; regenerated after visual QA to preserve table placement and copy space
+- Dimensions: 1920x1080
+- Final prompt: Show the silent divided border before dense fog arrives. Two exhausted camps remain at the far left and right edges, while one small abandoned negotiation table sits off-center near 62 percent of the frame width and 58 percent of its height. Preserve the blocked gate, shallow trenches, road markers, muted plum and rust banners without emblems, and cold charcoal dawn. Keep the table complete, the lower-left clear, and the mood mournfully suspended; no soldiers as focal subjects, battle, weapons, or real flags.
+- Post-processing: Sharp attention crop to 1920x1080, WebP quality 84, effort 6, smart subsample
+- SHA-256: `4104B38400343D4560BBBB0913C9E4B645182D1648514ACB827E5BF02F8598E9`
+
+### chapters/level-04/shot-02-road-in-fog.webp
+
+- Model: OpenAI image-2, built-in image generation
+- Generated: 2026-07-10; regenerated after visual QA to retain one continuous table and landscape
+- Dimensions: 1920x1080
+- Final prompt: Return to the exact same divided-border camera and geography as slow fog swallows the road, markers, gate, and the same single table in the same position. The table is now half-submerged in fog but remains recognizable; never duplicate it. Let the opposing edge camps fade out of sight while isolated watch fires persist. Keep the lower-left a quiet dark-gray text field and retain the matte low-poly gouache language. No ghosts, runes, charging soldiers, bright red, or attack spectacle.
+- Post-processing: Sharp attention crop to 1920x1080, WebP quality 84, effort 6, smart subsample
+- SHA-256: `E14B7C72BF65AFC3C0BF93543B463A7EE250E165260F67D89F434B86B682D3F3`
+
+### chapters/level-04/shot-03-two-lanterns.webp
+
+- Model: OpenAI image-2, built-in image generation
+- Generated: 2026-07-10
+- Dimensions: 1920x1080
+- Final prompt: Show the fully fogged border immediately before play, with the opposing camps barely visible, road markers submerged, the blocked gate distant, and only two tiny antique-gold lanterns at opposite ends of the vanished road. Make the broad gap between the lights the subject and leave the center and lower-left calm for copy and the board transition. Preserve the same camps, gate, fog layers, charcoal palette and low-poly gouache finish; no handshake, central character, readable flag, battle, or portal.
+- Post-processing: Sharp attention crop to 1920x1080, WebP quality 84, effort 6, smart subsample
+- SHA-256: `84F67BA737F8F444B4B424BA251AB1FF9EE3980F57DC3C34D7079DBFB45D1318`
+
+### chapters/level-05/shot-01-names-fade.webp
+
+- Model: OpenAI image-2, built-in image generation
+- Generated: 2026-07-10
+- Dimensions: 1920x1080
+- Final prompt: Show the first signs of a memory plague in the same misty village. Familiar homes remain intact, but blank plaques, path stones, and household markers begin losing their distinctions; small paper-like fragments contain no marks. Preserve the mirrored pools, memory stones, small distant sacred tree, moonless blue-black palette, muted jade, pale ivory, antique gold, and restrained lavender cracks. Keep the lower-left and top quiet; no readable text, runes, faces in fog, ghosts, or saturated magic.
+- Post-processing: Sharp attention crop to 1920x1080, WebP quality 84, effort 6, smart subsample
+- SHA-256: `4260B6134FB7AC777803B2CF6AA4DF532C8BB02AA48EB61D48F03C12DE0482E7`
+
+### chapters/level-05/shot-02-paths-repeat.webp
+
+- Model: OpenAI image-2, built-in image generation
+- Generated: 2026-07-10
+- Dimensions: 1920x1080
+- Final prompt: Deepen the memory plague in the exact same village: paths repeat imperfectly, two rooflines echo in the wrong places, mirrored pools reflect fragments of yesterday, memory stones shift, and the sacred tree dims behind fog. The real geography must remain perceptible under delicate distortion rather than becoming a collage. Confine repetitions mainly to the middle and right edges, leaving the lower-left dark and readable. No symbols, glowing runes, faces, ghosts, kaleidoscope effects, or psychedelic saturation.
+- Post-processing: Sharp attention crop to 1920x1080, WebP quality 84, effort 6, smart subsample
+- SHA-256: `0D55AA7578DDFA2EFCC3D730E43734828A46CDD89F102789F71AA1CE0CF6480C`
+
+### chapters/level-05/shot-03-tree-remains.webp
+
+- Model: OpenAI image-2, built-in image generation
+- Generated: 2026-07-10
+- Dimensions: 1920x1080
+- Final prompt: Show the immediate pre-board village with most of the settlement dissolved into quiet mist, subdued roofs at the edges, dark pools, sparse memory stones, and a few isolated lanterns oriented toward the one stable landmark: the small sacred tree on the far upper-left horizon. Keep its glow restrained and low-saturation, the top quarter dark, and the center and lower-left empty for a natural board dissolve. No giant tree, central glow, text, runes, ghosts, horror, or saturated aura.
+- Post-processing: Sharp attention crop to 1920x1080, WebP quality 84, effort 6, smart subsample
+- SHA-256: `37927A8475207785CDABC7150653D43CFE95217084C94BFCEB67A54F0EC90A0F`
+
+### chapters/level-06/shot-01-worlds-return.webp
+
+- Model: OpenAI image-2, built-in image generation
+- Generated: 2026-07-10
+- Dimensions: 1920x1080
+- Final prompt: In one coherent final landscape, let five remembered worlds begin to reappear around a shared horizon: flooded roofs, a dark quarry mouth and lamp trail, a forest wall, two faded border camps, and the small sacred tree. Keep every fragment peripheral and naturally joined by the same perspective, fog, matte materials and low-poly gouache treatment, leaning subtly toward a thin muted-violet crack. Preserve a broad dark center and lower-left; no collage, bright portal, giant tree, hero, or gameplay units.
+- Post-processing: Sharp attention crop to 1920x1080, WebP quality 84, effort 6, smart subsample
+- SHA-256: `E7B4B74A94659A69C075B4C997EF3C8FFA43E3BBB3D31724E8E30F792A796015`
+
+### chapters/level-06/shot-02-rift-demands.webp
+
+- Model: OpenAI image-2, built-in image generation
+- Generated: 2026-07-10
+- Dimensions: 1920x1080
+- Final prompt: Show the same unified final world under subtle spatial pressure. Water, fog, dry channels and scattered lamps from the five peripheral landscapes angle slightly toward the restrained horizon crack, making it feel like a demand for one final answer. The flooded edge, quarry shadow, forest wall, camps and sacred-tree glow remain recognizable and low-contrast at the perimeter; the rift stays narrow and dim. No vortex, saturated purple, boss, aircraft, hero, explosion, or destruction montage.
+- Post-processing: Sharp attention crop to 1920x1080, WebP quality 84, effort 6, smart subsample
+- SHA-256: `B454EB1AA2BC773CAB8AF24213D366AD3BA47225C889FC5720362B68E7173E7C`
+
+### chapters/level-06/shot-03-before-seventh-day.webp
+
+- Model: OpenAI image-2, built-in image generation
+- Generated: 2026-07-10
+- Dimensions: 1920x1080
+- Final prompt: Show the whole remembered world waiting in pre-dawn darkness immediately before the board appears. All five peripheral landscapes are stable, the narrow low-brightness rift is quiet but unresolved, sparse gold and jade lights remain, and a faint cold horizon suggests the seventh day is near. Keep the broad foreground, center, lower-left and top quarter dark and uncluttered so the image can collapse like a painted scroll. No sunrise celebration, total destruction, portal spectacle, hero, boss, aircraft, text, or UI.
+- Post-processing: Sharp attention crop to 1920x1080, WebP quality 84, effort 6, smart subsample
+- SHA-256: `B80B97025062E9BA0E88EFA1FD918711AA1A1FAFBA8AF4CC899E147DEC565742`

@@ -34,6 +34,7 @@ const TILE_SIZE = 1.55;
 const BOARD_SIZE = 7;
 const MAX_LOGS = 18;
 const TURN_RESOLUTION_LOCK_MS = 300;
+const CHAPTER_TRANSITION_MS = 1150;
 
 // AI Narrative endpoint configuration
 const NARRATIVE_ENDPOINT = '/api/narrative';
@@ -215,6 +216,7 @@ class CreatorExam3D extends GameEngine {
     this.activeChapterIntro = null;
     this.chapterIntroFrameIndex = 0;
     this.chapterIntroPreloads = new Map();
+    this.chapterTransitionTimer = null;
     this.turnUnlockTimer = null;
     this.activeDrawer = null;
     this.drawerFocusReturn = null;
@@ -819,7 +821,7 @@ class CreatorExam3D extends GameEngine {
     document.getElementById('test-night-watch-btn')?.addEventListener('click', () => this.openNightWatchTestMode());
     document.getElementById('test-air-combat-btn')?.addEventListener('click', () => this.openAirCombatMode({ testEntry: true }));
     const chapterIntroButton = document.getElementById('test-chapter-intro-btn');
-    chapterIntroButton?.addEventListener('click', () => this.showLevelChapterIntro('flood-village', { force: true, returnFocus: chapterIntroButton }));
+    chapterIntroButton?.addEventListener('click', () => this.showLevelChapterIntro(this.level.id, { force: true, returnFocus: chapterIntroButton }));
     this.ui.browserSmokeBtn?.addEventListener('click', () => this.handleBrowserDemoSmokeClick());
     this.ui.performRitualBtn?.addEventListener('click', () => this.handlePerformRitual());
 
@@ -977,6 +979,13 @@ class CreatorExam3D extends GameEngine {
   }
 
   showCinematic({ variant, kicker, title, text, primary = '继续', artUrl = null, progress = null, onPrimary = null, onClose = null }) {
+    if (this.chapterTransitionTimer) {
+      window.clearTimeout(this.chapterTransitionTimer);
+      this.chapterTransitionTimer = null;
+    }
+    this.ui.cinematic.classList.remove('chapter-transition');
+    this.ui.cinematicSkip.disabled = false;
+    this.ui.cinematicPrimary.disabled = false;
     if (this.ui.cinematic.hidden) this.cinematicWasResolving = this.isResolvingTurn;
     this.cinematicCloseAction = onClose;
     this.cinematicPrimaryAction = onPrimary;
@@ -1020,9 +1029,16 @@ class CreatorExam3D extends GameEngine {
 
   closeCinematic() {
     if (this.ui.cinematic.hidden) return false;
+    if (this.chapterTransitionTimer) {
+      window.clearTimeout(this.chapterTransitionTimer);
+      this.chapterTransitionTimer = null;
+    }
     const action = this.cinematicCloseAction;
     this.cinematicCloseAction = null;
     this.cinematicPrimaryAction = null;
+    this.ui.cinematic.classList.remove('chapter-transition');
+    this.ui.cinematicSkip.disabled = false;
+    this.ui.cinematicPrimary.disabled = false;
     this.ui.cinematic.hidden = true;
     this.setTurnControlsPending(this.cinematicWasResolving);
     action?.();
@@ -1031,9 +1047,11 @@ class CreatorExam3D extends GameEngine {
 
   showOpeningSequence() {
     const openingParams = new URLSearchParams(window.location.search);
-    if (openingParams.get('debug') === '1' && openingParams.get('chapter') === '1') {
-      this.showLevelChapterIntro('flood-village', { force: true });
-      return;
+    const chapterPreviewIndex = Number.parseInt(openingParams.get('chapter') || '', 10) - 1;
+    if (openingParams.get('debug') === '1' && LEVELS[chapterPreviewIndex]) {
+      if (chapterPreviewIndex !== this.levelIndex) this.loadLevel(chapterPreviewIndex);
+      this.showLevelChapterIntro(this.level.id, { force: true });
+      return true;
     }
     this.showPrologueCinematic(() => {
       if (!this.showLevelChapterIntro('flood-village')) this.ui.input.focus();
@@ -1102,10 +1120,10 @@ class CreatorExam3D extends GameEngine {
       text: frame.text,
       artUrl: frame.art,
       progress: { index: this.chapterIntroFrameIndex, total: intro.frames.length },
-      primary: isLast ? '进入第一关' : '下一页',
+      primary: isLast ? '进入本关' : '下一页',
       onPrimary: () => {
         if (isLast) {
-          this.closeCinematic();
+          this.finishChapterIntroWithTransition();
           return;
         }
         this.chapterIntroFrameIndex += 1;
@@ -1113,6 +1131,20 @@ class CreatorExam3D extends GameEngine {
       },
       onClose: () => this.completeChapterIntro()
     });
+    return true;
+  }
+
+  finishChapterIntroWithTransition() {
+    if (!this.activeChapterIntro || this.chapterTransitionTimer) return false;
+    this.cinematicPrimaryAction = null;
+    this.ui.cinematicSkip.disabled = true;
+    this.ui.cinematicPrimary.disabled = true;
+    this.ui.cinematic.classList.add('chapter-transition');
+    const reducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches === true;
+    this.chapterTransitionTimer = window.setTimeout(() => {
+      this.chapterTransitionTimer = null;
+      this.closeCinematic();
+    }, reducedMotion ? 180 : CHAPTER_TRANSITION_MS);
     return true;
   }
 
@@ -1483,6 +1515,7 @@ class CreatorExam3D extends GameEngine {
       return;
     }
     this.loadLevel(this.levelIndex + 1);
+    window.requestAnimationFrame(() => this.showLevelChapterIntro(this.level.id));
   }
 
   jumpToTestLevel(index) {

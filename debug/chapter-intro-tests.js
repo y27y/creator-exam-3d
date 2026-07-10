@@ -2,17 +2,19 @@ import assert from 'node:assert/strict'
 import { existsSync, readFileSync } from 'node:fs'
 import { LEVEL_CHAPTER_INTROS } from '../public/js/chapterIntros.js'
 
-const intro = LEVEL_CHAPTER_INTROS['flood-village']
-assert.ok(intro, 'first-level chapter intro should exist')
-assert.equal(Object.keys(LEVEL_CHAPTER_INTROS).length, 1, 'prototype should stay scoped to level one')
-assert.equal(intro.act, '第一幕')
-assert.equal(intro.frames.length, 3, 'first-level sample should use three authored stills')
+const levelIds = ['flood-village', 'night-mine', 'giant-city', 'wordless-war', 'memory-plague', 'final-exam']
+assert.deepEqual(Object.keys(LEVEL_CHAPTER_INTROS), levelIds, 'all six authored levels should have chapter openings')
 
-for (const [index, frame] of intro.frames.entries()) {
-  assert.match(frame.art, /^\/assets\/art\/chapters\/level-01\/shot-0[1-3]-[a-z-]+\.webp$/)
-  assert.ok(frame.title.length <= 12, `frame ${index + 1} title should remain cinematic and brief`)
-  assert.ok(frame.text.length <= 34, `frame ${index + 1} copy should remain optional and sparse`)
-  assert.ok(existsSync(new URL(`../public${frame.art}`, import.meta.url)), `${frame.art} should exist locally`)
+for (const [levelIndex, levelId] of levelIds.entries()) {
+  const intro = LEVEL_CHAPTER_INTROS[levelId]
+  assert.ok(intro, `${levelId} chapter intro should exist`)
+  assert.equal(intro.frames.length, 3, `${levelId} should use three authored stills`)
+  for (const [frameIndex, frame] of intro.frames.entries()) {
+    assert.match(frame.art, new RegExp(`^/assets/art/chapters/level-0${levelIndex + 1}/shot-0${frameIndex + 1}-[a-z-]+\\.webp$`))
+    assert.ok(frame.title.length <= 12, `${levelId} frame ${frameIndex + 1} title should remain cinematic and brief`)
+    assert.ok(frame.text.length <= 34, `${levelId} frame ${frameIndex + 1} copy should remain optional and sparse`)
+    assert.ok(existsSync(new URL(`../public${frame.art}`, import.meta.url)), `${frame.art} should exist locally`)
+  }
 }
 
 const gameSource = readFileSync(new URL('../public/js/game.js', import.meta.url), 'utf8')
@@ -25,9 +27,12 @@ for (const contract of [
   'showLevelChapterIntro(levelId, { force = false, returnFocus = null } = {})',
   'preloadChapterIntro(levelId)',
   'renderChapterIntroFrame()',
+  'finishChapterIntroWithTransition()',
   'handleCinematicPrimary()',
   'creatorExamChapterSeen:${levelId}:v1',
-  "openingParams.get('chapter') === '1'"
+  "openingParams.get('chapter')",
+  'this.showLevelChapterIntro(this.level.id)',
+  "this.showLevelChapterIntro(this.level.id, { force: true, returnFocus: chapterIntroButton })"
 ]) {
   assert.ok(gameSource.includes(contract), `game should include chapter contract: ${contract}`)
 }
@@ -40,6 +45,8 @@ assert.ok(gameSource.includes('returnFocus?.isConnected'), 'manual replay should
 
 assert.ok(cssSource.includes('.cinematic[data-cinematic^="chapter-"]'), 'chapter stills should have their own cinematic treatment')
 assert.ok(cssSource.includes('@keyframes chapter-still-enter'), 'chapter stills should use a restrained image entrance')
+assert.ok(cssSource.includes('@keyframes chapter-scroll-close'), 'final still should close like a painted scroll')
+assert.ok(cssSource.includes('.cinematic.chapter-transition'), 'chapter exit should reveal the realtime board')
 assert.ok(cssSource.includes('@media (prefers-reduced-motion: reduce)'), 'chapter motion should respect reduced-motion settings')
 
 console.log('Chapter intro tests passed.')

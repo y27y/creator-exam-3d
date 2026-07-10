@@ -45,7 +45,7 @@
 - `LevelPresentationLoader` 缓存每关 image-2 背景和 GLB 请求，并用关卡／请求序号阻止旧异步结果覆盖新关卡；背景或模型加载失败时，关卡颜色与程序化几何仍可独立运行。
 - 实时造物通过 `getAbilityVisualFamily()` 归入六种视觉语法，仍由一个 `createCreationMesh()` 入口生成。
 - 固定 CG、六关背景和 CC0 纹理位于 `public/assets/art/`，外圈 GLB 和界面音效位于 `public/assets/models/`、`public/assets/audio/`；缺失时 CSS 渐变或现有程序化画面继续工作。
-- `chapterIntros.js` 目前提供第一关三镜头章节样片；同一个模态播放器负责图片、极少量 HTML 文案、进度与跳过。首见状态按关卡版本写入 `sessionStorage`，调试入口可以强制重播，不会在重试本关时重复打断玩家。
+- `chapterIntros.js` 为六关分别提供三镜头章节开场；同一个模态播放器负责图片、极少量 HTML 文案、进度与跳过，第三镜用收卷淡出显露已渲染的实时棋盘。首见状态按关卡版本写入 `sessionStorage`，调试入口可以按当前关或 URL 参数强制重播，不会在重试本关时重复打断玩家。
 - `Soundscape` 只在指针或键盘手势后解锁短音效，覆盖轻量按钮反馈、造物编译／落地、新传说和胜负；不使用自动播放或循环背景音，静音偏好保存在本地。
 
 ### 2.1 长夜守城模式 (public/modes/tower-defense/)

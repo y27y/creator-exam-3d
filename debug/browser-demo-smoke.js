@@ -14,6 +14,20 @@ const htmlSource = readFileSync(new URL('../public/index.html', import.meta.url)
 const smokeBlock = sourceBlock(gameSource, '  async runBrowserDemoSmoke(options = {}) {', '  demoCard(ability) {');
 const bridgeBlock = sourceBlock(gameSource, '  bindBrowserDemoSmokeBridge() {', '  // Override loadLevel to add browser-specific initialization');
 
+assert.match(
+  htmlSource,
+  /id="test-jump-panel"[^>]*\bhidden\b/,
+  'test sandbox must be hidden in markup'
+);
+assert.ok(
+  gameSource.includes('applyDebugGate(search = window.location.search)'),
+  'game should gate the sandbox from the URL query'
+);
+assert.ok(
+  gameSource.includes("new URLSearchParams(search).get('debug') === '1'"),
+  'only ?debug=1 should reveal the sandbox'
+);
+
 assert.ok(htmlSource.includes('id="test-browser-smoke-btn"'), 'browser UI should expose a clickable smoke button in the sandbox panel');
 assert.ok(gameSource.includes('handleBrowserDemoSmokeClick()'), 'browser game should handle smoke button clicks');
 assert.ok(gameSource.includes('this.bindBrowserDemoSmokeBridge()'), 'browser game should install smoke bridge during startup');

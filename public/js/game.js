@@ -196,6 +196,7 @@ class CreatorExam3D extends GameEngine {
     this.turnUnlockTimer = null;
 
     this.ui = this.collectUi();
+    this.applyDebugGate();
     window.__creatorExam3D = this;
     this.bindBrowserDemoSmokeBridge();
     this.initScene();
@@ -305,8 +306,16 @@ class CreatorExam3D extends GameEngine {
     this.updateUi();
   }
 
+  applyDebugGate(search = window.location.search) {
+    const enabled = new URLSearchParams(search).get('debug') === '1';
+    if (this.ui?.testJumpPanel) this.ui.testJumpPanel.hidden = !enabled;
+    if (this.root) this.root.dataset.debugUi = enabled ? 'true' : 'false';
+    return enabled;
+  }
+
   collectUi() {
     return {
+      testJumpPanel: document.getElementById('test-jump-panel'),
       levelChip: document.getElementById('level-chip'),
       title: document.getElementById('level-title'),
       story: document.getElementById('level-story'),

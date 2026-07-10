@@ -4881,7 +4881,8 @@ runner.test('Test jump UI - should expose all levels, mode buttons, and smoke ve
   for (let i = 0; i < LEVELS.length; i += 1) {
     runner.assert(html.includes(`data-test-level="${i}"`), `test UI should include level ${i + 1}`);
   }
-  runner.assert(html.includes('id="test-jump-panel" class="test-jump-panel" open'), 'test UI should keep sandbox buttons in normal layout flow');
+  runner.assert(/id="test-jump-panel"[^>]*\bhidden\b/.test(html), 'test sandbox should be hidden by default');
+  runner.assert(game.includes('applyDebugGate(search = window.location.search)'), 'test sandbox should be gated by the URL query');
   runner.assert(styles.includes('.test-jump-panel:not([open]) .test-jump-grid'), 'closed test sandbox should not leak hidden buttons over later panels');
   runner.assert(html.includes('id="test-night-watch-btn"'), 'test UI should include tower-defense button');
   runner.assert(html.includes('id="test-air-combat-btn"'), 'test UI should include air-combat button');

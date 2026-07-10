@@ -16,6 +16,9 @@ const required = new Map([
   ['backgrounds/level-04-wordless-war.webp', { width: 1920, height: 1080, maxBytes: 524288 }],
   ['backgrounds/level-05-memory-plague.webp', { width: 1920, height: 1080, maxBytes: 524288 }],
   ['backgrounds/level-06-final-exam.webp', { width: 1920, height: 1080, maxBytes: 524288 }],
+  ['chapters/level-01/shot-01-rain-arrives.webp', { width: 1920, height: 1080, maxBytes: 524288 }],
+  ['chapters/level-01/shot-02-river-breaches.webp', { width: 1920, height: 1080, maxBytes: 524288 }],
+  ['chapters/level-01/shot-03-last-lanterns.webp', { width: 1920, height: 1080, maxBytes: 524288 }],
   ['textures/paper002-ui-grain.webp', { width: 512, height: 512, maxBytes: 32768 }]
 ]);
 
@@ -78,7 +81,7 @@ const serverSource = readFileSync(new URL('../server.js', import.meta.url), 'utf
 assert.ok(serverSource.includes("'.webp': 'image/webp'"), 'server MIME table must include WebP');
 assert.ok(attribution.includes('CC0 1.0'), 'attribution must record the public asset license');
 assert.ok(attribution.includes('11AE4A4057C81FAADC0F8BBE8E1C230BC939DCC3DF9222CEC83BD107B1D7C8C4'), 'Paper002 hash must be pinned');
-assert.equal((attribution.match(/Model: OpenAI image-2/g) || []).length, 10, 'art ledger should record ten approved image-2 assets');
+assert.equal((attribution.match(/Model: OpenAI image-2/g) || []).length, 13, 'art ledger should record thirteen approved image-2 assets');
 
 const readme = readFileSync(new URL('../README.md', import.meta.url), 'utf8');
 const architecture = readFileSync(new URL('../docs/systems/architecture.md', import.meta.url), 'utf8');

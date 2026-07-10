@@ -15,6 +15,7 @@ const suites = [
   { label: 'browser-modes-smoke', command: 'node', args: ['debug/browser-modes-smoke.js'] },
   { label: 'npc-dialogue-reliability', command: 'node', args: ['debug/npc-dialogue-reliability-tests.js'] },
   { label: 'narrative-reliability', command: 'node', args: ['debug/narrative-reliability-tests.js'] },
+  { label: 'chapter-intro', command: 'node', args: ['debug/chapter-intro-tests.js'] },
   { label: 'level-presentation', command: 'node', args: ['debug/level-presentation-tests.js'] },
   { label: 'soundscape-reliability', command: 'node', args: ['debug/soundscape-reliability-tests.js'] },
   { label: 'art-assets', command: 'node', args: ['debug/art-assets-tests.js'] },

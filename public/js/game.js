@@ -28,6 +28,7 @@ import { normalizeCreationDisplayText, normalizeCreationName } from './creationD
 import { getAbilityVisualFamily } from './abilities.js';
 import { LevelPresentationLoader } from './levelPresentation.js';
 import { Soundscape } from './soundscape.js';
+import { LEVEL_CHAPTER_INTROS } from './chapterIntros.js';
 
 const TILE_SIZE = 1.55;
 const BOARD_SIZE = 7;
@@ -209,7 +210,11 @@ class CreatorExam3D extends GameEngine {
     this.processedAirCombatResults = new Set();
     this.isResolvingTurn = false;
     this.cinematicCloseAction = null;
+    this.cinematicPrimaryAction = null;
     this.cinematicWasResolving = false;
+    this.activeChapterIntro = null;
+    this.chapterIntroFrameIndex = 0;
+    this.chapterIntroPreloads = new Map();
     this.turnUnlockTimer = null;
     this.activeDrawer = null;
     this.drawerFocusReturn = null;
@@ -229,8 +234,9 @@ class CreatorExam3D extends GameEngine {
     this.bindEvents();
     this.bindSaveSlotUI();
     this.bindResidentDialogueUI();
+    this.preloadChapterIntro('flood-village');
     this.loadLevel(0);
-    window.requestAnimationFrame(() => this.showPrologueCinematic());
+    window.requestAnimationFrame(() => this.showOpeningSequence());
     this.animate();
   }
 
@@ -364,9 +370,11 @@ class CreatorExam3D extends GameEngine {
       worldSignalTitle: document.getElementById('world-signal-title'),
       worldSignalSummary: document.getElementById('world-signal-summary'),
       cinematic: document.getElementById('cinematic'),
+      cinematicArt: document.getElementById('cinematic-art'),
       cinematicKicker: document.getElementById('cinematic-kicker'),
       cinematicTitle: document.getElementById('cinematic-title'),
       cinematicText: document.getElementById('cinematic-text'),
+      cinematicProgress: document.getElementById('cinematic-progress'),
       cinematicSkip: document.getElementById('cinematic-skip'),
       cinematicPrimary: document.getElementById('cinematic-primary'),
       levelChip: document.getElementById('level-chip'),
@@ -762,7 +770,7 @@ class CreatorExam3D extends GameEngine {
     this.ui.nightWatchBtn?.addEventListener('click', () => this.openNightWatch());
     this.ui.airCombatBtn?.addEventListener('click', () => this.openAirCombatMode());
     this.ui.cinematicSkip?.addEventListener('click', () => this.closeCinematic());
-    this.ui.cinematicPrimary?.addEventListener('click', () => this.closeCinematic());
+    this.ui.cinematicPrimary?.addEventListener('click', () => this.handleCinematicPrimary());
     this.ui.cinematic?.addEventListener('keydown', event => {
       if (event.key === 'Tab') {
         const active = document.activeElement;
@@ -777,6 +785,10 @@ class CreatorExam3D extends GameEngine {
       if (event.key === 'Escape') {
         event.preventDefault();
         this.closeCinematic();
+      }
+      if (event.key === 'ArrowRight' && this.activeChapterIntro) {
+        event.preventDefault();
+        this.handleCinematicPrimary();
       }
     });
     for (const button of this.ui.drawerButtons) {
@@ -806,6 +818,8 @@ class CreatorExam3D extends GameEngine {
     });
     document.getElementById('test-night-watch-btn')?.addEventListener('click', () => this.openNightWatchTestMode());
     document.getElementById('test-air-combat-btn')?.addEventListener('click', () => this.openAirCombatMode({ testEntry: true }));
+    const chapterIntroButton = document.getElementById('test-chapter-intro-btn');
+    chapterIntroButton?.addEventListener('click', () => this.showLevelChapterIntro('flood-village', { force: true, returnFocus: chapterIntroButton }));
     this.ui.browserSmokeBtn?.addEventListener('click', () => this.handleBrowserDemoSmokeClick());
     this.ui.performRitualBtn?.addEventListener('click', () => this.handlePerformRitual());
 
@@ -962,33 +976,77 @@ class CreatorExam3D extends GameEngine {
     });
   }
 
-  showCinematic({ variant, kicker, title, text, primary = '继续', onClose = null }) {
-    this.cinematicWasResolving = this.isResolvingTurn;
+  showCinematic({ variant, kicker, title, text, primary = '继续', artUrl = null, progress = null, onPrimary = null, onClose = null }) {
+    if (this.ui.cinematic.hidden) this.cinematicWasResolving = this.isResolvingTurn;
     this.cinematicCloseAction = onClose;
+    this.cinematicPrimaryAction = onPrimary;
     this.ui.cinematic.dataset.cinematic = variant;
     this.ui.cinematicKicker.textContent = kicker;
     this.ui.cinematicTitle.textContent = title;
     this.ui.cinematicText.textContent = text;
     this.ui.cinematicPrimary.textContent = primary;
+    if (artUrl) {
+      this.ui.cinematicArt.style.setProperty('--cinematic-image', `url("${artUrl}")`);
+      this.ui.cinematicArt.classList.remove('chapter-frame-enter');
+      void this.ui.cinematicArt.offsetWidth;
+      this.ui.cinematicArt.classList.add('chapter-frame-enter');
+    } else {
+      this.ui.cinematicArt.style.removeProperty('--cinematic-image');
+      this.ui.cinematicArt.classList.remove('chapter-frame-enter');
+    }
+    if (progress) {
+      this.ui.cinematicProgress.hidden = false;
+      this.ui.cinematicProgress.innerHTML = Array.from({ length: progress.total }, (_, index) =>
+        `<span class="${index <= progress.index ? 'active' : ''}" aria-hidden="true"></span>`
+      ).join('');
+      this.ui.cinematicProgress.setAttribute('aria-label', `章节画面 ${progress.index + 1} / ${progress.total}`);
+    } else {
+      this.ui.cinematicProgress.hidden = true;
+      this.ui.cinematicProgress.innerHTML = '';
+    }
     this.ui.cinematic.hidden = false;
     this.setTurnControlsPending(true);
     window.requestAnimationFrame(() => this.ui.cinematicTitle.focus());
+  }
+
+  handleCinematicPrimary() {
+    if (this.ui.cinematic.hidden) return false;
+    if (this.cinematicPrimaryAction) {
+      this.cinematicPrimaryAction();
+      return true;
+    }
+    return this.closeCinematic();
   }
 
   closeCinematic() {
     if (this.ui.cinematic.hidden) return false;
     const action = this.cinematicCloseAction;
     this.cinematicCloseAction = null;
+    this.cinematicPrimaryAction = null;
     this.ui.cinematic.hidden = true;
     this.setTurnControlsPending(this.cinematicWasResolving);
     action?.();
     return true;
   }
 
-  showPrologueCinematic() {
+  showOpeningSequence() {
+    const openingParams = new URLSearchParams(window.location.search);
+    if (openingParams.get('debug') === '1' && openingParams.get('chapter') === '1') {
+      this.showLevelChapterIntro('flood-village', { force: true });
+      return;
+    }
+    this.showPrologueCinematic(() => {
+      if (!this.showLevelChapterIntro('flood-village')) this.ui.input.focus();
+    });
+  }
+
+  showPrologueCinematic(onComplete = null) {
     let seen = false;
     try { seen = sessionStorage.getItem('creatorExamPrologueSeen') === '1'; } catch (_error) {}
-    if (seen) return;
+    if (seen) {
+      onComplete?.();
+      return false;
+    }
     this.showCinematic({
       variant: 'prologue',
       kicker: '考核开始',
@@ -997,9 +1055,77 @@ class CreatorExam3D extends GameEngine {
       primary: '开始造物',
       onClose: () => {
         try { sessionStorage.setItem('creatorExamPrologueSeen', '1'); } catch (_error) {}
-        this.ui.input.focus();
+        onComplete?.();
       }
     });
+    return true;
+  }
+
+  preloadChapterIntro(levelId) {
+    if (this.chapterIntroPreloads.has(levelId)) return this.chapterIntroPreloads.get(levelId);
+    const intro = LEVEL_CHAPTER_INTROS[levelId];
+    if (!intro) return [];
+    const images = intro.frames.map(frame => {
+      const image = new Image();
+      image.decoding = 'async';
+      image.src = frame.art;
+      return image;
+    });
+    this.chapterIntroPreloads.set(levelId, images);
+    return images;
+  }
+
+  showLevelChapterIntro(levelId, { force = false, returnFocus = null } = {}) {
+    const intro = LEVEL_CHAPTER_INTROS[levelId];
+    if (!intro) return false;
+    const storageKey = `creatorExamChapterSeen:${levelId}:v1`;
+    let seen = false;
+    try { seen = sessionStorage.getItem(storageKey) === '1'; } catch (_error) {}
+    if (seen && !force) return false;
+    this.preloadChapterIntro(levelId);
+    this.activeChapterIntro = { levelId, intro, storageKey, returnFocus };
+    this.chapterIntroFrameIndex = 0;
+    this.renderChapterIntroFrame();
+    return true;
+  }
+
+  renderChapterIntroFrame() {
+    if (!this.activeChapterIntro) return false;
+    const { levelId, intro } = this.activeChapterIntro;
+    const frame = intro.frames[this.chapterIntroFrameIndex];
+    if (!frame) return false;
+    const isLast = this.chapterIntroFrameIndex === intro.frames.length - 1;
+    this.showCinematic({
+      variant: `chapter-${levelId}`,
+      kicker: `${intro.act} · ${intro.chapter}`,
+      title: frame.title,
+      text: frame.text,
+      artUrl: frame.art,
+      progress: { index: this.chapterIntroFrameIndex, total: intro.frames.length },
+      primary: isLast ? '进入第一关' : '下一页',
+      onPrimary: () => {
+        if (isLast) {
+          this.closeCinematic();
+          return;
+        }
+        this.chapterIntroFrameIndex += 1;
+        this.renderChapterIntroFrame();
+      },
+      onClose: () => this.completeChapterIntro()
+    });
+    return true;
+  }
+
+  completeChapterIntro() {
+    if (!this.activeChapterIntro) return false;
+    const { levelId, storageKey, returnFocus } = this.activeChapterIntro;
+    try { sessionStorage.setItem(storageKey, '1'); } catch (_error) {}
+    this.activeChapterIntro = null;
+    this.chapterIntroFrameIndex = 0;
+    this.chapterIntroPreloads.delete(levelId);
+    if (returnFocus?.isConnected) returnFocus.focus();
+    else this.ui.input.focus();
+    return true;
   }
 
   showEndingCinematic(result) {

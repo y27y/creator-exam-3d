@@ -114,3 +114,34 @@ All six files are development-time generated fixed images. They are loaded behin
 - Final prompt: Create a fixed 16:9 final-exam environment backplate for a live Three.js tactical board. Unify distant, low-contrast echoes of flooded roofs, a quarry mouth and lamp trail, a forest wall, two faded border camps and a sacred tree around a restrained world rift. Use a premium matte painterly low-poly style with deep navy, charcoal, antique gold, jade and muted violet. Preserve a broad dark low-detail central 48% and lower center for the live board. The rift is only a remote, narrow, low-brightness horizon crack, never the subject; the sacred tree is tiny in the far corner; all five landscape echoes stay at the outer edges. The top 25% across the frame is a dark low-detail HUD-safe sky. No board, grid, hero, boss, aircraft, specific player creation, words, UI, logo, signature or watermark.
 - Post-processing: Sharp attention crop to 1920×1080, WebP quality 82, effort 6, smart subsample
 - SHA-256: `4F8625C9F340A72EA51D93538D50C685B2449D94B8ADDC7FBC5881746259DD37`
+
+## Level 01 chapter-opening stills
+
+These three development-time generated images form one continuous first-act sequence. The local `backgrounds/level-01-flood-village.webp` was supplied as a world and art-direction reference so the architecture, river valley, palette, matte gouache texture, and elegant low-poly facets remain consistent. All titles and copy are HTML overlays; the raster images contain no generated text.
+
+### chapters/level-01/shot-01-rain-arrives.webp
+
+- Model: OpenAI image-2, built-in image generation
+- Generated: 2026-07-10
+- Dimensions: 1920×1080
+- Final prompt: Create the first 16:9 still in a three-image AAA-style chapter opening, using the supplied flood-village image as a continuity reference. Show the same low river village several hours before the catastrophic flood, as the third day of rain begins and residents still believe the intact timber walkways will hold. Cluster wet slate-roof homes along a swollen but contained river; place tiny anonymous lantern carriers in the distance and a vast incoming rain curtain on the horizon. Use premium cinematic matte gouache fused with elegant low-poly facets, deep navy, charcoal, desaturated teal, restrained jade and tiny antique gold. Preserve dark calm negative space in the lower-left and top 18% for HTML text. No board, grid, hero, weapon, vehicle, player creation, text, UI, logo, signature or watermark.
+- Post-processing: Sharp attention crop to 1920×1080, WebP quality 84, effort 6, smart subsample
+- SHA-256: `0A37652480383B3B377A749EA3C06E69534EAE4912FAAC6454049C27909DE5BA`
+
+### chapters/level-01/shot-02-river-breaches.webp
+
+- Model: OpenAI image-2, built-in image generation
+- Generated: 2026-07-10
+- Dimensions: 1920×1080
+- Final prompt: Create the second 16:9 still in the same chapter opening, using the supplied flood-village image as the exact same world's continuity reference. Show the decisive moment when the river overtops a low timber barrier and takes the first narrow footbridge. Dark water spills across the route, the bridge buckles into the current, rain beats across recognizable slate roofs, and several distant lanterns move toward high ground. Keep the event urgent but restrained, not a disaster-action spectacle. Match the reference's premium matte gouache and refined low-poly facets, navy-black, wet charcoal, desaturated teal and sparse antique gold. Keep the lower-left and top 18% quiet for HTML copy. No injury, close-up resident, giant wave, explosion, board, grid, gameplay unit, rescue vehicle, concrete creation, text, UI, logo, signature or watermark.
+- Post-processing: Sharp attention crop to 1920×1080, WebP quality 84, effort 6, smart subsample
+- SHA-256: `E99A6024A9CD7B1280BCBCF4177EABF1D31F308886F466400AD591E16B25AEC5`
+
+### chapters/level-01/shot-03-last-lanterns.webp
+
+- Model: OpenAI image-2, built-in image generation
+- Generated: 2026-07-10
+- Dimensions: 1920×1080
+- Final prompt: Create the third 16:9 still immediately before the live board appears, using the supplied flood-village image as the same fully flooded settlement. Show the quiet aftermath: half-submerged slate roofs, broken walkways disappearing into dark water, isolated windows and lanterns, and a distant pale strip of high ground visible through continuous rain. The subject is isolation, last lights, and a restrained possibility of safety. Closely preserve the reference geography, palette, matte materials and painterly low-poly finish so the image can dissolve naturally into the existing level background. Keep the center, lower-left and top 18% dark and uncluttered for mission text. No bright sunrise, triumph, board, grid, hero, vehicle, rescue object, weapon, specific player creation, text, UI, logo, signature or watermark.
+- Post-processing: Sharp attention crop to 1920×1080, WebP quality 84, effort 6, smart subsample
+- SHA-256: `0DEC9F218B8BFA5BECE4859B3B8351EF4F5C14166720C714178A26F5FE156884`

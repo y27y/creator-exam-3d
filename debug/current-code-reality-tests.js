@@ -33,6 +33,56 @@ function readSource(relativePath) {
   return readFileSync(new URL(relativePath, rootUrl), 'utf8');
 }
 
+function loadAirAssetsForRequests() {
+  const requests = [];
+  class FakeImage {
+    constructor() {
+      this.complete = false;
+      this.naturalWidth = 0;
+      this.fetchPriority = 'auto';
+    }
+    set src(value) {
+      this._src = value;
+      requests.push({ src: value, priority: this.fetchPriority });
+    }
+    get src() { return this._src; }
+  }
+  const sandbox = { window: {}, Image: FakeImage };
+  runInNewContext(readSource('public/modes/air-combat/airCombatAssets.js'), sandbox);
+  return { assets: sandbox.window.AirCombatAssets, requests };
+}
+
+{
+  const { assets, requests } = loadAirAssetsForRequests();
+  assert.equal(requests.length, 0, 'air assets should make zero requests before a stage plan');
+  const current = {
+    shipKey: 'balanced', includeWingman: false, world: 8, bossIndex: 9,
+    enemyTypes: ['small', 'medium', 'mineLayer'], effectKeys: ['floatingMine']
+  };
+  const next = {
+    shipKey: 'balanced', includeWingman: true, world: 6, bossIndex: 7,
+    enemyTypes: ['medium', 'gunner', 'phantom'], effectKeys: []
+  };
+  const first = assets.prepareStages(current, next);
+  assert.ok(first.current.length > 0 && first.prefetched.length > 0, 'current and next stage should both be planned');
+  assert.ok(requests.some(item => item.src.includes('world-08') && item.priority === 'high'), 'current background should be high priority');
+  assert.ok(requests.some(item => item.src.includes('world-06') && item.priority === 'low'), 'next background should be low priority');
+  assert.ok(!requests.some(item => item.src.includes('world-03')), 'unplanned stage backgrounds must not load');
+  const afterFirst = requests.length;
+  assets.prepareStages(current, next);
+  assert.equal(requests.length, afterFirst, 'repeating the same plan must not create duplicate Image requests');
+  assert.equal(assets.ready(assets.manifest.background[8].base), null, 'incomplete images must use the procedural fallback');
+
+  const later = {
+    shipKey: 'attacker', includeWingman: false, world: 3, bossIndex: 2,
+    enemyTypes: ['large', 'sniper'], effectKeys: []
+  };
+  assets.prepareStages(next, later);
+  assert.ok(!assets.cachedSources().some(src => src.includes('world-08')), 'past-stage JS references should be evicted');
+  assert.ok(assets.cachedSources().some(src => src.includes('world-03')), 'newly prefetched stage should be retained');
+  assert.ok(assets.cachedSources().length < assets.sources().length, 'stage cache must stay smaller than the full manifest');
+}
+
 function sourceBlock(source, startToken, endToken) {
   const start = source.indexOf(startToken);
   assert.notEqual(start, -1, `missing start token: ${startToken}`);

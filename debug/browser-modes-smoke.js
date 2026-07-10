@@ -12,6 +12,7 @@ const towerBridge = read('public/modes/tower-defense/towerBridge.js');
 const airHtml = read('public/modes/air-combat/index.html');
 const airBridge = read('public/modes/air-combat/airCombatBridge.js');
 const airGame = read('public/modes/air-combat/airCombatGame.js');
+const airAssets = read('public/modes/air-combat/airCombatAssets.js');
 const airCss = read('public/modes/air-combat/style.css');
 const nightWatchKeyStart = towerBridge.indexOf("overlay.addEventListener('keydown', event => {");
 const nightWatchKeyEnd = towerBridge.indexOf('    });', nightWatchKeyStart);
@@ -84,5 +85,11 @@ assert.ok(airGame.includes('startBtn.addEventListener'), 'Air Combat should wire
 assert.ok(airGame.includes("this.finish('victory')"), 'Air Combat should have a finite victory path');
 assert.ok(airGame.includes("document.documentElement.dataset.airCombatReady = 'true'"), 'Air Combat should publish a ready marker');
 assert.ok(airGame.includes('window.airCombatGame = game'), 'Air Combat should expose the runtime for browser smoke settlement');
+assert.ok(!airGame.includes('assets?.load();'), 'Air Combat must not load the full manifest at module start');
+assert.ok(airAssets.includes('prepareStages(current, next = null)'), 'Air assets should expose current/next preparation');
+assert.ok(airGame.includes('assetPlanForSegment(index)'), 'Air game should derive a stage plan from the route');
+assert.ok(airGame.includes('this.prepareSegmentAssets(this.segmentIndex)'), 'segment changes should refresh the current/next cache');
+assert.ok(airGame.includes('const pool = enemyPoolForStage(stage)'), 'spawning and art planning should share the stage pool');
+assert.ok(airGame.includes('if (assets && index !== undefined && index !== null) return assets.boss(index)'), 'managed Boss art should not trigger a duplicate fallback request');
 
 console.log('Browser mode smoke harness tests passed.');

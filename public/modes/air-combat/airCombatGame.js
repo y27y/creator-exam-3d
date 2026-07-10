@@ -1,7 +1,6 @@
 (function () {
   const bridge = window.AirCombatBridge;
   const assets = window.AirCombatAssets || null;
-  assets?.load();
   const canvas = document.getElementById('airspace-canvas');
   const ctx = canvas.getContext('2d');
   const hudStage = document.getElementById('hud-stage');
@@ -57,6 +56,13 @@
     return 'balanced';
   }
 
+  function enemyPoolForStage(stage) {
+    return stage < 2 ? ['small', 'small', 'medium']
+      : stage < 3 ? ['small', 'medium', 'large', 'gunner', 'splitter', 'beacon']
+        : stage < 5 ? ['medium', 'large', 'gunner', 'splitter', 'sniper', 'detonator', 'phantom', 'shieldCarrier', 'mirrorDrone']
+          : ['medium', 'gunner', 'sniper', 'detonator', 'phantom', 'carrier', 'jammer', 'support', 'beacon', 'mineLayer', 'phaseWing', 'tether', 'warden', 'harvester', 'kamikaze'];
+  }
+
   const bossImageCache = new Map();
   function bossImage(src) {
     if (!src || typeof Image === 'undefined') return null;
@@ -71,7 +77,8 @@
 
   function bossImageFor(def, affix) {
     const index = affix?.skywardBossIndex ?? def?.skywardBossIndex;
-    return (assets ? assets.boss(index) : null) || bossImage(affix?.image);
+    if (assets && index !== undefined && index !== null) return assets.boss(index);
+    return bossImage(affix?.image);
   }
 
   function backgroundWorldForRoute(route, entropy = 0) {
@@ -1243,7 +1250,41 @@
       this.syncUiState();
     },
 
+    assetPlanForSegment(index) {
+      const boss = this.route[index];
+      if (!boss) return null;
+      const affix = boss.affix || {};
+      const bossIndex = affix.skywardBossIndex ?? boss.skywardBossIndex ?? boss.stage - 1;
+      const enemyTypes = new Set(enemyPoolForStage(index + 1));
+      for (const type of affix.enemyBias || []) enemyTypes.add(type);
+      if (affix.enemy) enemyTypes.add(affix.enemy);
+
+      const prototype = SKYWARD_BOSS_PROTOTYPES[bossIndex];
+      for (const phase of prototype?.phases || []) {
+        for (const attack of phase.attacks || []) {
+          if (attack.type === 'escort' && attack.enemy) enemyTypes.add(attack.enemy);
+        }
+      }
+
+      return {
+        shipKey: shipKeyForLoadout(this.difficulty, this.weapon, this.resonance),
+        includeWingman: (this.resonance.sidePairs || 0) > 0,
+        world: backgroundWorldForRoute([boss], index),
+        bossIndex,
+        enemyTypes: [...enemyTypes],
+        effectKeys: enemyTypes.has('mineLayer') ? ['floatingMine'] : []
+      };
+    },
+
+    prepareSegmentAssets(index) {
+      return assets?.prepareStages(
+        this.assetPlanForSegment(index),
+        this.assetPlanForSegment(index + 1)
+      );
+    },
+
     renderBriefingStep() {
+      this.prepareSegmentAssets(0);
       const slides = typeof bridge.briefingSlides === 'function' ? bridge.briefingSlides() : [];
       const slide = slides[this.briefingIndex] || slides[0] || null;
       const final = this.briefingIndex >= Math.max(0, slides.length - 1);
@@ -1284,6 +1325,7 @@
       this.lasers.length = 0;
       const boss = this.route[this.segmentIndex];
       this.backgroundWorld = backgroundWorldForRoute([boss], this.segmentIndex);
+      this.prepareSegmentAssets(this.segmentIndex);
       this.say(`${boss.title}正在靠近。${boss.memory}`, 3.6, {
         eventType: 'airspace_segment',
         boss,
@@ -1298,10 +1340,7 @@
 
     spawnEnemy() {
       const stage = this.segmentIndex + 1;
-      const pool = stage < 2 ? ['small', 'small', 'medium']
-        : stage < 3 ? ['small', 'medium', 'large', 'gunner', 'splitter', 'beacon']
-          : stage < 5 ? ['medium', 'large', 'gunner', 'splitter', 'sniper', 'detonator', 'phantom', 'shieldCarrier', 'mirrorDrone']
-            : ['medium', 'gunner', 'sniper', 'detonator', 'phantom', 'carrier', 'jammer', 'support', 'beacon', 'mineLayer', 'phaseWing', 'tether', 'warden', 'harvester', 'kamikaze'];
+      const pool = enemyPoolForStage(stage);
       const affix = this.currentAffix();
       const biased = affix?.enemyBias && Math.random() < (affix.spawnBias || 0) ? affix.enemyBias : pool;
       const enemy = new Enemy(pick(biased), stage);

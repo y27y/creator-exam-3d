@@ -110,15 +110,44 @@
     return out;
   }
 
-  function load() {
-    if (typeof Image === 'undefined') return;
-    for (const src of collectSources(manifest)) {
+  function stageSources(plan) {
+    if (!plan) return [];
+    const sources = [
+      manifest.player[plan.shipKey],
+      plan.includeWingman ? manifest.wingman[plan.shipKey] : null,
+      manifest.boss[plan.bossIndex],
+      ...Object.values(manifest.background[plan.world] || {}),
+      ...(plan.enemyTypes || []).map(type => manifest.enemy[type]),
+      ...(plan.effectKeys || []).map(key => manifest.effect[key])
+    ];
+    return [...new Set(sources.filter(Boolean))];
+  }
+
+  function loadSources(sources, fetchPriority) {
+    for (const src of sources) {
       if (!src || cache.has(src)) continue;
       const img = new Image();
       img.decoding = 'async';
-      img.src = src;
+      try { img.fetchPriority = fetchPriority; } catch (_error) {}
       cache.set(src, img);
+      img.src = src;
     }
+  }
+
+  function prepareStages(current, next = null) {
+    const currentSources = stageSources(current);
+    const prefetchedSources = stageSources(next).filter(src => !currentSources.includes(src));
+    const keep = new Set([...currentSources, ...prefetchedSources]);
+    for (const src of cache.keys()) {
+      if (!keep.has(src)) cache.delete(src);
+    }
+    loadSources(currentSources, 'high');
+    loadSources(prefetchedSources, 'low');
+    return { current: currentSources, prefetched: prefetchedSources };
+  }
+
+  function load(plan) {
+    return plan ? prepareStages(plan) : { current: [], prefetched: [] };
   }
 
   function ready(src) {
@@ -202,6 +231,9 @@
   window.AirCombatAssets = {
     manifest,
     load,
+    stageSources,
+    prepareStages,
+    cachedSources: () => [...cache.keys()],
     ready,
     draw,
     drawScrolling,

@@ -15,10 +15,28 @@ const particleSource = readFileSync(new URL('../public/js/particles.js', import.
 const htmlSource = readFileSync(new URL('../public/index.html', import.meta.url), 'utf8');
 const cssSource = readFileSync(new URL('../public/styles.css', import.meta.url), 'utf8');
 const smokeBlock = sourceBlock(gameSource, '  async runBrowserDemoSmoke(options = {}) {', '  demoCard(ability) {');
+const pointerBlock = sourceBlock(gameSource, '  onPointerDown(event) {', '  placeCreation(x, y) {');
+const environmentConfigBlock = sourceBlock(gameSource, 'const LEVEL_ENVIRONMENTS = Object.freeze({', 'const ABILITY_COLORS = {');
+const environmentMethodsBlock = sourceBlock(gameSource, '  clearLevelEnvironment() {', '  renderWorld() {');
 const bridgeBlock = sourceBlock(gameSource, '  bindBrowserDemoSmokeBridge() {', '  // Override loadLevel to add browser-specific initialization');
 const shellCssStart = cssSource.indexOf('/* ===== Map-first shell and context drawers ===== */');
 assert.notEqual(shellCssStart, -1, 'missing map-first shell CSS override');
 const shellCss = cssSource.slice(shellCssStart);
+
+for (const levelId of ['flood-village', 'night-mine', 'giant-city', 'wordless-war', 'memory-plague', 'final-exam']) {
+  assert.ok(environmentConfigBlock.includes(`'${levelId}'`), `environment config should include ${levelId}`);
+}
+assert.ok(gameSource.includes('applyLevelEnvironment(this.level.id)'), 'loadLevel should apply its environment');
+assert.ok(gameSource.includes('this.environmentGroup.userData.levelId = levelId'), 'environment should publish the active level id');
+assert.ok(smokeBlock.includes("'all six level environments install decorative geometry'"), 'live smoke should inspect all six environments');
+assert.ok(
+  smokeBlock.indexOf("'all six level environments install decorative geometry'") < smokeBlock.indexOf('return tacticalResult'),
+  'live environment check must run before the reachable tactical smoke return'
+);
+assert.ok(pointerBlock.includes('Array.from(this.tileMeshPool.values())'), 'pointer raycasts should remain limited to tile meshes');
+assert.ok(!pointerBlock.includes('environmentGroup'), 'decorative environments must stay out of pointer raycasts');
+assert.doesNotMatch(environmentMethodsBlock, /\b(?:tileMeshes|tileMeshPool|unitMeshPool|creationMeshPool)\b/, 'environment methods must stay out of gameplay mesh pools');
+assert.ok(!environmentMethodsBlock.includes('.dispose('), 'environment clearing must preserve shared cached resources');
 
 for (const family of ['water', 'light', 'terrain', 'defense', 'mind', 'special']) {
   assert.ok(abilitySource.includes(`'${family}'`), `ability map should include ${family}`);

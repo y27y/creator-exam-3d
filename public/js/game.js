@@ -61,6 +61,15 @@ const MATERIAL_COLORS = {
   [TILE.POISON]: 0x7ed957
 };
 
+const LEVEL_ENVIRONMENTS = Object.freeze({
+  'flood-village': { background: 0x07151b, fog: 0x102b33, near: 13, far: 30, ambient: 1.85, sun: 0xffd487, sunPower: 2.35, rim: 0x59c7a6 },
+  'night-mine': { background: 0x050609, fog: 0x090b10, near: 10, far: 24, ambient: 1.05, sun: 0xdceeff, sunPower: 1.45, rim: 0xf2e7c2 },
+  'giant-city': { background: 0x081512, fog: 0x173027, near: 14, far: 31, ambient: 1.75, sun: 0xe0b86a, sunPower: 2.4, rim: 0x59c7a6 },
+  'wordless-war': { background: 0x0d0b14, fog: 0x292338, near: 12, far: 27, ambient: 1.45, sun: 0xe6c778, sunPower: 2.05, rim: 0x8f73c8 },
+  'memory-plague': { background: 0x071310, fog: 0x241e35, near: 13, far: 29, ambient: 1.7, sun: 0xb9e8d5, sunPower: 2.25, rim: 0xa993da },
+  'final-exam': { background: 0x070a11, fog: 0x181429, near: 14, far: 32, ambient: 1.65, sun: 0xd2b86b, sunPower: 2.3, rim: 0x8f73c8 }
+});
+
 const ABILITY_COLORS = {
   absorb_water: 0x54c7ff,
   create_bridge: 0xffc46b,
@@ -150,6 +159,8 @@ class CreatorExam3D extends GameEngine {
     this.pointer = new THREE.Vector2();
     this.tileMeshes = [];
     this.worldGroup = new THREE.Group();
+    this.environmentGroup = new THREE.Group();
+    this.environmentGroup.name = 'level-environment';
     this.activeCard = null;
     this.placementMode = false;
     this.selectedRitualCreations = new Set();
@@ -311,6 +322,7 @@ class CreatorExam3D extends GameEngine {
     // Update memory system
     this.memorySystem.worldState.currentLevel = this.level.id;
 
+    this.applyLevelEnvironment(this.level.id);
     this.renderWorld();
     this.updateUi();
   }
@@ -472,23 +484,23 @@ class CreatorExam3D extends GameEngine {
     this.controls.minDistance = 8;
     this.controls.maxDistance = 22;
 
-    const ambient = new THREE.HemisphereLight(0xcfe8ff, 0x12162e, 2.1);
-    this.scene.add(ambient);
+    this.ambientLight = new THREE.HemisphereLight(0xcfe8ff, 0x12162e, 2.1);
+    this.scene.add(this.ambientLight);
 
-    const sun = new THREE.DirectionalLight(0xffffff, 2.8);
-    sun.position.set(6, 12, 8);
-    sun.castShadow = true;
-    sun.shadow.mapSize.width = 2048;
-    sun.shadow.mapSize.height = 2048;
-    sun.shadow.camera.left = -12;
-    sun.shadow.camera.right = 12;
-    sun.shadow.camera.top = 12;
-    sun.shadow.camera.bottom = -12;
-    this.scene.add(sun);
+    this.sunLight = new THREE.DirectionalLight(0xffffff, 2.8);
+    this.sunLight.position.set(6, 12, 8);
+    this.sunLight.castShadow = true;
+    this.sunLight.shadow.mapSize.width = 2048;
+    this.sunLight.shadow.mapSize.height = 2048;
+    this.sunLight.shadow.camera.left = -12;
+    this.sunLight.shadow.camera.right = 12;
+    this.sunLight.shadow.camera.top = 12;
+    this.sunLight.shadow.camera.bottom = -12;
+    this.scene.add(this.sunLight);
 
-    const rim = new THREE.PointLight(0x7c68ff, 3, 32);
-    rim.position.set(-7, 5, -6);
-    this.scene.add(rim);
+    this.rimLight = new THREE.PointLight(0x7c68ff, 3, 32);
+    this.rimLight.position.set(-7, 5, -6);
+    this.scene.add(this.rimLight);
 
     const base = new THREE.Mesh(
       new THREE.CylinderGeometry(8.8, 9.6, 0.28, 8),
@@ -498,6 +510,7 @@ class CreatorExam3D extends GameEngine {
     base.receiveShadow = true;
     this.scene.add(base);
 
+    this.scene.add(this.environmentGroup);
     this.scene.add(this.worldGroup);
     this.worldGroup.add(this.intentArrowGroup);
 
@@ -1886,6 +1899,107 @@ class CreatorExam3D extends GameEngine {
     if (this.worldSession?.recordTacticalEvent) {
       this.worldSession.recordTacticalEvent(event);
     }
+  }
+
+  clearLevelEnvironment() {
+    this.environmentGroup.clear();
+    this.environmentGroup.userData.levelId = null;
+  }
+
+  addEnvironmentPrimitive(kind, color, position, scale, rotation = [0, 0, 0], materialOptions = {}) {
+    const factories = {
+      box: () => new THREE.BoxGeometry(1, 1, 1),
+      cone: () => new THREE.ConeGeometry(0.5, 1, 7),
+      cylinder: () => new THREE.CylinderGeometry(0.5, 0.5, 1, 16),
+      rock: () => new THREE.DodecahedronGeometry(0.5, 0),
+      crown: () => new THREE.IcosahedronGeometry(0.5, 1),
+      ring: () => new THREE.RingGeometry(5.5, 9.2, 64)
+    };
+    const factory = factories[kind];
+    if (!factory) return null;
+    const mesh = new THREE.Mesh(
+      this.getCachedGeometry(`environment-${kind}`, factory),
+      this.material(color, { roughness: 0.88, metalness: 0.02, ...materialOptions })
+    );
+    mesh.position.set(...position);
+    mesh.scale.set(...scale);
+    mesh.rotation.set(...rotation);
+    mesh.castShadow = kind !== 'ring' && materialOptions.transparent !== true;
+    mesh.receiveShadow = kind !== 'cone';
+    mesh.userData.decorative = true;
+    this.environmentGroup.add(mesh);
+    return mesh;
+  }
+
+  createProceduralEnvironment(levelId) {
+    const add = (...args) => this.addEnvironmentPrimitive(...args);
+    const circle = (count, radius, callback) => {
+      for (let i = 0; i < count; i += 1) {
+        const angle = i * Math.PI * 2 / count;
+        callback(i, angle, Math.cos(angle) * radius, Math.sin(angle) * radius);
+      }
+    };
+
+    if (levelId === 'flood-village') {
+      add('ring', 0x28758a, [0, -0.18, 0], [1, 1, 1], [-Math.PI / 2, 0, 0], { transparent: true, opacity: 0.58, side: THREE.DoubleSide });
+      for (const [x, z] of [[-6.4, -2.8], [-6.1, 2.6], [6.3, -3.1], [6.5, 2.4]]) {
+        add('box', 0x8e633f, [x, 0.1, z], [0.72, 0.42, 0.72]);
+        add('cone', 0x5a3045, [x, 0.58, z], [0.88, 0.52, 0.88], [0, Math.PI / 4, 0]);
+      }
+      circle(18, 6.8, (i, angle, x, z) => add('box', 0x9cdde5, [x, 2.1 + (i % 3) * 0.35, z], [0.018, 0.65, 0.018], [0, angle, 0.28], { transparent: true, opacity: 0.34 }));
+    } else if (levelId === 'night-mine') {
+      circle(14, 7.1, (i, angle, x, z) => add('rock', i % 2 ? 0x252832 : 0x343741, [x, 0.35, z], [1.2, 1 + (i % 3) * 0.22, 1.1], [i * 0.2, angle, 0]));
+      add('box', 0x5f4a37, [0, -0.02, -6.0], [8.5, 0.06, 0.08]);
+      add('box', 0x5f4a37, [0, -0.02, 6.0], [8.5, 0.06, 0.08]);
+      circle(6, 6.2, (_i, angle, x, z) => add('cylinder', 0xe8dfc2, [x, 0.72, z], [0.16, 0.7, 0.16], [0, angle, 0], { emissive: 0xe8dfc2, emissiveIntensity: 0.75 }));
+    } else if (levelId === 'giant-city') {
+      circle(12, 7.0, (i, angle, x, z) => {
+        add('cylinder', 0x5a4130, [x, 0.45, z], [0.22, 0.9, 0.22]);
+        add('cone', i % 2 ? 0x2f7259 : 0x3e8767, [x, 1.25, z], [0.82, 1.4, 0.82], [0, angle, 0]);
+      });
+      for (let i = -4; i <= 4; i += 1) add('box', 0x7b7162, [i * 1.2, 0.42, -6.1], [1.05, 0.9, 0.48]);
+      add('cylinder', 0x111713, [6.2, -0.08, -1.6], [1.5, 0.05, 0.72], [Math.PI / 2, 0.2, 0], { transparent: true, opacity: 0.45 });
+      add('cylinder', 0x111713, [6.0, -0.08, 1.8], [1.8, 0.05, 0.8], [Math.PI / 2, -0.15, 0], { transparent: true, opacity: 0.45 });
+    } else if (levelId === 'wordless-war') {
+      for (const side of [-1, 1]) {
+        for (const z of [-3, 0, 3]) {
+          add('cylinder', 0x6e665b, [side * 6.25, 0.7, z], [0.09, 1.4, 0.09]);
+          add('box', side < 0 ? 0x8d5466 : 0x675b92, [side * 6.05, 1.12, z], [0.48, 0.52, 0.035]);
+        }
+      }
+      for (let i = -4; i <= 4; i += 1) add('rock', 0x7a746c, [i * 1.25, 0.18, 5.8], [0.42, 0.55, 0.42], [0, i * 0.3, 0]);
+      add('box', 0x7e7396, [-5.7, 1.0, 0], [0.3, 2.2, 5.6], [0, 0, 0], { transparent: true, opacity: 0.12, depthWrite: false });
+      add('box', 0xd4c07c, [5.7, 1.0, 0], [0.3, 2.2, 5.6], [0, 0, 0], { transparent: true, opacity: 0.08, depthWrite: false });
+    } else if (levelId === 'memory-plague') {
+      add('cylinder', 0x62462f, [0, 1.1, -6.45], [0.72, 2.2, 0.72]);
+      add('crown', 0x58c99d, [0, 2.75, -6.45], [2.15, 1.55, 2.15], [0, 0, 0], { emissive: 0x173e32, emissiveIntensity: 0.35 });
+      circle(18, 6.1, (i, angle, x, z) => add('box', i % 2 ? 0xaa94d3 : 0xd7ca93, [x, 1.0 + (i % 4) * 0.4, z], [0.035, 0.28, 0.08], [0.2, angle, i * 0.12], { transparent: true, opacity: 0.62, emissive: 0x6f579c, emissiveIntensity: 0.2 }));
+    } else if (levelId === 'final-exam') {
+      const fragments = [
+        ['cone', 0x5a3045, 0.8], ['rock', 0x343741, 1.0], ['cone', 0x3e8767, 1.2],
+        ['box', 0x675b92, 0.85], ['crown', 0x58c99d, 1.05]
+      ];
+      fragments.forEach(([kind, color, scale], index) => {
+        const angle = index * Math.PI * 2 / fragments.length;
+        add(kind, color, [Math.cos(angle) * 6.6, 0.72, Math.sin(angle) * 6.6], [scale, scale, scale], [0.2, -angle, 0.15]);
+      });
+      add('ring', 0x8f73c8, [0, 0.02, 0], [0.76, 0.76, 0.76], [-Math.PI / 2, 0, 0], { transparent: true, opacity: 0.32, emissive: 0x8f73c8, emissiveIntensity: 0.35, side: THREE.DoubleSide });
+    }
+  }
+
+  applyLevelEnvironment(levelId) {
+    const preset = LEVEL_ENVIRONMENTS[levelId] || LEVEL_ENVIRONMENTS['final-exam'];
+    this.clearLevelEnvironment();
+    this.scene.background.setHex(preset.background);
+    this.scene.fog.color.setHex(preset.fog);
+    this.scene.fog.near = preset.near;
+    this.scene.fog.far = preset.far;
+    this.ambientLight.intensity = preset.ambient;
+    this.sunLight.color.setHex(preset.sun);
+    this.sunLight.intensity = preset.sunPower;
+    this.rimLight.color.setHex(preset.rim);
+    this.createProceduralEnvironment(levelId);
+    this.environmentGroup.userData.levelId = levelId;
   }
 
   renderWorld() {
@@ -3718,6 +3832,19 @@ class CreatorExam3D extends GameEngine {
       normalDebug === false && explicitDebug === true && !this.ui.testJumpPanel.hidden
     );
     this.applyDebugGate(window.location.search);
+
+    const raycastTargets = Array.from(this.tileMeshPool.values());
+    const environmentChecks = LEVELS.map(level => {
+      this.applyLevelEnvironment(level.id);
+      return this.environmentGroup.userData.levelId === level.id
+        && this.environmentGroup.children.length > 0
+        && this.environmentGroup.children.every(child => child.userData.decorative === true)
+        && this.environmentGroup.children.every(child => !raycastTargets.includes(child));
+    });
+    this.applyLevelEnvironment(this.level.id);
+    record('all six level environments install decorative geometry', environmentChecks.every(Boolean), {
+      levelIds: LEVELS.map(level => level.id)
+    });
 
     this.updateUi();
     const tacticalDebugState = readDebugState();

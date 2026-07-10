@@ -1,7 +1,7 @@
 # 造物者考核 3D：环境美术与地图优先界面重构设计
 
 日期：2026-07-10
-状态：已由用户确认，等待规格文档复核
+状态：已由用户确认，可进入实施
 
 ## 一句话方案
 
@@ -13,9 +13,9 @@
 
 1. 主页面包含 17 个 `section` 和 1 个默认展开的测试沙盘；右侧长面板同时容纳造物、测试入口、居民对话、AI 战术室、传说、仪式、誓约、深渊、腐化、工坊和传承等内容。
 2. 大面积圆角玻璃卡片视觉权重接近，关卡目标、核心操作和高级内容难以一眼区分；地图在左右面板之间被压缩。
-3. 主流程缺少序章和关键过场美术；守城只有纯 CSS 三页过场；空战已有 73 张 PNG，但其高密度科幻风与主世界的低多边形棋盘缺少桥接。
+3. 主流程缺少序章和关键过场美术；守城只有纯 CSS 三页过场；空战已有 70 张 PNG，但其高密度科幻风与主世界的低多边形棋盘缺少桥接。
 
-现有空战图片约 51.2 MB，且 `AirCombatAssets.load()` 当前会遍历整个 manifest 并在空战启动时全部加载。新增美术必须同时约束首屏体积与加载策略。
+现有空战图片共 50,898,132 bytes（约 48.54 MiB），且 `AirCombatAssets.load()` 当前会遍历整个 manifest 并在空战启动时全部加载。新增美术必须同时约束首屏体积与加载策略。
 
 ## 已确认的设计决定
 
@@ -201,7 +201,7 @@ notifyDrawer('world', {
 | `public/styles.css` | 新视觉令牌、地图优先布局、抽屉、信号条、响应式和降级样式 |
 | `server.js` | 在现有 MIME 表中加入本地 WebP；若最终选用 GLB，再同时加入对应 MIME，不改路由结构 |
 | `public/modes/tower-defense/towerBridge.js` | 给现有三页守夜过场增加同一张横向 CG 的三种裁切位置 |
-| `public/modes/air-combat/airCombatAssets.js` | 从启动时全量加载改为当前阶段加载并预取下一阶段，避免新美术叠加到 51.2 MB 首载 |
+| `public/modes/air-combat/airCombatAssets.js` | 从启动时全量加载改为当前阶段加载并预取下一阶段，避免新美术叠加到约 48.54 MiB 首载 |
 | `public/assets/art/` | 4 张固定 CG、少量实际使用的 CC0 环境资源和 `ATTRIBUTION.md` |
 | `debug/browser-demo-smoke.js` | 验证核心操作、抽屉、世界信号和 debug 入口 |
 | `debug/browser-modes-smoke.js` | 验证守城 CG、空战按阶段加载和桥接结果 |

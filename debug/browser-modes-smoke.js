@@ -45,7 +45,7 @@ for (const id of [
   'airspace-choices',
   'airspace-hud',
   'hud-stage',
-  'hud-weapon',
+  'hud-affix',
   'airspace-result'
 ]) {
   assert.ok(airHtml.includes(`id="${id}"`), `Air Combat should expose #${id}`);

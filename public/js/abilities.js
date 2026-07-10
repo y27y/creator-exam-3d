@@ -55,7 +55,7 @@ export const ABILITY_VISUAL_FAMILIES = Object.freeze({
 });
 
 export function getAbilityVisualFamily(ability) {
-  return ABILITY_VISUAL_FAMILIES[ability] || 'special';
+  return Object.hasOwn(ABILITY_VISUAL_FAMILIES, ability) ? ABILITY_VISUAL_FAMILIES[ability] : 'special';
 }
 
 // ======================== labels ========================

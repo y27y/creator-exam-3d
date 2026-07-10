@@ -22,7 +22,9 @@ for (const [ability, expected] of Object.entries({
 for (const ability of ABILITIES) {
   assert.ok(VISUAL_FAMILIES.has(getAbilityVisualFamily(ability)), `${ability} must have a visual family`);
 }
-assert.equal(getAbilityVisualFamily('unknown_live_creation'), 'special');
+for (const ability of ['unknown_live_creation', 'constructor', 'toString']) {
+  assert.equal(getAbilityVisualFamily(ability), 'special', `${ability} must not inherit a visual family`);
+}
 
 const rootUrl = new URL('../', import.meta.url);
 const rootPath = fileURLToPath(rootUrl);

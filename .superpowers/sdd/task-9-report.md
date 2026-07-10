@@ -39,3 +39,11 @@ Resource Timing does not expose request priority; the High/Low evidence above co
 - The measured fallback path is behaviorally covered by the VM test (`ready()` returns `null` for incomplete images) and by 30 seconds of exception-free browser play; the browser does not directly label which procedural draw branch painted each frame.
 - The sampled route mapped both initial plans to world 8, so the real browser proved that no other world loaded, while the VM test provides the distinct-world 8/6 coverage.
 - Cache eviction releases JavaScript references; already transferred browser resources remain subject to the browser's own memory/cache lifecycle.
+
+## Review Fixes
+
+Three review findings were covered by regressions before implementation:
+
+- RED: the VM test observed a prefetched world-06 `Image` remaining `low` after its plan became current; the mode source contract rejected the old `sidePairs` wingman condition and missing derived-enemy contracts.
+- GREEN: cache hits now update the existing `Image.fetchPriority` without assigning `src` again; wingman planning matches `Player.wings` via `difficulty.allyWings`; splitter and carrier plans include their `small` and `medium` child art without changing spawn pools or weights.
+- Chrome fresh-cache recheck: `boss-08-prism-judge.png` changed from `low` to `high` on the same cached image while its request count stayed at one. The cache changed from 12/70 to 18/70 for the refreshed current/next plans, all three plan checks passed, and browser runtime exceptions remained zero.

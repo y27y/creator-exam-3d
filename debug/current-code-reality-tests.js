@@ -43,7 +43,7 @@ function loadAirAssetsForRequests() {
     }
     set src(value) {
       this._src = value;
-      requests.push({ src: value, priority: this.fetchPriority });
+      requests.push({ src: value, priority: this.fetchPriority, image: this });
     }
     get src() { return this._src; }
   }
@@ -69,6 +69,7 @@ function loadAirAssetsForRequests() {
   assert.ok(requests.some(item => item.src.includes('world-06') && item.priority === 'low'), 'next background should be low priority');
   assert.ok(!requests.some(item => item.src.includes('world-03')), 'unplanned stage backgrounds must not load');
   const afterFirst = requests.length;
+  const world06Request = requests.find(item => item.src.includes('world-06-base'));
   assets.prepareStages(current, next);
   assert.equal(requests.length, afterFirst, 'repeating the same plan must not create duplicate Image requests');
   assert.equal(assets.ready(assets.manifest.background[8].base), null, 'incomplete images must use the procedural fallback');
@@ -78,6 +79,8 @@ function loadAirAssetsForRequests() {
     enemyTypes: ['large', 'sniper'], effectKeys: []
   };
   assets.prepareStages(next, later);
+  assert.equal(world06Request.image.fetchPriority, 'high', 'a prefetched image must become high priority when its stage becomes current');
+  assert.equal(requests.filter(item => item.src === world06Request.src).length, 1, 'priority promotion must not repeat the Image request');
   assert.ok(!assets.cachedSources().some(src => src.includes('world-08')), 'past-stage JS references should be evicted');
   assert.ok(assets.cachedSources().some(src => src.includes('world-03')), 'newly prefetched stage should be retained');
   assert.ok(assets.cachedSources().length < assets.sources().length, 'stage cache must stay smaller than the full manifest');

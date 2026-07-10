@@ -1265,10 +1265,12 @@
           if (attack.type === 'escort' && attack.enemy) enemyTypes.add(attack.enemy);
         }
       }
+      if (enemyTypes.has('splitter')) enemyTypes.add('small');
+      if (enemyTypes.has('carrier')) enemyTypes.add('medium');
 
       return {
         shipKey: shipKeyForLoadout(this.difficulty, this.weapon, this.resonance),
-        includeWingman: (this.resonance.sidePairs || 0) > 0,
+        includeWingman: (this.difficulty.allyWings || 0) > 0,
         world: backgroundWorldForRoute([boss], index),
         bossIndex,
         enemyTypes: [...enemyTypes],

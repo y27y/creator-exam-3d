@@ -125,10 +125,11 @@
 
   function loadSources(sources, fetchPriority) {
     for (const src of sources) {
-      if (!src || cache.has(src)) continue;
-      const img = new Image();
-      img.decoding = 'async';
+      if (!src) continue;
+      const img = cache.get(src) || new Image();
       try { img.fetchPriority = fetchPriority; } catch (_error) {}
+      if (cache.has(src)) continue;
+      img.decoding = 'async';
       cache.set(src, img);
       img.src = src;
     }

@@ -90,6 +90,9 @@ assert.ok(airAssets.includes('prepareStages(current, next = null)'), 'Air assets
 assert.ok(airGame.includes('assetPlanForSegment(index)'), 'Air game should derive a stage plan from the route');
 assert.ok(airGame.includes('this.prepareSegmentAssets(this.segmentIndex)'), 'segment changes should refresh the current/next cache');
 assert.ok(airGame.includes('const pool = enemyPoolForStage(stage)'), 'spawning and art planning should share the stage pool');
+assert.ok(airGame.includes('includeWingman: (this.difficulty.allyWings || 0) > 0'), 'asset plans should preload wingmen exactly when Player draws allied wings');
+assert.ok(airGame.includes("if (enemyTypes.has('splitter')) enemyTypes.add('small');"), 'splitter plans should include their spawned small-enemy art');
+assert.ok(airGame.includes("if (enemyTypes.has('carrier')) enemyTypes.add('medium');"), 'carrier plans should include their spawned medium-enemy art');
 assert.ok(airGame.includes('if (assets && index !== undefined && index !== null) return assets.boss(index)'), 'managed Boss art should not trigger a duplicate fallback request');
 
 console.log('Browser mode smoke harness tests passed.');

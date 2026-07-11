@@ -96,7 +96,8 @@ const serverSource = readFileSync(new URL('../server.js', import.meta.url), 'utf
 assert.ok(serverSource.includes("'.webp': 'image/webp'"), 'server MIME table must include WebP');
 assert.ok(attribution.includes('CC0 1.0'), 'attribution must record the public asset license');
 assert.ok(attribution.includes('11AE4A4057C81FAADC0F8BBE8E1C230BC939DCC3DF9222CEC83BD107B1D7C8C4'), 'Paper002 hash must be pinned');
-assert.equal((attribution.match(/Model: OpenAI image-2/g) || []).length, 28, 'art ledger should record twenty-eight approved image-2 assets');
+assert.equal((attribution.match(/Model: OpenAI image-2/g) || []).length, 29, 'art ledger should record the twenty-eight fixed image-2 scenes plus the NPC portrait set');
+assert.ok(attribution.includes('npc-portraits/README.md'), 'art ledger should link the NPC portrait prompt and hash ledger');
 
 const readme = readFileSync(new URL('../README.md', import.meta.url), 'utf8');
 const architecture = readFileSync(new URL('../docs/systems/architecture.md', import.meta.url), 'utf8');

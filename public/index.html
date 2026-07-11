@@ -37,6 +37,8 @@
         </details>
       </header>
 
+      <section id="npc-status-strip" class="npc-status-strip" aria-label="本关人物状态"></section>
+
       <section id="left-panel" class="glass panel mission-panel">
         <div class="mission-dossier">
           <div class="mission-head">
@@ -51,7 +53,7 @@
             <div class="objective-label">本关目标</div>
             <div id="level-objective"></div>
           </div>
-          <div id="mission-goals" class="mission-goals"></div>
+          <div id="mission-goals" class="mission-goals" hidden aria-hidden="true"></div>
         </div>
         <div id="special-meters" class="meters"></div>
       </section>
@@ -109,28 +111,6 @@
           <section class="drawer-section">
             <div class="section-title">当前单位</div>
             <div id="unit-list" class="unit-list"></div>
-          </section>
-
-          <section id="npc-dialogue-panel" class="npc-dialogue-panel hidden">
-            <div class="dialogue-head">
-              <div>
-                <div class="section-title">居民交谈</div>
-                <h3 id="npc-dialogue-title">未选择居民</h3>
-              </div>
-              <button id="npc-dialogue-close" class="secondary small" type="button">关闭</button>
-            </div>
-            <div id="npc-dialogue-meta" class="dialogue-meta"></div>
-            <div id="npc-dialogue-roster" class="dialogue-roster"></div>
-            <div id="npc-dialogue-history" class="dialogue-history"></div>
-            <div id="npc-dialogue-actions" class="dialogue-actions">
-              <button class="secondary" type="button" data-dialogue-action="need" data-prompt="你现在最需要我创造什么？">询问需求</button>
-              <button class="secondary" type="button" data-dialogue-action="route" data-prompt="你觉得下一步应该往哪里走？">询问路线</button>
-              <button class="secondary" type="button" data-dialogue-action="memory" data-prompt="你还记得这里发生过什么吗？">询问记忆</button>
-              <button class="secondary" type="button" data-dialogue-action="comfort" data-prompt="请相信我，我会尽量救下大家。">安抚</button>
-              <button class="secondary" type="button" data-dialogue-action="group-chat">群聊</button>
-            </div>
-            <textarea id="npc-dialogue-input" maxlength="160" placeholder="对这个人说点什么"></textarea>
-            <button id="npc-dialogue-send" class="primary wide" type="button">发送回应</button>
           </section>
 
           <section id="resident-dialogue-panel" class="resident-dialogue-panel">
@@ -346,6 +326,27 @@
               <button class="secondary small" type="button" id="test-browser-smoke-btn">跑烟测</button>
             </div>
           </details>
+        </div>
+      </section>
+
+      <section id="npc-dialogue-panel" class="npc-dialogue-stage hidden" role="dialog" aria-modal="false" aria-labelledby="npc-dialogue-title">
+        <aside class="npc-portrait-shell" aria-label="当前交谈人物立绘">
+          <div class="npc-portrait-caption glass">
+            <div>
+              <strong id="npc-dialogue-title">未选择居民</strong>
+              <span id="npc-dialogue-portrait-role"></span>
+            </div>
+            <div id="npc-dialogue-meta" class="dialogue-meta"></div>
+          </div>
+          <img id="npc-dialogue-portrait" alt="" draggable="false">
+        </aside>
+        <div class="npc-dialogue-bubble glass">
+          <button id="npc-dialogue-close" class="dialogue-close" type="button" aria-label="关闭对话">×</button>
+          <div id="npc-dialogue-history" class="dialogue-history" aria-live="polite"></div>
+          <div class="dialogue-compose">
+            <textarea id="npc-dialogue-input" maxlength="160" placeholder="对他说……"></textarea>
+            <button id="npc-dialogue-send" class="primary" type="button">发送</button>
+          </div>
         </div>
       </section>
 

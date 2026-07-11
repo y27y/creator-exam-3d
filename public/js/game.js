@@ -30,6 +30,7 @@ import { LevelPresentationLoader } from './levelPresentation.js';
 import { Soundscape } from './soundscape.js';
 import { LEVEL_CHAPTER_INTROS } from './chapterIntros.js';
 import { resolveNpcVisualProfile } from './npcVisualProfiles.js';
+import { getNpcPortraitAsset } from './npcPortraitAssets.js';
 import { getBoardVisualTheme, getTerrainVisualStyle } from './boardVisualThemes.js';
 
 const TILE_SIZE = 1.55;
@@ -394,6 +395,7 @@ class CreatorExam3D extends GameEngine {
       miracle: document.getElementById('miracle-stat'),
       entropy: document.getElementById('entropy-stat'),
       specialMeters: document.getElementById('special-meters'),
+      npcStatusStrip: document.getElementById('npc-status-strip'),
       unitList: document.getElementById('unit-list'),
       missionThreat: document.getElementById('mission-threat'),
       missionGoals: document.getElementById('mission-goals'),
@@ -484,6 +486,9 @@ class CreatorExam3D extends GameEngine {
       npcDialogueActions: document.getElementById('npc-dialogue-actions'),
       npcDialogueInput: document.getElementById('npc-dialogue-input'),
       npcDialogueSend: document.getElementById('npc-dialogue-send'),
+      npcDialoguePortrait: document.getElementById('npc-dialogue-portrait'),
+      npcDialoguePortraitName: document.getElementById('npc-dialogue-portrait-name'),
+      npcDialoguePortraitRole: document.getElementById('npc-dialogue-portrait-role'),
       advancedMechanicList: document.getElementById('advanced-mechanic-list'),
       advancedActionList: document.getElementById('advanced-action-list'),
       advancedDecodeInput: document.getElementById('advanced-decode-input'),
@@ -819,6 +824,11 @@ class CreatorExam3D extends GameEngine {
       if (this.activeDrawerNoticeKey) this.dismissDrawerNotice(this.activeDrawerNoticeKey);
     });
     window.addEventListener('keydown', event => {
+      if (event.key === 'Escape' && (this.selectedDialogueUnit || this.selectedDialogueGroup)) {
+        event.preventDefault();
+        this.closeNpcDialogue();
+        return;
+      }
       if (event.key === 'Escape' && this.activeDrawer) {
         event.preventDefault();
         this.closeDrawer();
@@ -916,6 +926,12 @@ class CreatorExam3D extends GameEngine {
       const unit = this.units.find(u => u.id === unitId);
       if (!unit) return;
       this.handleUnitInteraction(unit);
+    });
+    this.ui.npcStatusStrip?.addEventListener('click', (e) => {
+      const avatar = e.target.closest('[data-npc-avatar-id]');
+      if (!avatar || avatar.disabled) return;
+      const unit = this.units.find(candidate => candidate.id === avatar.dataset.npcAvatarId);
+      if (unit) this.handleUnitInteraction(unit);
     });
 
     // 点击对话 roster 切换对话对象
@@ -1272,11 +1288,24 @@ class CreatorExam3D extends GameEngine {
   }
 
   onPointerDown(event) {
-    if (!this.placementMode || !this.activeCard || this.gameState !== 'playing') return;
+    if (this.gameState !== 'playing') return;
     const rect = this.renderer.domElement.getBoundingClientRect();
     this.pointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
     this.pointer.y = -(((event.clientY - rect.top) / rect.height) * 2 - 1);
     this.raycaster.setFromCamera(this.pointer, this.camera);
+
+    if (!this.placementMode || !this.activeCard) {
+      const unitHits = this.raycaster.intersectObjects(Array.from(this.unitMeshPool.values()), true);
+      const unitRoot = unitHits.map(hit => {
+        let object = hit.object;
+        while (object && !object.userData?.unit) object = object.parent;
+        return object;
+      }).find(Boolean);
+      const unit = unitRoot ? this.units.find(candidate => candidate.id === unitRoot.userData.unitId) : null;
+      if (unit) this.handleUnitInteraction(unit);
+      return;
+    }
+
     const hits = this.raycaster.intersectObjects(Array.from(this.tileMeshPool.values()), false);
 
     if (!hits.length) return;
@@ -2454,6 +2483,8 @@ class CreatorExam3D extends GameEngine {
 
   createBoardSurfaceDetails(theme) {
     this.clearBoardSurfaceDetails();
+    this.boardSurfaceGroup.userData.motif = theme.motif;
+    this.boardSurfaceGroup.userData.detailTypes = [...(theme.details || [])];
     const add = (kind, color, position, scale, rotation = [0, 0, 0], options = {}) => {
       const geometries = {
         beam: () => new THREE.BoxGeometry(1, 1, 1),
@@ -2478,41 +2509,88 @@ class CreatorExam3D extends GameEngine {
 
     add('ring', theme.edge, [0, -0.095, 0], [1, 1, 1], [-Math.PI / 2, Math.PI / 8, 0], { transparent: true, opacity: 0.52 });
     if (theme.motif === 'floodplain') {
-      [[-6.6, -2.7, 1.4, 0.55], [6.5, 2.2, 1.7, 0.64], [-6.2, 3.3, 1.0, 0.42]].forEach(([x, z, sx, sz]) =>
-        add('disc', theme.detailA, [x, -0.07, z], [sx, sz, 1], [-Math.PI / 2, 0, 0], { transparent: true, opacity: 0.45, roughness: 0.26, metalness: 0.08 }));
-      for (let index = -2; index <= 2; index += 1) add('beam', theme.detailB, [index * 2.8, -0.02, 6.25], [1.4, 0.055, 0.09], [0, index * 0.17, 0]);
+      const pools = [[-6.6, -2.7, 1.4, 0.55], [6.5, 2.2, 1.7, 0.64], [-6.2, 3.3, 1.0, 0.42], [5.9, -4.3, 1.2, 0.5]];
+      pools.forEach(([x, z, sx, sz], index) => {
+        add('disc', index % 2 ? 0x223f46 : theme.detailA, [x, -0.067, z], [sx, sz, 1], [-Math.PI / 2, 0, index * 0.24], { transparent: true, opacity: 0.58, roughness: 0.18, metalness: 0.14 });
+        add('ring', theme.edge, [x, -0.052, z], [sx * 0.095, sz * 0.095, 1], [-Math.PI / 2, index * 0.18, 0], { transparent: true, opacity: 0.34, roughness: 0.2 });
+      });
+      for (let index = -3; index <= 3; index += 1) {
+        add('beam', theme.detailB, [index * 2.25, -0.005, 6.18 + Math.sin(index) * 0.2], [0.95, 0.055, 0.075], [0, index * 0.19, 0]);
+        if (index % 2 === 0) add('beam', 0x6b563e, [index * 2.1, 0.08, -6.32], [0.72, 0.07, 0.085], [0.12, index * -0.23, 0.18]);
+      }
+      for (let index = 0; index < 24; index += 1) {
+        const side = index % 2 ? -1 : 1;
+        const z = -5.5 + (index % 12) * 1.0;
+        const x = side * (6.25 + (index % 3) * 0.22);
+        add('tuft', index % 4 === 0 ? 0x9a8953 : 0x66764e, [x, 0.22 + (index % 3) * 0.05, z], [0.08, 0.55 + (index % 3) * 0.12, 0.08], [0.08, index * 0.4, side * 0.08]);
+      }
     } else if (theme.motif === 'quarry') {
       for (const z of [-6.25, 6.25]) {
-        add('beam', theme.detailB, [0, -0.02, z - 0.16], [7.6, 0.045, 0.045]);
-        add('beam', theme.detailB, [0, -0.02, z + 0.16], [7.6, 0.045, 0.045]);
-        for (let index = -6; index <= 6; index += 1) add('beam', theme.detailA, [index * 0.6, -0.03, z], [0.08, 0.04, 0.52]);
+        add('beam', 0x7c7668, [0, 0.005, z - 0.18], [7.6, 0.055, 0.045], [0, 0, 0], { metalness: 0.45, roughness: 0.5 });
+        add('beam', 0x7c7668, [0, 0.005, z + 0.18], [7.6, 0.055, 0.045], [0, 0, 0], { metalness: 0.45, roughness: 0.5 });
+        for (let index = -7; index <= 7; index += 1) add('beam', 0x44382d, [index * 0.55, -0.025, z], [0.08, 0.045, 0.58]);
       }
-      for (const [x, z] of [[-6.4, -3.8], [6.5, 3.7], [-6.8, 2.8]]) add('rock', theme.detailA, [x, 0.08, z], [0.6, 0.35, 0.55], [0.2, x, 0.1]);
+      for (const [index, point] of [[0, [-6.4, -3.8]], [1, [6.5, 3.7]], [2, [-6.8, 2.8]], [3, [6.35, -3.0]], [4, [0, -6.7]]]) {
+        const [x, z] = point;
+        add('rock', index % 2 ? 0x4a4e50 : theme.detailA, [x, 0.1, z], [0.72, 0.42, 0.64], [0.2, x, 0.1]);
+        add('shard', index % 2 ? 0xb18b45 : 0x7663a0, [x + 0.18, 0.34, z - 0.12], [0.12, 0.42, 0.12], [0.4, x * 0.2, 0.15], { emissive: index % 2 ? 0x5c421b : 0x31254d, emissiveIntensity: 0.35 });
+      }
+      for (let index = 0; index < 16; index += 1) {
+        const angle = index * Math.PI * 2 / 16;
+        add('rock', 0x3c4042, [Math.cos(angle) * 6.75, 0.05, Math.sin(angle) * 6.75], [0.18 + (index % 3) * 0.08, 0.16, 0.2], [index * 0.1, angle, 0]);
+      }
     } else if (theme.motif === 'forest-stone') {
-      for (let index = 0; index < 10; index += 1) {
-        const angle = index * Math.PI * 2 / 10;
-        add('beam', index % 2 ? theme.detailA : theme.detailB, [Math.cos(angle) * 6.7, -0.01, Math.sin(angle) * 6.7], [1.4, 0.045, 0.08], [0, -angle + 0.5, (index % 3 - 1) * 0.08]);
-        if (index % 2 === 0) add('tuft', theme.detailA, [Math.cos(angle) * 7.15, 0.12, Math.sin(angle) * 7.15], [0.22, 0.35, 0.22], [0, angle, 0]);
+      for (let index = 0; index < 14; index += 1) {
+        const angle = index * Math.PI * 2 / 14;
+        const radius = index % 2 ? 6.55 : 6.95;
+        add('beam', index % 2 ? 0x4b4634 : theme.detailB, [Math.cos(angle) * 5.9, 0.015, Math.sin(angle) * 5.9], [1.65, 0.055, 0.075], [0, -angle + 0.5, (index % 3 - 1) * 0.08]);
+        if (index % 2 === 0) {
+          add('beam', 0x4f3f2c, [Math.cos(angle) * radius, 0.68, Math.sin(angle) * radius], [0.24, 1.45 + (index % 3) * 0.3, 0.24], [0.03, angle, 0.04]);
+          add('tuft', index % 4 ? 0x355a3e : 0x486a46, [Math.cos(angle) * radius, 1.8, Math.sin(angle) * radius], [1.0, 1.55, 1.0], [0, angle, 0]);
+          add('tuft', 0x5d7652, [Math.cos(angle) * radius + 0.42, 1.45, Math.sin(angle) * radius - 0.2], [0.62, 1.05, 0.62], [0, -angle, 0]);
+        } else {
+          add('disc', 0x617154, [Math.cos(angle) * radius, -0.046, Math.sin(angle) * radius], [0.55, 0.3, 1], [-Math.PI / 2, 0, angle], { transparent: true, opacity: 0.48 });
+        }
       }
     } else if (theme.motif === 'no-mans-land') {
+      add('beam', 0x5b514b, [0, -0.045, 0], [7.9, 0.04, 0.8], [0, -0.08, 0]);
+      add('beam', 0x786d5e, [0, -0.025, 0], [7.9, 0.025, 0.04], [0, -0.08, 0], { transparent: true, opacity: 0.5 });
       for (const z of [-6.2, 6.2]) {
-        for (let index = -5; index <= 5; index += 1) add('beam', index % 2 ? theme.detailA : theme.detailB, [index * 0.75, -0.02, z], [0.48, 0.05, 0.12], [0, index * 0.08, 0]);
+        for (let index = -6; index <= 6; index += 1) {
+          add('beam', index % 2 ? 0x40383a : theme.detailB, [index * 0.65, -0.008, z + Math.sin(index * 1.3) * 0.18], [0.5, 0.09, 0.18], [0, index * 0.1, 0]);
+          if (index % 3 === 0) add('rock', 0x625b56, [index * 0.66, 0.08, z - 0.38], [0.25, 0.18, 0.26], [0.2, index, 0]);
+        }
       }
-      for (const x of [-6.7, 6.7]) for (let index = -2; index <= 2; index += 1) add('beam', theme.detailB, [x, 0.18, index * 1.25], [0.055, 0.5, 0.055], [0, 0, index * 0.13]);
+      for (const x of [-6.7, 6.7]) for (let index = -3; index <= 3; index += 1) {
+        add('beam', theme.detailB, [x, 0.27, index * 1.05], [0.055, 0.68, 0.055], [0, 0, index * 0.13]);
+        add('beam', index % 2 ? 0x85645a : 0x6d6578, [x - Math.sign(x) * 0.12, 0.52, index * 1.05], [0.28, 0.24, 0.035], [0, 0, 0.08 * index]);
+      }
     } else if (theme.motif === 'memory-mist') {
-      for (let index = 0; index < 7; index += 1) {
-        const angle = index * Math.PI * 2 / 7;
-        add('disc', index % 2 ? theme.detailA : theme.detailB, [Math.cos(angle) * 6.65, -0.065, Math.sin(angle) * 6.65], [0.85, 0.38, 1], [-Math.PI / 2, 0, angle], { transparent: true, opacity: 0.28, emissive: theme.detailB, emissiveIntensity: 0.08 });
-        add('shard', index % 2 ? theme.detailB : theme.edge, [Math.cos(angle) * 7.3, 0.18 + (index % 3) * 0.08, Math.sin(angle) * 7.3], [0.18, 0.5, 0.1], [index * 0.2, angle, -0.3], { transparent: true, opacity: 0.68 });
+      for (let index = 0; index < 9; index += 1) {
+        const angle = index * Math.PI * 2 / 9;
+        const radius = index % 2 ? 6.25 : 6.75;
+        add('disc', index % 2 ? 0x526d68 : 0x756686, [Math.cos(angle) * radius, -0.052, Math.sin(angle) * radius], [1.1, 0.5, 1], [-Math.PI / 2, 0, angle], { transparent: true, opacity: 0.38, metalness: 0.34, roughness: 0.12, emissive: theme.detailB, emissiveIntensity: 0.1 });
+        add('ring', theme.edge, [Math.cos(angle) * radius, -0.038, Math.sin(angle) * radius], [0.13, 0.06, 1], [-Math.PI / 2, angle, 0], { transparent: true, opacity: 0.28 });
+        add('shard', index % 2 ? theme.detailB : theme.edge, [Math.cos(angle) * 7.25, 0.28 + (index % 3) * 0.14, Math.sin(angle) * 7.25], [0.18, 0.65, 0.1], [index * 0.2, angle, -0.3], { transparent: true, opacity: 0.72, emissive: theme.detailB, emissiveIntensity: 0.24 });
+        if (index % 2 === 0) add('shard', 0xb4c9bd, [Math.cos(angle + 0.1) * 6.75, 0.16, Math.sin(angle + 0.1) * 6.75], [0.1, 0.28, 0.08], [0.5, -angle, 0.2], { transparent: true, opacity: 0.5 });
       }
     } else {
-      for (let index = 0; index < 11; index += 1) {
-        const t = index / 10;
-        add('beam', index % 2 ? theme.detailA : theme.edge, [-7 + t * 14, -0.01, 5.8 - t * 11.6 + Math.sin(index * 1.7) * 0.55], [0.75, 0.045, 0.07], [0, -0.7, 0], { emissive: theme.edge, emissiveIntensity: 0.12 });
+      for (let branch = 0; branch < 4; branch += 1) {
+        const branchAngle = -0.92 + branch * 0.58;
+        for (let index = 0; index < 8; index += 1) {
+          const distance = 0.65 + index * 0.9;
+          const x = Math.cos(branchAngle) * distance + Math.sin(index * 1.7 + branch) * 0.22;
+          const z = Math.sin(branchAngle) * distance + Math.cos(index * 1.2 + branch) * 0.22;
+          add('beam', index % 2 ? theme.detailA : theme.edge, [x, -0.005, z], [0.58, 0.05, 0.065], [0, -branchAngle + Math.sin(index) * 0.16, 0], { emissive: theme.edge, emissiveIntensity: 0.28, transparent: true, opacity: 0.82 });
+        }
       }
-      for (let index = 0; index < 5; index += 1) {
-        const angle = index * Math.PI * 2 / 5;
-        add('shard', index % 2 ? theme.detailA : theme.detailB, [Math.cos(angle) * 7.0, 0.14, Math.sin(angle) * 7.0], [0.35, 0.5, 0.28], [0.3, angle, 0.15]);
+      const fragmentKinds = ['rock', 'tuft', 'shard', 'beam', 'disc', 'rock', 'tuft'];
+      const fragmentColors = [0x3f4548, 0x486a46, 0x8f73c8, 0x7c7668, 0x345966, 0x625b56, 0x66764e];
+      for (let index = 0; index < fragmentKinds.length; index += 1) {
+        const angle = index * Math.PI * 2 / fragmentKinds.length;
+        const kind = fragmentKinds[index];
+        const rotation = kind === 'disc' ? [-Math.PI / 2, 0, angle] : [0.3, angle, 0.15];
+        add(kind, fragmentColors[index], [Math.cos(angle) * 7.0, kind === 'disc' ? -0.04 : 0.22, Math.sin(angle) * 7.0], kind === 'disc' ? [0.65, 0.36, 1] : [0.38, 0.65, 0.32], rotation, { emissive: index === 2 ? theme.edge : 0x000000, emissiveIntensity: index === 2 ? 0.35 : 0 });
       }
     }
   }
@@ -3741,6 +3819,8 @@ class CreatorExam3D extends GameEngine {
 
     this.updateSpecialMeters();
     this.updateUnitList();
+    if (this.selectedDialogueUnit?.status === 'lost') this.closeNpcDialogue();
+    this.renderNpcStatusStrip();
     this.updateMissionDossier();
     this.renderIntentPreview();
     this.updateLogs();
@@ -3769,6 +3849,11 @@ class CreatorExam3D extends GameEngine {
         turn: this.turn,
         gameState: this.gameState,
         isResolvingTurn: this.isResolvingTurn,
+        boardVisual: {
+          themeId: this.activeBoardThemeId || '',
+          motif: this.boardSurfaceGroup?.userData?.motif || '',
+          details: [...(this.boardSurfaceGroup?.userData?.detailTypes || [])]
+        },
         turnControls: {
           endTurnDisabled: !!this.ui.endTurnBtn?.disabled,
           endTurnText: this.ui.endTurnBtn?.textContent || '',
@@ -5879,11 +5964,7 @@ class CreatorExam3D extends GameEngine {
       this.ui.missionThreat.textContent = this.getMissionThreatLabel();
       this.ui.missionThreat.dataset.threat = this.level?.hazard?.type || this.level?.win || 'standard';
     }
-    if (this.ui.missionGoals) {
-      this.ui.missionGoals.innerHTML = this.buildMissionGoalTags()
-        .map(tag => `<span class="mission-goal-chip ${escapeHtml(tag.tone)}"><strong>${escapeHtml(tag.label)}</strong>${escapeHtml(tag.value)}</span>`)
-        .join('');
-    }
+    if (this.ui.missionGoals) this.ui.missionGoals.replaceChildren();
   }
 
   getMissionThreatLabel() {
@@ -5959,25 +6040,63 @@ class CreatorExam3D extends GameEngine {
     }).join('') || '<div class="intent-item threat-none"><strong>暂无可预览意图</strong><span>当前没有活跃单位或灾害。</span></div>';
   }
 
+  renderNpcStatusStrip() {
+    if (!this.ui?.npcStatusStrip) return;
+    const people = this.units.filter(unit => this.isCivilian(unit) || this.isMessenger(unit));
+    this.ui.npcStatusStrip.hidden = people.length === 0;
+    this.ui.npcStatusStrip.innerHTML = people.map(unit => {
+      const status = unit.status || 'active';
+      const selected = this.selectedDialogueUnit?.id === unit.id;
+      const disabled = status === 'lost';
+      const statusLabel = status === 'lost' ? '遇难' : status === 'rescued' ? '获救' : '在场';
+      const portrait = getNpcPortraitAsset(unit);
+      return `
+        <button class="npc-status-avatar status-${escapeHtml(status)} ${selected ? 'selected' : ''}" type="button"
+          data-npc-avatar-id="${escapeHtml(unit.id)}" aria-label="${escapeHtml(unit.name)}，${statusLabel}" ${disabled ? 'disabled' : ''}>
+          ${portrait
+            ? `<img src="${escapeHtml(portrait)}" alt="" draggable="false">`
+            : `<span class="npc-avatar-fallback" aria-hidden="true">${escapeHtml(unit.name.slice(0, 1))}</span>`}
+          <span class="npc-status-name">${escapeHtml(unit.name)}</span>
+          <span class="npc-status-mark" aria-hidden="true">${status === 'lost' ? '×' : status === 'rescued' ? '✓' : ''}</span>
+        </button>
+      `;
+    }).join('');
+  }
+
   renderNpcDialoguePanel() {
     if (!this.ui?.npcDialoguePanel) return;
     if (!this.selectedDialogueUnit && !this.selectedDialogueGroup) {
       this.ui.npcDialoguePanel.classList.add('hidden');
+      delete this.root?.dataset.dialogueOpen;
       return;
     }
     const unit = this.selectedDialogueUnit;
     const npc = this.selectedDialogueNpc;
     this.ui.npcDialoguePanel.classList.remove('hidden');
+    if (this.root) this.root.dataset.dialogueOpen = 'true';
     this.ui.npcDialogueTitle.textContent = this.selectedDialogueGroup ? '救援群聊' : (unit?.name || 'NPC');
     if (this.ui.npcDialogueMeta) {
       const trust = npc?.dynamicTraits?.trustLevel;
       const mood = this.selectedDialogueGroup ? '多人在线' : npc?.mood || (unit && this.isMessenger(unit) ? '紧张' : '不安');
       const attitude = npc?.attitude || '未知';
-      const channel = this.selectedDialogueGroup ? '救援群聊' : `单聊 · ${unit?.name || ''}`;
       this.ui.npcDialogueMeta.innerHTML = `
-        <span class="dialogue-channel">${escapeHtml(channel)}</span>
-        <span>情绪：${escapeHtml(mood)} · 态度：${escapeHtml(attitude)}${Number.isFinite(trust) ? ` · 信任：${trust}` : ''}</span>
+        <span>情绪 ${escapeHtml(mood)}</span>
+        <span>态度 ${escapeHtml(attitude)}</span>
+        ${Number.isFinite(trust) ? `<span>信任 ${trust}</span>` : ''}
       `;
+    }
+    if (this.ui.npcDialoguePortrait) {
+      const portraitUnit = unit || this.getDialogueParticipants()[0];
+      if (portraitUnit) {
+        const portrait = getNpcPortraitAsset(portraitUnit);
+        const profile = resolveNpcVisualProfile(portraitUnit);
+        this.ui.npcDialoguePortrait.hidden = !portrait;
+        this.ui.npcDialoguePortrait.src = portrait || '';
+        this.ui.npcDialoguePortrait.alt = portrait ? `${portraitUnit.name}的立绘` : '';
+        if (this.ui.npcDialoguePortraitRole) this.ui.npcDialoguePortraitRole.textContent = this.selectedDialogueGroup ? '在场人物' : profile.role;
+      } else {
+        this.ui.npcDialoguePortrait.hidden = true;
+      }
     }
     if (this.ui.npcDialogueRoster) {
       const currentUnit = this.selectedDialogueUnit;
@@ -5996,7 +6115,7 @@ class CreatorExam3D extends GameEngine {
     }
     const messages = this.dialogueMessages || [];
     if (this.ui.npcDialogueHistory) {
-      this.ui.npcDialogueHistory.innerHTML = messages.map(message => `
+      this.ui.npcDialogueHistory.innerHTML = messages.slice(-3).map(message => `
         <div class="dialogue-line ${escapeHtml(message.role)}">
           <strong>${escapeHtml(message.speaker)}</strong>
           ${escapeHtml(message.text)}
@@ -6088,6 +6207,7 @@ class CreatorExam3D extends GameEngine {
     this.addNpcDialogueLine('npc', unit.name, dialogue);
     this.addLog(`【对话】${unit.name}：${dialogue}`, true);
     this.renderNpcDialoguePanel();
+    window.setTimeout(() => this.ui?.npcDialogueInput?.focus(), 0);
 
     if (npc) {
       this.npcManager.updateNPCMemory(npc.id, `第 ${this.turn} 回合与造物者交谈：${dialogue}`);
@@ -6114,6 +6234,8 @@ class CreatorExam3D extends GameEngine {
     this.selectedDialogueGroup = false;
     this.dialogueMessages = [];
     this.ui?.npcDialoguePanel?.classList.add('hidden');
+    if (this.root) delete this.root.dataset.dialogueOpen;
+    this.renderNpcStatusStrip();
   }
 
   getDialogueParticipants() {
@@ -6506,7 +6628,7 @@ class CreatorExam3D extends GameEngine {
   }
 
   handleUnitInteraction(unit) {
-    if (unit.status !== 'active') {
+    if (!['active', 'rescued'].includes(unit.status)) {
       this.showToast(`${unit.name} 当前无法回应。`);
       return;
     }
@@ -6514,7 +6636,7 @@ class CreatorExam3D extends GameEngine {
       this.showToast(`${unit.name} 暂时无法交谈。`);
       return;
     }
-    this.openDrawer('people', 'npc-dialogue-panel', document.getElementById('drawer-people-btn'));
+    this.closeDrawer();
     const npcId = unit.residentId || unit.name;
     const npc = this.npcManager?.getNPC(npcId);
     this.openNpcDialogue(unit, npc);

@@ -21,6 +21,7 @@ const BASE_TERRAIN_STYLES = Object.freeze({
 export const LEVEL_BOARD_THEMES = Object.freeze({
   'flood-village': Object.freeze({
     id: 'flood-village', motif: 'floodplain', textureSeed: 1103,
+    details: Object.freeze(['wet-cyan-gray-ground', 'mud', 'reeds', 'layered-dark-water', 'ripples', 'driftwood']),
     surface: 0x253436, side: 0x10262a, edge: 0x55777a, detailA: 0x3e5e62, detailB: 0x7d6b50,
     terrain: Object.freeze({
       land: { color: 0x4f5548, secondary: 0x303a34, accent: 0x7f8870 },
@@ -32,6 +33,7 @@ export const LEVEL_BOARD_THEMES = Object.freeze({
   }),
   'night-mine': Object.freeze({
     id: 'night-mine', motif: 'quarry', textureSeed: 2207,
+    details: Object.freeze(['graphite-ground', 'ore-veins', 'rails', 'rubble']),
     surface: 0x25282a, side: 0x0d1012, edge: 0x64645d, detailA: 0x3f4548, detailB: 0x9c885d,
     terrain: Object.freeze({
       land: { color: 0x3c3e3d, secondary: 0x242727, accent: 0x666862 },
@@ -43,6 +45,7 @@ export const LEVEL_BOARD_THEMES = Object.freeze({
   }),
   'giant-city': Object.freeze({
     id: 'giant-city', motif: 'forest-stone', textureSeed: 3301,
+    details: Object.freeze(['forest-stone-court', 'moss', 'roots', 'trunks', 'crowns']),
     surface: 0x303c35, side: 0x13251e, edge: 0x657c69, detailA: 0x4b5e50, detailB: 0x7b7057,
     terrain: Object.freeze({
       land: { color: 0x53604d, secondary: 0x344039, accent: 0x818b70 },
@@ -55,6 +58,7 @@ export const LEVEL_BOARD_THEMES = Object.freeze({
   }),
   'wordless-war': Object.freeze({
     id: 'wordless-war', motif: 'no-mans-land', textureSeed: 4409,
+    details: Object.freeze(['gray-brown-no-mans-land', 'road', 'boundary-posts', 'trench-scars']),
     surface: 0x383438, side: 0x19151c, edge: 0x796d79, detailA: 0x5a5158, detailB: 0x876b5b,
     terrain: Object.freeze({
       land: { color: 0x55504e, secondary: 0x373232, accent: 0x827872 },
@@ -67,6 +71,7 @@ export const LEVEL_BOARD_THEMES = Object.freeze({
   }),
   'memory-plague': Object.freeze({
     id: 'memory-plague', motif: 'memory-mist', textureSeed: 5513,
+    details: Object.freeze(['desaturated-mist', 'mirror-pools', 'memory-shards']),
     surface: 0x283a3a, side: 0x101f22, edge: 0x6e7e78, detailA: 0x526d68, detailB: 0x756686,
     terrain: Object.freeze({
       land: { color: 0x465952, secondary: 0x2c3d39, accent: 0x768d80 },
@@ -78,6 +83,7 @@ export const LEVEL_BOARD_THEMES = Object.freeze({
   }),
   'final-exam': Object.freeze({
     id: 'final-exam', motif: 'rift-convergence', textureSeed: 6607,
+    details: Object.freeze(['violet-gray-rift-ground', 'converging-cracks', 'mixed-world-fragments']),
     surface: 0x282631, side: 0x0d0d14, edge: 0x746982, detailA: 0x514962, detailB: 0x76624f,
     terrain: Object.freeze({
       land: { color: 0x44434a, secondary: 0x2b2b32, accent: 0x6e6d70 },

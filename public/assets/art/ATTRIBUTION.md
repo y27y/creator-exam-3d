@@ -2,6 +2,15 @@
 
 All files are stored locally. The running game does not request any image-generation or third-party asset service.
 
+## NPC portraits
+
+- Model: OpenAI image-2, built-in image generation
+- Generated: 2026-07-11
+- Deliverables: 20 transparent runtime WebP portraits under `npc-portraits/`
+- References: repository-owned image-2 chapter stills plus the previously generated portrait batch, used only to preserve the project's art direction and character continuity
+- Runtime: local files only; no image generation call or third-party hotlink during play
+- Detailed final prompt set, character order, post-processing and SHA-256 ledger: [`npc-portraits/README.md`](./npc-portraits/README.md)
+
 ## cg-prologue.webp
 
 - Kind: development-time generated fixed CG

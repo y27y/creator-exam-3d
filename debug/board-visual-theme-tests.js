@@ -9,6 +9,14 @@ import {
 } from '../public/js/boardVisualThemes.js'
 
 const LEVEL_IDS = ['flood-village', 'night-mine', 'giant-city', 'wordless-war', 'memory-plague', 'final-exam']
+const EXPECTED_DETAILS = {
+  'flood-village': ['wet-cyan-gray-ground', 'mud', 'reeds', 'layered-dark-water', 'ripples', 'driftwood'],
+  'night-mine': ['graphite-ground', 'ore-veins', 'rails', 'rubble'],
+  'giant-city': ['forest-stone-court', 'moss', 'roots', 'trunks', 'crowns'],
+  'wordless-war': ['gray-brown-no-mans-land', 'road', 'boundary-posts', 'trench-scars'],
+  'memory-plague': ['desaturated-mist', 'mirror-pools', 'memory-shards'],
+  'final-exam': ['violet-gray-rift-ground', 'converging-cracks', 'mixed-world-fragments']
+}
 assert.deepEqual(BOARD_THEME_LEVEL_IDS, LEVEL_IDS, 'all six levels should own a board visual theme')
 assert.equal(new Set(LEVEL_IDS.map(id => getBoardVisualTheme(id).motif)).size, 6, 'each level should have a distinct procedural board motif')
 assert.equal(new Set(LEVEL_IDS.map(id => getBoardVisualTheme(id).surface)).size, 6, 'each level should have a distinct sand-table surface color')
@@ -16,6 +24,7 @@ assert.equal(new Set(LEVEL_IDS.map(id => getBoardVisualTheme(id).textureSeed)).s
 
 for (const levelId of LEVEL_IDS) {
   const theme = LEVEL_BOARD_THEMES[levelId]
+  assert.deepEqual(theme.details, EXPECTED_DETAILS[levelId], `${levelId} should declare every authored environment detail`)
   for (const field of ['surface', 'side', 'edge', 'detailA', 'detailB']) {
     assert.ok(Number.isInteger(theme[field]) && theme[field] >= 0 && theme[field] <= 0xffffff, `${levelId} ${field} should be a valid RGB color`)
   }
@@ -38,6 +47,8 @@ for (const contract of [
   "import { getBoardVisualTheme, getTerrainVisualStyle } from './boardVisualThemes.js'",
   'createBoardSurfaceTexture(theme)',
   'createBoardSurfaceDetails(theme)',
+  'this.boardSurfaceGroup.userData.detailTypes = [...(theme.details || [])]',
+  'details: [...(this.boardSurfaceGroup?.userData?.detailTypes || [])]',
   'applyBoardVisualTheme(levelId)',
   "visualStyle: 'sculpted-terrain-v3'",
   'existing.userData.themeId === this.activeBoardThemeId',

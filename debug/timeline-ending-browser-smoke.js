@@ -1,8 +1,13 @@
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
+import { mkdirSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
 import { chromium } from 'file:///C:/Users/liu_j/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/.pnpm/playwright@1.61.1/node_modules/playwright/index.mjs';
 
 const port = 4178;
+const screenshotDir = path.join(tmpdir(), 'creator-exam-timeline-ending-smoke');
+mkdirSync(screenshotDir, { recursive: true });
 const server = spawn(process.execPath, ['server.js'], {
   cwd: new URL('..', import.meta.url),
   env: { ...process.env, PORT: String(port) },
@@ -56,18 +61,20 @@ try {
     game.startTimelineEnding(game.lastAirCombatResult, { replay: true, startIndex: 0 });
   });
   await page.locator('#cinematic').waitFor({ state: 'visible' });
-  await page.screenshot({ path: 'debug/timeline-ending-opening.png', fullPage: true });
+  assert.equal(await page.locator('#cinematic-art').evaluate(element => getComputedStyle(element).animationName), 'none', 'reduced-motion users should not receive timeline pan animation');
+  await page.screenshot({ path: path.join(screenshotDir, 'opening.png'), fullPage: true });
   await page.click('#cinematic-skip');
-  await page.locator('[data-timeline-anchor]').first().click();
+  await page.locator('[data-timeline-anchor]').first().focus();
+  await page.keyboard.press('Enter');
   assert.equal(await page.locator('.cinematic-choice.selected').count(), 1, 'one anchor should be visibly selected');
   assert.equal(await page.locator('#cinematic-primary').isEnabled(), true, 'anchor selection should unlock continuation');
-  await page.screenshot({ path: 'debug/timeline-ending-anchor.png', fullPage: true });
+  await page.screenshot({ path: path.join(screenshotDir, 'anchor.png'), fullPage: true });
   await page.evaluate(() => {
     const director = window.__creatorExam3D.activeEndingDirector;
     director.index = director.frames.length - 1;
     director.render();
   });
-  await page.screenshot({ path: 'debug/timeline-ending-final.png', fullPage: true });
+  await page.screenshot({ path: path.join(screenshotDir, 'final.png'), fullPage: true });
   assert.match(await page.locator('#cinematic-title').textContent(), /第七日之后/);
   assert.match(await page.locator('#cinematic-text').textContent(), /世界可以被拯救/);
   await page.click('#cinematic-primary');
@@ -77,6 +84,11 @@ try {
   await page.evaluate(() => {
     document.getElementById('tutorial-choice').hidden = true;
     document.getElementById('cinematic').hidden = true;
+  });
+  await page.waitForTimeout(200);
+  await page.evaluate(() => {
+    document.getElementById('tutorial-choice').hidden = true;
+    window.__creatorExam3D.closeCinematic();
   });
   assert.equal(await page.evaluate(() => window.__creatorExam3D.lastAirCombatResult?.timelineArchive?.completed), true, 'completed archive should hydrate from the saved world event after reload');
   assert.equal(await page.locator('#timeline-ending-replay').getAttribute('hidden'), null, 'world journal should enable ending replay after reload');

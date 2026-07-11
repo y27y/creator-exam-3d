@@ -863,12 +863,19 @@ class CreatorExam3D extends GameEngine {
     this.ui.cinematic?.addEventListener('keydown', event => {
       if (event.key === 'Tab') {
         const active = document.activeElement;
-        if (event.shiftKey && (active === this.ui.cinematicSkip || active === this.ui.cinematicTitle)) {
+        const focusable = [
+          this.ui.cinematicSkip,
+          ...this.ui.cinematicChoices.querySelectorAll('button:not(:disabled)'),
+          this.ui.cinematicPrimary
+        ].filter(element => element && !element.disabled && !element.hidden);
+        const first = focusable[0];
+        const last = focusable.at(-1);
+        if (event.shiftKey && (active === first || active === this.ui.cinematicTitle)) {
           event.preventDefault();
-          this.ui.cinematicPrimary.focus();
-        } else if (!event.shiftKey && active === this.ui.cinematicPrimary) {
+          last?.focus();
+        } else if (!event.shiftKey && (active === last || active === this.ui.cinematicTitle)) {
           event.preventDefault();
-          this.ui.cinematicSkip.focus();
+          first?.focus();
         }
       }
       if (event.key === 'Escape') {

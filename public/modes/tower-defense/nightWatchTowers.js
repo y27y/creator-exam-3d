@@ -66,6 +66,34 @@
     redirect_hazard: ['gravityBeacon', 'cannon']
   };
 
+  const PLAYER_TERM_LABELS = {
+    absorb_water: '吸水', create_bridge: '架桥', illuminate: '照明', block: '阻挡', calm: '安抚',
+    guide: '引路', cleanse: '净化', slow_beast: '迟滞', memory_beacon: '记忆信标', force_field: '力场',
+    transform_land: '改造地形', freeze_water: '冻结水面', reveal_path: '显路', sun_blessing: '日光祝福',
+    raise_earth: '升起土墙', grow_forest: '催生树林', dig_channel: '开掘水道', trap: '布置陷阱',
+    dream_link: '梦境联结', time_dilation: '减缓时间', haste: '加速', teleport: '传送',
+    shield_units: '护卫友军', redirect_hazard: '引开危险', starting_money: '开局补给',
+    starting_hp: '城防加固', tower_damage: '火力加成', tower_range: '射程加成',
+    tower_discount: '建造减免', wave_income: '每波补给',
+    ...Object.fromEntries(Object.entries(TOWER_THEME).map(([type, theme]) => [type, theme.name]))
+  };
+
+  function escapeRegExp(value) {
+    return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  }
+
+  function replaceInternalTerms(value) {
+    let text = String(value || '');
+    for (const [term, label] of Object.entries(PLAYER_TERM_LABELS)) {
+      text = text.replace(new RegExp(`(^|[^A-Za-z0-9_])${escapeRegExp(term)}(?=$|[^A-Za-z0-9_])`, 'gi'), `$1${label}`);
+    }
+    return text.replace(/\b[a-z][a-z0-9]*(?:_[a-z0-9]+)+\b/gi, '对应能力');
+  }
+
+  function playerText(value, fallback = '', maxLength = 180) {
+    return replaceInternalTerms(value || fallback).replace(/\s+/g, ' ').trim().slice(0, maxLength);
+  }
+
   const DAMAGE_KEYS = ['damage', 'minDamage', 'maxDamage', 'missileDamage', 'specialDamage'];
   const RANGE_KEYS = ['range'];
   const UTILITY_KEYS = ['slow', 'stun', 'buff', 'damageBuff', 'rangeBuff', 'upgradeDiscount', 'pushback', 'moneyMultiplier', 'burnPercent', 'bossBurnPercent', 'critChance'];
@@ -223,8 +251,8 @@
 
   function normalizeCause(raw = {}) {
     return {
-      source: String(raw.source || '因为白天留下了造物记录').slice(0, 70),
-      result: String(raw.result || '所以守夜队得到对应塔材').slice(0, 80),
+      source: playerText(raw.source, '因为白天留下了造物记录', 70),
+      result: playerText(raw.result, '所以守夜队得到对应塔材', 80),
       towerType: TOWER_TYPES.includes(String(raw.towerType || '')) ? String(raw.towerType) : ''
     };
   }
@@ -249,9 +277,9 @@
     const every = type === 'wave_income' ? clamp(rawEffect.every, 3, 6, fallbackEffect.every || 5) : undefined;
     return {
       id: String(raw.id || fallback.id || type).replace(/[^\w-]/g, '').slice(0, 32) || type,
-      name: String(raw.name || fallback.name || '守夜加成').slice(0, 16),
-      description: String(raw.description || fallback.description || '为这次守夜提供一次可选加成。').slice(0, 90),
-      reason: String(raw.reason || fallback.reason || '来自此前造物与经历。').slice(0, 90),
+      name: playerText(raw.name || fallback.name, '守夜加成', 16),
+      description: playerText(raw.description || fallback.description, '为这次守夜提供一次可选加成。', 90),
+      reason: playerText(raw.reason || fallback.reason, '来自此前造物与经历。', 90),
       effect: {
         type,
         value: clamp(rawEffect.value, min, max, fallbackEffect.value || defaultValue),
@@ -272,13 +300,25 @@
     const rawBuffChoices = sourceBuffChoices.length
       ? [...sourceBuffChoices, ...(fallback.buffChoices || []).slice(sourceBuffChoices.length, 3)]
       : fallback.buffChoices || [];
+    const rawTowers = plan.towers && typeof plan.towers === 'object' ? plan.towers : fallback.towers || {};
+    const towers = {};
+    for (const [type, patch] of Object.entries(rawTowers)) {
+      if (!TOWER_TYPES.includes(type) || !patch || typeof patch !== 'object') continue;
+      towers[type] = {
+        ...patch,
+        sourceCreation: playerText(patch.sourceCreation, '', 30),
+        name: playerText(patch.name, TOWER_THEME[type]?.name || type, 14),
+        description: playerText(patch.description, TOWER_THEME[type]?.description || '守夜塔会沿防线工作。', 140),
+        ...(patch.exDescription ? { exDescription: playerText(patch.exDescription, '', 120) } : {})
+      };
+    }
     return {
       source: String(plan.source || fallback.source || ''),
-      themeTitle: String(plan.themeTitle || fallback.themeTitle || '长夜守城').slice(0, 18),
-      briefing: String(plan.briefing || fallback.briefing || '').slice(0, 180),
+      themeTitle: playerText(plan.themeTitle || fallback.themeTitle, '长夜守城', 18),
+      briefing: playerText(plan.briefing || fallback.briefing, '', 180),
       mapId: /^MAP[1-6]$/.test(String(plan.mapId || '')) ? plan.mapId : fallback.mapId,
       towerPool: normalizedPool,
-      towers: plan.towers && typeof plan.towers === 'object' ? plan.towers : fallback.towers || {},
+      towers,
       causes: rawCauses.slice(0, 6).map(normalizeCause),
       buffChoices: rawBuffChoices.slice(0, 3).map((item, index) => normalizeBuffChoice(item, (fallback.buffChoices || [])[index] || {}, normalizedPool))
     };
@@ -378,12 +418,12 @@
     for (const [type, patch] of Object.entries(normalized.towers || {})) {
       const data = towerData[type];
       if (!data || !patch) continue;
-      data.name = String(patch.name || data.name).slice(0, 14);
-      data.description = String(patch.description || data.description).slice(0, 140);
-      if (patch.exDescription || data.exDescription) data.exDescription = String(patch.exDescription || data.exDescription).slice(0, 120);
+      data.name = playerText(patch.name, data.name, 14);
+      data.description = playerText(patch.description, data.description, 140);
+      if (patch.exDescription || data.exDescription) data.exDescription = playerText(patch.exDescription, data.exDescription, 120);
       data.color = color(patch.color, data.color);
       data.projectileColor = color(patch.projectileColor, patch.color || data.projectileColor || data.color);
-      data.sourceCreation = String(patch.sourceCreation || '').slice(0, 30);
+      data.sourceCreation = playerText(patch.sourceCreation, '', 30);
       applyStatBias(data, patch.statBias || {});
     }
     applyBuffChoice(towerData, buffChoice);

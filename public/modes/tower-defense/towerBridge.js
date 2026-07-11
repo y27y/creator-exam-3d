@@ -499,10 +499,20 @@
         --night-interactive: #59c7a6;
         --night-rift: #8f73c8;
       }
+      html { overflow-y: auto; }
       body {
         background:
           linear-gradient(145deg, #050507 0%, #111827 54%, #08090d 100%);
       }
+      body:not(.in-battle) {
+        align-items: flex-start;
+        height: auto;
+        min-height: 100dvh;
+        overflow-y: auto;
+        padding: 16px 0 22px;
+      }
+      body:not(.in-battle) #selection-screen,
+      body:not(.in-battle) #map-selection-screen { flex: 0 0 auto; }
       .screen, #ui-panel, #selection-info {
         background: linear-gradient(180deg, rgba(26, 29, 42, .96), rgba(14, 16, 24, .98));
         border: 1px solid rgba(216, 197, 138, .22);
@@ -510,10 +520,11 @@
       #selection-screen {
         width: min(760px, calc(100vw - 32px));
         max-width: 760px;
-        max-height: calc(100vh - 32px);
+        max-height: none;
         gap: 10px;
         padding: 18px;
-        overflow: hidden;
+        margin: 0 auto;
+        overflow: visible;
       }
       #selection-screen h1 { font-size: 1.65rem; }
       #selection-top-actions { gap: 8px; }
@@ -538,7 +549,7 @@
       #selection-main { gap: 12px; }
       #tower-pool {
         grid-template-columns: repeat(auto-fill, minmax(74px, 1fr));
-        max-height: min(330px, calc(100vh - 360px));
+        max-height: clamp(180px, 28dvh, 300px);
         gap: 7px;
         padding: 8px;
       }
@@ -558,7 +569,15 @@
         padding: 14px;
         font-size: .92em;
       }
-      #selection-buttons-container { margin-top: 6px; gap: 10px; }
+      #selection-buttons-container {
+        position: sticky;
+        bottom: 0;
+        z-index: 3;
+        margin-top: 6px;
+        gap: 10px;
+        padding-top: 8px;
+        background: linear-gradient(180deg, rgba(7, 10, 17, 0), rgba(7, 10, 17, .94) 42%);
+      }
       .selection-btn { padding: 9px 18px; font-size: .96em; }
       #night-watch-brief {
         width: 100%;
@@ -570,6 +589,8 @@
         color: var(--text-color);
         line-height: 1.45;
         box-sizing: border-box;
+        max-height: min(360px, 42dvh);
+        overflow-y: auto;
       }
       #night-watch-brief strong { color: var(--primary-color); }
       #night-watch-ai-text, #night-watch-wave { color: #cbd5e1; font-size: 12px; }
@@ -817,7 +838,8 @@
         }
         #selection-screen h1 { font-size: 1.35rem; }
         #selection-info { width: 190px; padding: 10px; }
-        #tower-pool { max-height: min(280px, calc(100vh - 310px)); }
+        #tower-pool { max-height: clamp(170px, 26dvh, 250px); }
+        #night-watch-causes { grid-template-columns: 1fr; }
         #night-watch-buff-choices { grid-template-columns: 1fr; }
         .night-watch-cg { min-height: min(330px, calc(100dvh - 56px)); }
         .night-watch-cg-frame { padding: 28px; }

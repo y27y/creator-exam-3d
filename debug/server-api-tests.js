@@ -164,6 +164,22 @@ await withServer(async (baseUrl) => {
   assert(Array.isArray(nightWatchTowers.json.causes) && nightWatchTowers.json.causes.length > 0, 'night watch tower plan should explain prior-flow causes');
   assert(Array.isArray(nightWatchTowers.json.buffChoices) && nightWatchTowers.json.buffChoices.length === 3, 'night watch tower plan should include three buff choices');
   assert(nightWatchTowers.json.buffChoices.every(choice => choice.effect && choice.effect.type), 'night watch buff choices should include whitelisted effects');
+  const playerFacingTowerText = JSON.stringify({
+    towers: Object.values(nightWatchTowers.json.towers).map(tower => ({
+      name: tower.name,
+      description: tower.description,
+      exDescription: tower.exDescription
+    })),
+    causes: nightWatchTowers.json.causes,
+    buffChoices: nightWatchTowers.json.buffChoices.map(choice => ({
+      name: choice.name,
+      description: choice.description,
+      reason: choice.reason
+    }))
+  });
+  for (const internalTerm of ['reveal_path', 'cleanse', 'tower_damage', 'starting_money']) {
+    assert(!playerFacingTowerText.includes(internalTerm), `night watch player-facing copy should not expose ${internalTerm}`);
+  }
 });
 
 console.log('Server API tests passed');

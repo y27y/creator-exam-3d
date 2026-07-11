@@ -79,6 +79,53 @@ const TOWER_FLAVORS = {
 
 const BUFF_EFFECT_TYPES = ['starting_money', 'starting_hp', 'tower_damage', 'tower_range', 'tower_discount', 'wave_income'];
 
+const PLAYER_TERM_LABELS = {
+  absorb_water: '引水',
+  freeze_water: '凝霜',
+  create_bridge: '架桥',
+  reveal_path: '显路',
+  guide: '引导',
+  illuminate: '照明',
+  sun_blessing: '日华',
+  block: '阻隔',
+  force_field: '力场',
+  calm: '安抚',
+  cleanse: '净化',
+  slow_beast: '迟缓巨兽',
+  memory_beacon: '记忆信标',
+  transform_land: '改造地形',
+  raise_earth: '抬升地面',
+  grow_forest: '生长森林',
+  dig_channel: '开渠',
+  trap: '陷阱',
+  dream_link: '梦境连接',
+  time_dilation: '延缓时间',
+  haste: '加速',
+  teleport: '折跃',
+  shield_units: '护盾',
+  redirect_hazard: '转移灾害',
+  starting_money: '开局补给',
+  starting_hp: '基地加固',
+  tower_damage: '火力加成',
+  tower_range: '射程加成',
+  tower_discount: '建造折扣',
+  wave_income: '波次补给',
+  ...Object.fromEntries(Object.entries(TOWER_FLAVORS).map(([type, [name]]) => [type, name]))
+};
+
+function escapeRegExp(value) {
+  return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function replaceInternalTerms(text) {
+  let result = String(text || '');
+  for (const [term, label] of Object.entries(PLAYER_TERM_LABELS)) {
+    const pattern = new RegExp(`(^|[^A-Za-z0-9_])${escapeRegExp(term)}(?=$|[^A-Za-z0-9_])`, 'g');
+    result = result.replace(pattern, `$1${label}`);
+  }
+  return result.replace(/(^|[^A-Za-z0-9_])[a-z]+(?:_[a-z0-9]+)+(?=$|[^A-Za-z0-9_])/gi, '$1对应能力');
+}
+
 function clampNumber(value, min, max, fallback) {
   const n = Number(value);
   if (!Number.isFinite(n)) return fallback;
@@ -92,6 +139,14 @@ function clampInt(value, min, max, fallback) {
 function cleanText(value, fallback, max = 90) {
   const text = String(value || '').replace(/\s+/g, ' ').trim();
   return (text || fallback).slice(0, max);
+}
+
+function cleanPlayerText(value, fallback, max = 90) {
+  return cleanText(replaceInternalTerms(value), fallback, max);
+}
+
+function abilityLabel(ability) {
+  return PLAYER_TERM_LABELS[ability] || '白天造物';
 }
 
 function normalizeCreationNameValue(name, ability = '') {
@@ -260,6 +315,7 @@ function buildBuffChoices(input, towerPool) {
 function buildTowerPatch(input, creation, towerType, index) {
   const [suffix, mechanic, color] = TOWER_FLAVORS[towerType] || ['守夜塔', '原型火力', '#d8c58a'];
   const name = fallbackName(creation, towerType, index);
+  const abilityText = abilityLabel(creation.ability);
   const residentText = input.rescuedResidents.length
     ? `由${input.rescuedResidents.slice(0, 2).join('、')}协助固定。`
     : '由守夜队临时固定。';
@@ -268,8 +324,8 @@ function buildTowerPatch(input, creation, towerType, index) {
     baseType: towerType,
     sourceCreation: creation.name,
     name,
-    description: `白天的「${creation.name}」被改装成${suffix}，保留${creation.ability}的痕迹，战斗职责偏向${mechanic}。${residentText}`.slice(0, 120),
-    exDescription: `EX会把「${creation.name}」的核心记忆压入塔芯，强化${mechanic}并放大第七天前的守夜回声。`.slice(0, 100),
+    description: `白天的「${creation.name}」被重新钉进城墙，做成「${name}」。它沿着${abilityText}留下的痕迹锁定敌潮，主攻${mechanic}。${residentText}`.slice(0, 120),
+    exDescription: `EX会把「${creation.name}」留下的关键回声压进塔芯，让${mechanic}更稳，也让第七天前的守夜回声更亮。`.slice(0, 100),
     color,
     projectileColor: color,
     statBias: statBias(input, creation, index)
@@ -323,6 +379,7 @@ export function buildNightWatchTowerMessages(input = {}) {
         '你是《造物者考核3D》的长夜守城设计器。根据玩家前六天的造物卡和经历，为第六到第七天之间的塔防生成一组守夜塔。',
         '必须只返回 JSON，不要 markdown，不要解释。',
         '不要发明新的塔 type，只能使用给定 towerPool 中的 type；底层战斗逻辑会复用这些 type，但名字、描述、EX说明和数值偏向必须贴合造物。',
+        '所有面向玩家的文案必须是自然中文。禁止直接写 reveal_path、cleanse、tower_damage、starting_money、missileSilo 等代码标识；需要表达时改写成“显路”“净化”“火力加成”“开局补给”“星轨井”等中文词。',
         '普通放置上限已移除；不要输出 limit。EX上限由原塔保留。',
         'JSON schema: {"themeTitle":"短主题","briefing":"80字以内简报","mapId":"MAP2","towerPool":["arrow"],"towers":{"arrow":{"name":"14字以内","description":"120字以内","exDescription":"100字以内","color":"#79d0b0","projectileColor":"#d7fff0","statBias":{"damageMultiplier":1.1,"rangeBonus":0.25,"costMultiplier":0.95,"fireRateMultiplier":0.9,"utilityMultiplier":1.05}}},"causes":[{"source":"因为玩家做过什么","result":"所以得到什么塔或加成","towerType":"arrow"}],"buffChoices":[{"id":"resident_supply","name":"12字内","description":"60字内","reason":"因果理由","effect":{"type":"starting_money","value":300,"towerTypes":["arrow"]}}]}',
         `buffChoices.effect.type 只能是: ${BUFF_EFFECT_TYPES.join(', ')}；只提供三选一，不要超过3个。`,
@@ -353,8 +410,8 @@ function sanitizeStatBias(raw = {}, fallback = {}) {
 function sanitizeCause(raw = {}, fallback = {}) {
   const towerType = TOWER_TYPES.includes(String(raw.towerType || '')) ? String(raw.towerType) : '';
   return {
-    source: cleanText(raw.source, fallback.source || '因为白天留下了造物记录', 60),
-    result: cleanText(raw.result, fallback.result || '所以守夜队得到对应塔材', 70),
+    source: cleanPlayerText(raw.source, fallback.source || '因为白天留下了造物记录', 60),
+    result: cleanPlayerText(raw.result, fallback.result || '所以守夜队得到对应塔材', 70),
     towerType
   };
 }
@@ -380,9 +437,9 @@ function sanitizeBuffChoice(raw = {}, fallback = {}, towerPool = []) {
   const every = type === 'wave_income' ? clampInt(rawEffect.every, 3, 6, fallbackEffect.every || 5) : undefined;
   return {
     id: cleanText(raw.id, fallback.id || type, 32).replace(/[^\w-]/g, '') || type,
-    name: cleanText(raw.name, fallback.name || '守夜加成', 16),
-    description: cleanText(raw.description, fallback.description || '为这次守夜提供一次可选加成。', 80),
-    reason: cleanText(raw.reason, fallback.reason || '来自此前造物与经历。', 80),
+    name: cleanPlayerText(raw.name, fallback.name || '守夜加成', 16),
+    description: cleanPlayerText(raw.description, fallback.description || '为这次守夜提供一次可选加成。', 80),
+    reason: cleanPlayerText(raw.reason, fallback.reason || '来自此前造物与经历。', 80),
     effect: {
       type,
       value: clampNumber(rawEffect.value, min, max, defaultValue),
@@ -408,10 +465,10 @@ export function sanitizeNightWatchTowerPlan(raw, input = {}) {
     towers[type] = {
       type,
       baseType: type,
-      sourceCreation: cleanText(rawPatch.sourceCreation, fallbackPatch.sourceCreation || '', 30),
-      name: cleanText(rawPatch.name, fallbackPatch.name, 14),
-      description: cleanText(rawPatch.description, fallbackPatch.description, 120),
-      exDescription: cleanText(rawPatch.exDescription, fallbackPatch.exDescription, 100),
+      sourceCreation: cleanPlayerText(rawPatch.sourceCreation, fallbackPatch.sourceCreation || '', 30),
+      name: cleanPlayerText(rawPatch.name, fallbackPatch.name, 14),
+      description: cleanPlayerText(rawPatch.description, fallbackPatch.description, 120),
+      exDescription: cleanPlayerText(rawPatch.exDescription, fallbackPatch.exDescription, 100),
       color: cleanHex(rawPatch.color, fallbackPatch.color),
       projectileColor: cleanHex(rawPatch.projectileColor, rawPatch.color || fallbackPatch.projectileColor || fallbackPatch.color),
       statBias: sanitizeStatBias(rawPatch.statBias || {}, fallbackPatch.statBias)
@@ -425,8 +482,8 @@ export function sanitizeNightWatchTowerPlan(raw, input = {}) {
 
   return {
     source: cleanText(source.source, fallback.source, 24),
-    themeTitle: cleanText(source.themeTitle, fallback.themeTitle, 18),
-    briefing: cleanText(source.briefing, fallback.briefing, 160),
+    themeTitle: cleanPlayerText(source.themeTitle, fallback.themeTitle, 18),
+    briefing: cleanPlayerText(source.briefing, fallback.briefing, 160),
     mapId: /^MAP[1-6]$/.test(String(source.mapId || '')) ? source.mapId : fallback.mapId,
     towerPool: pool,
     towers,

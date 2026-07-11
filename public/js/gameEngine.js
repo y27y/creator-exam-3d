@@ -1842,15 +1842,22 @@ class GameEngine {
 
   // ========== Random Events ==========
 
+  isTutorialRouteProtected() {
+    return this.creations.some(creation =>
+      creation.placed && creation.remaining > 0 && creation.card?.tutorialLessonCardId
+    );
+  }
+
   triggerRandomEvent() {
+    const tutorialRouteProtected = this.isTutorialRouteProtected();
     const events = [
-      { name: '突发暴雨', effect: 'floodSpread', probability: 0.08, condition: () => this.level.hazard?.type === 'flood' || this.level.hazard?.type === 'mixed' },
-      { name: '地震', effect: 'terrainChange', probability: 0.05, condition: () => true },
+      { name: '突发暴雨', effect: 'floodSpread', probability: 0.08, condition: () => !tutorialRouteProtected && (this.level.hazard?.type === 'flood' || this.level.hazard?.type === 'mixed') },
+      { name: '地震', effect: 'terrainChange', probability: 0.05, condition: () => !tutorialRouteProtected },
       { name: '村民顿悟', effect: 'guidance', probability: 0.12, condition: () => this.units.some(u => this.isCivilian(u) && u.status === 'active') },
       { name: '巨兽犹豫', effect: 'beastStunned', probability: 0.1, condition: () => this.units.some(u => u.type === 'beast' && u.status === 'active') },
       { name: '奇迹共鸣', effect: 'resonanceBoost', probability: 0.08, condition: () => this.creations.filter(c => c.placed && c.remaining > 0).length >= 2 },
-      { name: '裂隙波动', effect: 'entropyFluctuation', probability: 0.06, condition: () => this.entropy > 2 },
-      { name: '风向改变', effect: 'hazardRedirect', probability: 0.07, condition: () => this.level.hazard?.type === 'flood' || this.level.hazard?.type === 'mixed' }
+      { name: '裂隙波动', effect: 'entropyFluctuation', probability: 0.06, condition: () => !tutorialRouteProtected && this.entropy > 2 },
+      { name: '风向改变', effect: 'hazardRedirect', probability: 0.07, condition: () => !tutorialRouteProtected && (this.level.hazard?.type === 'flood' || this.level.hazard?.type === 'mixed') }
     ];
 
     for (const event of events) {
@@ -2013,12 +2020,15 @@ class GameEngine {
     return unit.goal && unit.x === unit.goal.x && unit.y === unit.goal.y;
   }
 
-  isPassable(x, y, unit) {
+  isPassable(x, y, unit, options = {}) {
     // Support temporary pathfinding blocks used by _findNonReversingStep.
     if (unit?._pathfindBlock && unit._pathfindBlock.x === x && unit._pathfindBlock.y === y) return false;
+    const occupant = this.unitAt(x, y);
+    const sharedMeetingPoint = occupant && occupant !== unit && this.isMessenger(unit) && this.isMessenger(occupant)
+      && unit.goal?.x === x && unit.goal?.y === y && occupant.goal?.x === x && occupant.goal?.y === y;
+    if (!options.ignoreOccupants && occupant && occupant !== unit && occupant.status === 'active' && !sharedMeetingPoint) return false;
     const terrain = this.getTerrain(x, y);
     if (terrain === TILE.MOUNTAIN || terrain === TILE.WALL) return false;
-    // Multiple units may occupy the same tile.
     if (unit.type === 'beast') {
       // 裂隙兽（hazardPhase）可穿越黑暗、迷雾、洪水等灾害地形，仅被田地与墙阻挡
       if (unit.hazardPhase) {
@@ -2036,7 +2046,7 @@ class GameEngine {
     return this.creations.some((creation) => {
       if (creation.remaining <= 0 || !creation.placed) return false;
       if (creation.card.ability === 'force_field' && this.distance(x, y, creation.x, creation.y) <= creation.card.range) return true;
-      if (creation.card.ability === 'absorb_water' && this.distance(x, y, creation.x, creation.y) <= 1) return true;
+      if (creation.card.ability === 'absorb_water' && this.distance(x, y, creation.x, creation.y) <= Math.max(1, creation.card.range || 1)) return true;
       return false;
     });
   }
@@ -2113,7 +2123,7 @@ class GameEngine {
 
       // Explore neighbors ordered by proximity to goal for more goal-directed paths.
       const nbs = this.neighbors(current.x, current.y)
-        .filter((nb) => !closedSet.has(`${nb.x},${nb.y}`) && this.isPassable(nb.x, nb.y, unit));
+        .filter((nb) => !closedSet.has(`${nb.x},${nb.y}`) && this.isPassable(nb.x, nb.y, unit, { ignoreOccupants: true }));
       nbs.sort((a, b) => {
         const da = heuristic(a.x, a.y);
         const db = heuristic(b.x, b.y);
@@ -2201,6 +2211,7 @@ class GameEngine {
 
     const path = this.findPath(unit, goal);
     if (!path || path.length === 0) return null;
+    if (!this.isPassable(path[0].x, path[0].y, unit)) return null;
 
     if (!unit._pathfindFallback) {
       unit._pathCache = { goalKey, path, index: 1 };
@@ -2313,6 +2324,32 @@ class GameEngine {
       if (type === 'environmental') this.applyEnvironmentalEffect(creation);
       if (type === 'sacrifice') this.applySacrificeEffect(creation);
       applyAbility(this, creation, 'active');
+      const tutorialEffectsGlobal = creation.card.tutorialEffectsGlobal === true;
+      if (creation.card.tutorialEffects?.includes('reveal_path')) {
+        const effectiveRange = this.getEffectiveRange(creation);
+        for (const unit of this.units.filter((u) => (this.isCivilian(u) || this.isMessenger(u)) && u.status === 'active')) {
+          if (tutorialEffectsGlobal || this.distance(unit.x, unit.y, creation.x, creation.y) <= effectiveRange + 1) {
+            unit.revealedPath = Math.max(unit.revealedPath || 0, 2);
+          }
+        }
+      }
+      if (creation.card.tutorialEffects?.includes('guide')) {
+        const effectiveRange = this.getEffectiveRange(creation);
+        for (const unit of this.units.filter((u) => (this.isCivilian(u) || this.isMessenger(u)) && u.status === 'active')) {
+          if (tutorialEffectsGlobal || this.distance(unit.x, unit.y, creation.x, creation.y) <= effectiveRange + 2) {
+            unit.guidedTurns = Math.max(unit.guidedTurns || 0, 2);
+          }
+        }
+      }
+      if (creation.card.tutorialEffects?.includes('calm') && this.isWarLevel()) {
+        this.warMeter = Math.max(0, this.warMeter - 2);
+      }
+      if (creation.card.tutorialEffects?.includes('restrain_beast')) {
+        for (const beast of this.units.filter(unit => unit.type === 'beast' && unit.status === 'active')) {
+          beast.stunnedTurns = Math.max(beast.stunnedTurns || 0, 2);
+          beast.anger = Math.max(0, (beast.anger || 0) - 1);
+        }
+      }
     }
   }
 

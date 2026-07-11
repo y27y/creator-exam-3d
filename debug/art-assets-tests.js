@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
+import { TIMELINE_ENDING_ASSETS } from '../public/js/timelineEndingManifest.js';
 
 const artUrl = new URL('../public/assets/art/', import.meta.url);
 const artPath = fileURLToPath(artUrl);
@@ -36,6 +37,10 @@ const required = new Map([
   ['chapters/level-06/shot-03-before-seventh-day.webp', { width: 1920, height: 1080, maxBytes: 524288 }],
   ['textures/paper002-ui-grain.webp', { width: 512, height: 512, maxBytes: 32768 }]
 ]);
+
+for (const asset of TIMELINE_ENDING_ASSETS) {
+  required.set(asset.replace('./assets/art/', ''), { width: 1920, height: 1080, maxBytes: 524288 });
+}
 
 function uint24(buffer, offset) {
   return buffer[offset] | (buffer[offset + 1] << 8) | (buffer[offset + 2] << 16);
@@ -90,13 +95,14 @@ for (const [relative, expected] of required) {
 
 const assetFiles = listFiles(artPath).filter(file => !file.endsWith('.md'));
 const totalBytes = assetFiles.reduce((sum, relative) => sum + statSync(path.join(artPath, ...relative.split('/'))).size, 0);
-assert.ok(totalBytes <= 10 * 1024 * 1024, `art assets exceed 10 MiB: ${totalBytes}`);
+assert.ok(totalBytes <= 18 * 1024 * 1024, `art assets exceed 18 MiB: ${totalBytes}`);
 
 const serverSource = readFileSync(new URL('../server.js', import.meta.url), 'utf8');
 assert.ok(serverSource.includes("'.webp': 'image/webp'"), 'server MIME table must include WebP');
 assert.ok(attribution.includes('CC0 1.0'), 'attribution must record the public asset license');
 assert.ok(attribution.includes('11AE4A4057C81FAADC0F8BBE8E1C230BC939DCC3DF9222CEC83BD107B1D7C8C4'), 'Paper002 hash must be pinned');
-assert.equal((attribution.match(/Model: OpenAI image-2/g) || []).length, 29, 'art ledger should record the twenty-eight fixed image-2 scenes plus the NPC portrait set');
+assert.equal((attribution.match(/Model: OpenAI image-2/g) || []).length, 30, 'art ledger should retain all individually recorded image-2 asset groups');
+assert.ok(attribution.includes('## Image-2 multi-timeline ending CGs'), 'art ledger should record the 30-frame timeline ending set');
 assert.ok(attribution.includes('npc-portraits/README.md'), 'art ledger should link the NPC portrait prompt and hash ledger');
 
 const readme = readFileSync(new URL('../README.md', import.meta.url), 'utf8');

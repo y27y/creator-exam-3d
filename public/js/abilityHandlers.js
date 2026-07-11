@@ -85,7 +85,7 @@ AbilityHandlers.immediate.set('create_bridge', (game, creation) => {
 AbilityHandlers.immediate.set('dig_channel', (game, creation) => {
   const { card, x, y } = creation;
   let channeled = 0;
-  if (!game.unitAt(x, y) && canRewriteTerrain(game.getTerrain(x, y))) {
+  if (canRewriteTerrain(game.getTerrain(x, y))) {
     game.setTerrain(x, y, TILE.WATER);
   }
   for (const cell of game.tilesWithin(x, y, Math.max(1, card.range) + 1)) {

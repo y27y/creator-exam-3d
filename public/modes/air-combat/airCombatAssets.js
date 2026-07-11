@@ -1,16 +1,17 @@
 (function () {
+  // 迁移记录：旧 Skyward 僚机 player-wingman-attacker.png 已由长夜灯塔僚机统一替换，不再参与运行时加载。
   const manifest = {
     player: {
-      balanced: 'assets/images/ships/player-balanced.png',
-      attacker: 'assets/images/ships/player-attacker.png',
-      defender: 'assets/images/ships/player-defender.png',
-      scout: 'assets/images/ships/player-scout.png'
+      balanced: '../../assets/art/ships/rift-carrier.webp',
+      attacker: '../../assets/art/ships/rift-carrier.webp',
+      defender: '../../assets/art/ships/rift-carrier.webp',
+      scout: '../../assets/art/ships/rift-carrier.webp'
     },
     wingman: {
-      balanced: 'assets/images/ships/player-wingman-balanced.png',
-      attacker: 'assets/images/ships/player-wingman-attacker.png',
-      defender: 'assets/images/ships/player-wingman-defender.png',
-      scout: 'assets/images/ships/player-wingman-scout.png'
+      balanced: '../../assets/art/ships/lantern-wingman.webp',
+      attacker: '../../assets/art/ships/lantern-wingman.webp',
+      defender: '../../assets/art/ships/lantern-wingman.webp',
+      scout: '../../assets/art/ships/lantern-wingman.webp'
     },
     enemy: {
       small: 'assets/images/enemies/enemy-small.png',

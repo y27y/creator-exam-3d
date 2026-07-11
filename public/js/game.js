@@ -32,12 +32,17 @@ import { LEVEL_CHAPTER_INTROS } from './chapterIntros.js';
 import { resolveNpcVisualProfile } from './npcVisualProfiles.js';
 import { getNpcPortraitAsset } from './npcPortraitAssets.js';
 import { getBoardVisualTheme, getTerrainVisualStyle } from './boardVisualThemes.js';
+import { TutorialDirector } from './tutorialDirector.js';
+import { buildTimelineArchive } from './timelineArchive.js';
+import { EndingDirector } from './endingDirector.js';
+import { TIMELINE_ENDING_ASSETS } from './timelineEndingManifest.js';
 
 const TILE_SIZE = 1.55;
 const BOARD_SIZE = 7;
 const MAX_LOGS = 18;
 const TURN_RESOLUTION_LOCK_MS = 300;
 const CHAPTER_TRANSITION_MS = 1150;
+const FINALE_RETURN_KEY = 'creatorExamFinaleReturnState';
 
 // AI Narrative endpoint configuration
 const NARRATIVE_ENDPOINT = '/api/narrative';
@@ -181,6 +186,8 @@ class CreatorExam3D extends GameEngine {
     this.geometryCache = new Map();
     this.labelCache = new Map();
     this.boardTextureCache = new Map();
+    this.boardArtTextureCache = new Map();
+    this.boardArtTextureLoader = new THREE.TextureLoader();
     this.boardMaterialCache = new Map();
     this.tileMeshPool = new Map();
     this.unitMeshPool = new Map();
@@ -220,6 +227,8 @@ class CreatorExam3D extends GameEngine {
     this.cinematicCloseAction = null;
     this.cinematicPrimaryAction = null;
     this.cinematicWasResolving = false;
+    this.activeEndingDirector = null;
+    this.lastTimelineArchive = null;
     this.activeChapterIntro = null;
     this.chapterIntroFrameIndex = 0;
     this.chapterIntroPreloads = new Map();
@@ -234,9 +243,11 @@ class CreatorExam3D extends GameEngine {
     this.knownResidentActionIds = null;
     this.activeDrawerNoticeKey = null;
     this.soundscape = new Soundscape();
+    this.restoreFinaleResultsFromWorld();
 
     this.ui = this.collectUi();
     this.applyDebugGate();
+    if (this.isBoardQaMode()) document.body.dataset.boardQa = '1';
     window.__creatorExam3D = this;
     this.bindBrowserDemoSmokeBridge();
     this.initScene();
@@ -244,8 +255,10 @@ class CreatorExam3D extends GameEngine {
     this.bindSaveSlotUI();
     this.bindResidentDialogueUI();
     this.preloadChapterIntro('flood-village');
-    this.loadLevel(0);
-    window.requestAnimationFrame(() => this.showOpeningSequence());
+    this.loadLevel(this.debugBoardQaLevelIndex() ?? this.pendingFinaleLevelIndex());
+    this.tutorialDirector = new TutorialDirector(this);
+    this.tutorialDirector.initialize();
+    if (!this.isBoardQaMode()) window.requestAnimationFrame(() => this.showOpeningSequence());
     this.animate();
   }
 
@@ -304,6 +317,7 @@ class CreatorExam3D extends GameEngine {
     const targetLevelId = LEVELS[index]?.id;
     if (targetLevelId) this.applyLevelEnvironment(targetLevelId);
     super.loadLevel(index);
+    this.soundscape.setMusicTrack(this.mainGameMusicTrackForLevel(index));
     this.activeCard = null;
     this.placementMode = false;
     this.ui.cardPanel.classList.remove('placement-collapsed');
@@ -351,6 +365,7 @@ class CreatorExam3D extends GameEngine {
     this.renderWorld();
     this.updateUi();
     this.soundscape.play('riftPulse', { playbackRate: 0.82 + (this.levelIndex % 3) * 0.08 });
+    this.tutorialDirector?.afterLevelLoad(index);
   }
 
   applyDebugGate(search = window.location.search) {
@@ -383,6 +398,7 @@ class CreatorExam3D extends GameEngine {
       cinematicKicker: document.getElementById('cinematic-kicker'),
       cinematicTitle: document.getElementById('cinematic-title'),
       cinematicText: document.getElementById('cinematic-text'),
+      cinematicChoices: document.getElementById('cinematic-choices'),
       cinematicProgress: document.getElementById('cinematic-progress'),
       cinematicSkip: document.getElementById('cinematic-skip'),
       cinematicPrimary: document.getElementById('cinematic-primary'),
@@ -419,6 +435,22 @@ class CreatorExam3D extends GameEngine {
       placeBtn: document.getElementById('place-btn'),
       endTurnBtn: document.getElementById('end-turn-btn'),
       soundToggle: document.getElementById('sound-toggle'),
+      tutorialToggle: document.getElementById('tutorial-toggle'),
+      tutorialRailBtn: document.getElementById('tutorial-rail-btn'),
+      tutorialChoice: document.getElementById('tutorial-choice'),
+      tutorialChoiceStart: document.getElementById('tutorial-choice-start'),
+      tutorialChoiceFree: document.getElementById('tutorial-choice-free'),
+      tutorialPanel: document.getElementById('tutorial-panel'),
+      tutorialProgress: document.getElementById('tutorial-progress'),
+      tutorialTitle: document.getElementById('tutorial-title'),
+      tutorialCopy: document.getElementById('tutorial-copy'),
+      tutorialPromptBlock: document.getElementById('tutorial-prompt-block'),
+      tutorialPrompt: document.getElementById('tutorial-prompt'),
+      tutorialPrimary: document.getElementById('tutorial-primary'),
+      tutorialRecover: document.getElementById('tutorial-recover'),
+      tutorialCollapse: document.getElementById('tutorial-collapse'),
+      tutorialTargetMarker: document.getElementById('tutorial-target-marker'),
+      tutorialTargetMarkerLabel: document.getElementById('tutorial-target-marker-label'),
       restartBtn: document.getElementById('restart-btn'),
       nextBtn: document.getElementById('next-btn'),
       nightWatchPanel: document.getElementById('night-watch-panel'),
@@ -429,6 +461,7 @@ class CreatorExam3D extends GameEngine {
       airCombatTitle: document.getElementById('air-combat-title'),
       airCombatSummary: document.getElementById('air-combat-summary'),
       airCombatBtn: document.getElementById('air-combat-btn'),
+      timelineEndingReplay: document.getElementById('timeline-ending-replay'),
       browserSmokeBtn: document.getElementById('test-browser-smoke-btn'),
       logList: document.getElementById('log-list'),
       toast: document.getElementById('toast'),
@@ -762,17 +795,24 @@ class CreatorExam3D extends GameEngine {
     this.soundscape.bindUnlock(window);
     this.updateSoundToggle();
     window.addEventListener('resize', () => this.onResize());
-    this.renderer.domElement.addEventListener('pointerdown', (event) => this.onPointerDown(event));
+    this.renderer.domElement.addEventListener('pointerdown', (event) => {
+      this.soundscape.ensureMusicPlaying();
+      this.onPointerDown(event);
+    });
 
     document.addEventListener('click', event => {
       const control = event.target.closest?.('button, summary');
       if (!control || control.disabled || control === this.ui.soundToggle) return;
+      this.soundscape.ensureMusicPlaying();
       this.soundscape.play('uiSelect');
     });
     this.ui.soundToggle?.addEventListener('click', () => {
       const enabled = this.soundscape.toggle();
       this.updateSoundToggle();
-      if (enabled) this.soundscape.play('uiSelect', { cooldownMs: 0 });
+      if (enabled) {
+        this.soundscape.ensureMusicPlaying();
+        this.soundscape.play('uiSelect', { cooldownMs: 0 });
+      }
       this.showToast(enabled ? '声音已开启。' : '声音已关闭。');
     });
 
@@ -781,12 +821,24 @@ class CreatorExam3D extends GameEngine {
     this.ui.storytellerSelect?.addEventListener('change', (e) => this.handleStorytellerChange(e.target.value));
     this.ui.placeBtn.addEventListener('click', () => this.startPlacement());
     this.ui.endTurnBtn.addEventListener('click', () => this.endTurn());
-    this.ui.restartBtn.addEventListener('click', () => this.loadLevel(this.levelIndex));
+    this.ui.restartBtn.addEventListener('click', () => {
+      if (this.tutorialDirector?.isActive()) this.tutorialDirector.resetCurrentLesson();
+      else this.loadLevel(this.levelIndex);
+    });
     this.ui.nextBtn.addEventListener('click', () => this.nextLevel());
     this.ui.nightWatchBtn?.addEventListener('click', () => this.openNightWatch());
     this.ui.airCombatBtn?.addEventListener('click', () => this.openAirCombatMode());
-    this.ui.cinematicSkip?.addEventListener('click', () => this.closeCinematic());
+    this.ui.timelineEndingReplay?.addEventListener('click', () => this.replayTimelineEnding());
+    this.ui.cinematicSkip?.addEventListener('click', () => {
+      if (this.activeEndingDirector) this.activeEndingDirector.skipToAnchor();
+      else this.closeCinematic();
+    });
     this.ui.cinematicPrimary?.addEventListener('click', () => this.handleCinematicPrimary());
+    this.ui.cinematicChoices?.addEventListener('click', event => {
+      const button = event.target.closest('[data-timeline-anchor]');
+      if (!button || !this.activeEndingDirector) return;
+      this.activeEndingDirector.chooseAnchor(button.dataset.timelineAnchor);
+    });
     this.ui.cinematic?.addEventListener('keydown', event => {
       if (event.key === 'Tab') {
         const active = document.activeElement;
@@ -800,9 +852,10 @@ class CreatorExam3D extends GameEngine {
       }
       if (event.key === 'Escape') {
         event.preventDefault();
-        this.closeCinematic();
+        if (this.activeEndingDirector) this.activeEndingDirector.skipToAnchor();
+        else this.closeCinematic();
       }
-      if (event.key === 'ArrowRight' && this.activeChapterIntro) {
+      if (event.key === 'ArrowRight' && (this.activeChapterIntro || this.activeEndingDirector)) {
         event.preventDefault();
         this.handleCinematicPrimary();
       }
@@ -1018,6 +1071,8 @@ class CreatorExam3D extends GameEngine {
     this.ui.cinematicKicker.textContent = kicker;
     this.ui.cinematicTitle.textContent = title;
     this.ui.cinematicText.textContent = text;
+    this.ui.cinematicChoices.hidden = true;
+    this.ui.cinematicChoices.innerHTML = '';
     this.ui.cinematicPrimary.textContent = primary;
     if (artUrl) {
       this.ui.cinematicArt.style.setProperty('--cinematic-image', `url("${artUrl}")`);
@@ -1190,11 +1245,100 @@ class CreatorExam3D extends GameEngine {
     this.showCinematic({
       variant: victory ? 'ending-victory' : 'ending-loss',
       kicker: '第七日清算',
-      title: victory ? '世界记住了你的答案' : '裂隙记住了这次代价',
-      text: `${result?.notableMoment || '空域已经给出裁决。'} 结局修饰：${result?.endingModifier || '未命名'}`,
-      primary: '回到世界志',
-      onClose: () => this.openDrawer('world', 'air-combat-panel', document.getElementById('drawer-world-btn'))
+      title: result?.endingTitle || (victory ? '世界记住了你的答案' : '裂隙记住了这次代价'),
+      text: [
+        result?.endingSummary || '',
+        result?.notableMoment || '空域已经给出裁决。',
+        result?.finalNarrative || ''
+      ].filter(Boolean).join('\n\n'),
+      primary: '查看第七日之后',
+      onClose: () => this.startTimelineEnding(result, { startIndex: 1 })
     });
+  }
+
+  buildTimelineEndingArchive(result) {
+    const history = this.buildFinaleHistory(18);
+    return buildTimelineArchive({
+      legacyBranch: result?.legacyBranch,
+      finalState: result?.finalState,
+      levels: this.memorySystem?.levelHistory || [],
+      creations: history.recentCreations,
+      rescuedResidents: history.rescuedResidents.map(name => ({ id: name, name })),
+      lostResidents: history.lostResidents.map(name => ({ id: name, name })),
+      nightWatchResult: this.lastNightWatchResult,
+      airCombatResult: result
+    });
+  }
+
+  preloadTimelineEnding() {
+    for (const src of TIMELINE_ENDING_ASSETS) {
+      const image = new Image();
+      image.decoding = 'async';
+      image.src = src;
+    }
+  }
+
+  startTimelineEnding(result = this.lastAirCombatResult, { replay = false, startIndex = 0 } = {}) {
+    if (!result) return false;
+    const archive = this.buildTimelineEndingArchive(result);
+    this.lastTimelineArchive = archive;
+    this.preloadTimelineEnding();
+    this.activeEndingDirector = new EndingDirector({
+      archive,
+      onRender: (frame, state) => this.renderTimelineEndingFrame(frame, state),
+      onComplete: completedArchive => this.completeTimelineEnding(completedArchive)
+    });
+    this.activeEndingDirector.index = Math.max(0, Math.min(this.activeEndingDirector.frames.length - 1, startIndex));
+    this.activeEndingDirector.start({ resume: !replay });
+    return true;
+  }
+
+  renderTimelineEndingFrame(frame, state) {
+    if (!frame) return false;
+    const isLast = state.index === state.total - 1;
+    const needsAnchor = frame.phase === 'anchor-choice' && !state.archive.selectedAnchor;
+    this.showCinematic({
+      variant: `timeline-${frame.phase}`,
+      kicker: frame.kicker,
+      title: frame.title,
+      text: frame.text,
+      artUrl: frame.art,
+      progress: { index: state.index, total: state.total },
+      primary: isLast ? '写入世界志' : (needsAnchor ? '先选择锚点' : '继续'),
+      onPrimary: () => this.activeEndingDirector?.advance()
+    });
+    this.ui.cinematicSkip.textContent = frame.phase === 'anchor-choice' ? '停留在这里' : '前往最终选择';
+    this.ui.cinematicPrimary.disabled = needsAnchor;
+    if (Array.isArray(frame.choices)) {
+      this.ui.cinematicChoices.hidden = false;
+      this.ui.cinematicChoices.innerHTML = frame.choices.map(choice => {
+        const selected = state.archive.selectedAnchor?.id === choice.id;
+        return `<button type="button" class="cinematic-choice${selected ? ' selected' : ''}" data-timeline-anchor="${escapeHtml(choice.id)}" aria-pressed="${selected}"><strong>${escapeHtml(choice.title)}</strong><span>${escapeHtml(choice.description)}</span></button>`;
+      }).join('');
+      if (state.archive.selectedAnchor) {
+        this.ui.cinematicPrimary.disabled = false;
+        this.ui.cinematicArt.style.setProperty('--cinematic-image', `url("${state.archive.selectedAnchor.art}")`);
+      }
+    }
+    return true;
+  }
+
+  completeTimelineEnding(completedArchive) {
+    this.lastTimelineArchive = completedArchive;
+    const result = this.lastAirCombatResult || {};
+    this.lastAirCombatResult = { ...result, timelineArchive: completedArchive };
+    const events = this.worldSession?.worldSimulation?.eventBus?.events || [];
+    const event = events.find(entry => entry.type === 'airspace_resolved' && entry.payload?.id === result.id);
+    if (event) event.payload = { ...event.payload, timelineArchive: completedArchive };
+    this.memoryStore?.saveWorld?.(this.worldSession.worldSimulation);
+    this.activeEndingDirector = null;
+    this.closeCinematic();
+    this.updateUi();
+    this.openDrawer('world', 'air-combat-panel', document.getElementById('drawer-world-btn'));
+  }
+
+  replayTimelineEnding() {
+    return this.startTimelineEnding(this.lastAirCombatResult, { replay: true, startIndex: 0 });
   }
 
   onResize() {
@@ -1230,16 +1374,22 @@ class CreatorExam3D extends GameEngine {
     this.ui.compileBtn.disabled = true;
     this.ui.compileBtn.textContent = '编译中...';
     try {
-      const card = await compileCreation(text, this.getGameContext());
+      const fixedTutorialCard = this.tutorialDirector?.fixedCardForPrompt(text);
+      let card = fixedTutorialCard || await compileCreation(text, this.getGameContext());
+      if (!fixedTutorialCard) card = this.tutorialDirector?.prepareCompiledCard(card, text) || card;
       this.activeCard = card;
       this.showCard(card);
       this.soundscape.play('creationCompile');
       const displayName = this.getCreationDisplayName(card);
-      const compileNote = card.source === 'ai'
+      const compileNote = card.source === 'tutorial-fixed'
+        ? '固定教学造物已载入。'
+        : card.source === 'ai'
         ? '卡能放了。'
         : (card.fallbackMessage || '本地规则先顶上。');
       this.addLog(`造物就绪：${displayName}。${compileNote}`, true);
-      this.ui.aiMode.textContent = card.source === 'ai'
+      this.ui.aiMode.textContent = card.source === 'tutorial-fixed'
+        ? '固定教学造物：不经过云端编译。'
+        : card.source === 'ai'
         ? '云端编译回来了。'
         : (card.fallbackMessage || '本地规则在跑；配好 .env 后会接上云端。');
     } catch (error) {
@@ -1314,6 +1464,7 @@ class CreatorExam3D extends GameEngine {
   }
 
   placeCreation(x, y) {
+    if (!this.tutorialDirector?.validatePlacement(this.activeCard, x, y)) return false;
     if (this.unitAt(x, y) && ['block', 'force_field'].includes(this.activeCard.ability)) {
       this.showToast('不能把屏障直接放在单位身上。');
       return;
@@ -1369,9 +1520,11 @@ class CreatorExam3D extends GameEngine {
     }
 
     this.soundscape.play('creationPlace');
+    this.tutorialDirector?.recordPlacement(creation, x, y);
     this.checkEndCondition(false);
     this.renderWorld();
     this.updateUi();
+    return true;
   }
 
   applyImmediatePlacement(creation) {
@@ -1385,6 +1538,10 @@ class CreatorExam3D extends GameEngine {
 
   applyStorytellerEvent(event) {
     if (!event) return;
+    if (this.isTutorialRouteProtected() && ['floodSpread', 'terrainChange', 'entropyFluctuation', 'hazardRedirect'].includes(event.effect)) {
+      this.addLog(`【教学航线】${event.name}只留下了故事，没有改写黄金路线。`);
+      return;
+    }
 
     // Adaptive events are already applied by Storyteller.applyAdaptiveEvent
     // when severity is set. Re-apply here only if severity exists and effect
@@ -1499,15 +1656,19 @@ class CreatorExam3D extends GameEngine {
 
     // Screen effects for victory
     this.screenEffects.flash('#9dffb3', 500);
-    if (isFinal) {
-      // Generate epic ending for final level
-      const epicEnding = this.memorySystem.generateEpicEnding();
-      message += `\n\n${epicEnding.text}`;
-    }
-
     this.soundscape.play('levelWin');
+    this.tutorialDirector?.recordLevelWon();
     this.ui.nextBtn.classList.toggle('hidden', isFinal);
-    this.showModal('考核通过', message + (isFinal ? ' 防线入口已打开。' : ' 下一关已打开。'), isFinal ? '开启守城' : '继续', '重试');
+    if (isFinal) {
+      this.showModal(
+        '地面终考完成',
+        `${message}\n\n答案已经落在棋盘上，但它们还必须活过长夜六更，才能迎来第七日。`,
+        '把造物送上城墙',
+        '重试'
+      );
+    } else {
+      this.showModal('考核通过', `${message} 下一关已打开。`, '继续', '重试');
+    }
   }
 
   // Override failLevel for browser-specific effects
@@ -1563,21 +1724,85 @@ class CreatorExam3D extends GameEngine {
     this.showToast(`已跳到第 ${index + 1} 关。`);
   }
 
-  buildAirCombatContext() {
-    const activeResidents = this.units
+  buildFinaleHistory(limit = 18) {
+    const events = this.worldSession?.worldSimulation?.eventBus?.events || [];
+    const rememberedCreations = (this.memorySystem?.creationHistory || []).map(entry => ({
+      name: this.getCreationDisplayName(entry.card || entry),
+      ability: entry.card?.ability || entry.ability || 'unknown',
+      type: entry.card?.type || entry.type || '奇迹',
+      description: entry.card?.description || entry.description || '',
+      tags: Array.isArray(entry.card?.tags || entry.tags) ? [...(entry.card?.tags || entry.tags)] : [],
+      levelId: entry.levelId || entry.context?.levelId || 'unknown',
+      remaining: 0
+    }));
+    const currentCreations = this.creations.map(creation => ({
+      name: this.getCreationDisplayName(creation.card),
+      ability: creation.card?.ability || 'unknown',
+      type: creation.card?.type || '奇迹',
+      description: creation.card?.description || '',
+      tags: Array.isArray(creation.card?.tags) ? [...creation.card.tags] : [],
+      levelId: this.level?.id || 'unknown',
+      remaining: creation.remaining || 0
+    }));
+    const creationMap = new Map();
+    for (const creation of [...rememberedCreations, ...currentCreations]) {
+      const key = `${creation.levelId}|${creation.ability}|${creation.name}`;
+      creationMap.set(key, creation);
+    }
+
+    const currentActive = this.units
       .filter(unit => this.isCivilian(unit) && unit.status !== 'lost')
       .map(unit => unit.name);
-    const lostResidents = this.units
+    const currentLost = this.units
       .filter(unit => this.isCivilian(unit) && unit.status === 'lost')
       .map(unit => unit.name);
-    const recentCreations = this.creations
-      .map(creation => ({
-        name: this.getCreationDisplayName(creation.card),
-        ability: creation.card?.ability || 'unknown',
-        type: creation.card?.type || '奇迹',
-        remaining: creation.remaining || 0
-      }))
-      .slice(-8);
+    const rescuedFromEvents = events
+      .filter(event => event.type === 'unit_rescued')
+      .map(event => event.payload?.unitName)
+      .filter(Boolean);
+    const lostFromEvents = events
+      .filter(event => event.type === 'unit_lost')
+      .map(event => event.payload?.unitName)
+      .filter(Boolean);
+    const lostResidents = [...new Set([...lostFromEvents, ...currentLost])];
+    const lostSet = new Set(lostResidents);
+    const rescuedResidents = [...new Set([...rescuedFromEvents, ...currentActive])]
+      .filter(name => !lostSet.has(name));
+    const experiences = events.slice(-12).map(event => {
+      const payload = event.payload || {};
+      if (event.type === 'creation_placed') return `在${event.regionId}放置了「${normalizeCreationName({ name: payload.creationName, ability: payload.ability })}」，能力${payload.ability || 'unknown'}。`;
+      if (event.type === 'unit_rescued') return `${payload.unitName || '居民'}在${event.regionId}被救下。`;
+      if (event.type === 'unit_lost') return `${payload.unitName || '居民'}在${event.regionId}失踪或遇难。`;
+      if (event.type === 'region_resolved') return `${event.regionId}危机被解决。`;
+      if (event.type === 'region_lost') return `${event.regionId}危机留下伤痕。`;
+      if (event.type === 'defense_resolved') return `长夜守城坚持${payload.survivedWaves || 0}波，裂隙变化${payload.entropyDelta || 0}。`;
+      return `${event.regionId}发生${event.type}。`;
+    });
+    const discoveredLore = [...new Set([
+      ...(this.memorySystem?.worldState?.discoveredLore || []),
+      ...(this.worldState?.discoveredLore || [])
+    ])];
+
+    return {
+      recentCreations: [...creationMap.values()].slice(-Math.max(1, limit)),
+      rescuedResidents,
+      lostResidents,
+      experiences,
+      discoveredLore,
+      playerStyle: this.memorySystem?.getProfileSummary?.() || this.worldState?.playStyle || '未知',
+      finalExamStats: {
+        levelId: this.level?.id || 'final-exam',
+        turn: this.turn,
+        maxTurns: this.level?.maxTurns || 0,
+        rescued: this.rescued || 0,
+        lost: this.lost || 0,
+        entropy: this.entropy || 0
+      }
+    };
+  }
+
+  buildAirCombatContext() {
+    const history = this.buildFinaleHistory(18);
 
     return {
       id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
@@ -1587,16 +1812,23 @@ class CreatorExam3D extends GameEngine {
       regionTitle: this.level?.title || '第七天裂隙空域',
       endingPressure: this.entropy / (this.level?.entropyLimit || 7),
       entropy: this.entropy || 0,
-      rescuedResidents: activeResidents,
-      lostResidents,
-      recentCreations,
+      rescuedResidents: history.rescuedResidents,
+      lostResidents: history.lostResidents,
+      recentCreations: history.recentCreations,
       towerDefenseResult: this.lastNightWatchResult,
-      discoveredLore: this.worldState?.discoveredLore || [],
-      playerStyle: this.memorySystem?.getProfileSummary?.() || this.worldState?.playStyle || '未知'
+      experiences: history.experiences,
+      discoveredLore: history.discoveredLore,
+      playerStyle: history.playerStyle,
+      finalExamStats: history.finalExamStats,
+      tutorialMode: this.tutorialDirector?.modeContext?.() || { active: false }
     };
   }
 
   async openAirCombatMode(options = {}) {
+    if (!options.testEntry && !this.lastNightWatchResult) {
+      this.showToast('先完成长夜六更；守夜结果会决定第七日载体的状态。');
+      return;
+    }
     const context = this.buildAirCombatContext();
     try {
       localStorage.setItem('creatorExamAirCombatContext', JSON.stringify(context));
@@ -1613,6 +1845,7 @@ class CreatorExam3D extends GameEngine {
       window.location.href = url.toString();
       return;
     }
+    this.rememberFinaleReturn();
 
     try {
       const response = await fetch(url.toString(), { method: 'HEAD' });
@@ -1632,35 +1865,36 @@ class CreatorExam3D extends GameEngine {
     return this.level?.id === 'final-exam' || this.levelIndex === LEVELS.length - 1;
   }
 
+  pendingFinaleLevelIndex() {
+    try {
+      const hasPendingResult = Boolean(
+        localStorage.getItem('creatorExamNightWatchResult') ||
+        localStorage.getItem('creatorExamAirCombatResult')
+      );
+      if (!hasPendingResult) return 0;
+      const saved = JSON.parse(localStorage.getItem(FINALE_RETURN_KEY) || 'null');
+      const levelIndex = Number(saved?.levelIndex);
+      const fresh = Number(saved?.savedAt || 0) > Date.now() - 12 * 60 * 60 * 1000;
+      return fresh && Number.isInteger(levelIndex) && LEVELS[levelIndex]
+        ? levelIndex
+        : LEVELS.length - 1;
+    } catch (_error) {
+      return 0;
+    }
+  }
+
+  rememberFinaleReturn() {
+    try {
+      localStorage.setItem(FINALE_RETURN_KEY, JSON.stringify({
+        levelIndex: this.levelIndex,
+        levelId: this.level?.id || 'final-exam',
+        savedAt: Date.now()
+      }));
+    } catch (_error) {}
+  }
+
   buildNightWatchContext() {
-    const activeResidents = this.units
-      .filter(unit => this.isCivilian(unit) && unit.status !== 'lost')
-      .map(unit => unit.name);
-    const lostResidents = this.units
-      .filter(unit => this.isCivilian(unit) && unit.status === 'lost')
-      .map(unit => unit.name);
-    const recentCreations = this.creations
-      .map(creation => ({
-        name: this.getCreationDisplayName(creation.card),
-        ability: creation.card?.ability || 'unknown',
-        type: creation.card?.type || '奇迹',
-        description: creation.card?.description || '',
-        tags: creation.card?.tags || [],
-        remaining: creation.remaining || 0
-      }))
-      .slice(-18);
-    const experiences = (this.worldSession?.worldSimulation?.eventBus?.events || [])
-      .slice(-12)
-      .map(event => {
-        const payload = event.payload || {};
-        if (event.type === 'creation_placed') return `在${event.regionId}放置了「${normalizeCreationName({ name: payload.creationName, ability: payload.ability })}」，能力${payload.ability || 'unknown'}。`;
-        if (event.type === 'unit_rescued') return `${payload.unitName || '居民'}在${event.regionId}被救下。`;
-        if (event.type === 'unit_lost') return `${payload.unitName || '居民'}在${event.regionId}失踪或遇难。`;
-        if (event.type === 'region_resolved') return `${event.regionId}危机被解决。`;
-        if (event.type === 'region_lost') return `${event.regionId}危机留下伤痕。`;
-        if (event.type === 'defense_resolved') return `长夜守城守住${payload.survivedWaves || 0}波，裂隙变化${payload.entropyDelta || 0}。`;
-        return `${event.regionId}发生${event.type}。`;
-      });
+    const history = this.buildFinaleHistory(18);
 
     return {
       id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
@@ -1669,12 +1903,14 @@ class CreatorExam3D extends GameEngine {
       regionId: this.level?.id || 'final-exam',
       regionTitle: this.level?.title || '第七天之前',
       entropy: this.entropy || 0,
-      rescuedResidents: activeResidents,
-      lostResidents,
-      recentCreations,
-      experiences,
-      discoveredLore: this.worldState?.discoveredLore || [],
-      playerStyle: this.memorySystem?.getProfileSummary?.() || this.worldState?.playStyle || '未知'
+      rescuedResidents: history.rescuedResidents,
+      lostResidents: history.lostResidents,
+      recentCreations: history.recentCreations,
+      experiences: history.experiences,
+      discoveredLore: history.discoveredLore,
+      playerStyle: history.playerStyle,
+      finalExamStats: history.finalExamStats,
+      tutorialMode: this.tutorialDirector?.modeContext?.() || { active: false }
     };
   }
 
@@ -1689,6 +1925,7 @@ class CreatorExam3D extends GameEngine {
 
     const url = new URL('./modes/tower-defense/index.html', window.location.href);
     url.searchParams.set('from', 'creator-exam');
+    this.rememberFinaleReturn();
     const tab = window.open(url.toString(), 'creator_exam_night_watch');
     this.addLog(`【长夜守城】已开启 ${context.regionTitle} 的守夜防线。`, true);
     this.showToast(tab ? '长夜守城已打开。' : '浏览器拦截了新窗口，正在当前页打开。');
@@ -1761,6 +1998,24 @@ class CreatorExam3D extends GameEngine {
     if (result.notableMoment) this.addLog(`【守夜传说】${result.notableMoment}`);
     this.memoryStore?.saveWorld?.(this.worldSession.worldSimulation);
     this.updateUi();
+    const buffName = result.selectedBuff?.name ? `守夜誓约「${result.selectedBuff.name}」` : '守夜留下的余烬';
+    const bridgeDetail = result.towerPlan?.briefing || result.notableMoment || '';
+    this.showCinematic({
+      variant: result.victory ? 'airspace-bridge-victory' : 'airspace-bridge-loss',
+      kicker: '长夜结算 · 第七日将至',
+      title: result.victory ? '防线开始折叠升空' : '城墙缺口把战场推向天空',
+      text: [
+        `${result.theme || '长夜守城'}坚持 ${result.survivedWaves || 0} 波，保护 ${result.residentsProtected || 0} 名居民。`,
+        `${buffName}会成为载体的第一层结构。`,
+        bridgeDetail
+      ].filter(Boolean).join('\n\n'),
+      primary: '迎接第七日',
+      artUrl: './assets/art/cg-airspace-bridge.webp',
+      onPrimary: () => {
+        this.closeCinematic();
+        this.openAirCombatMode();
+      }
+    });
   }
 
   renderNightWatchPanel() {
@@ -1769,7 +2024,7 @@ class CreatorExam3D extends GameEngine {
     this.ui.nightWatchPanel.classList.toggle('hidden', !available);
     if (!available) return;
 
-    const creations = this.creations.map(c => c.card?.name).filter(Boolean).slice(-3);
+    const creations = this.buildFinaleHistory(3).recentCreations.map(creation => creation.name).filter(Boolean);
     const result = this.lastNightWatchResult;
     this.ui.nightWatchTitle.textContent = result ? `${result.theme || '长夜守城'} 已结算` : '第七天之前';
     this.ui.nightWatchSummary.innerHTML = result
@@ -1815,39 +2070,60 @@ class CreatorExam3D extends GameEngine {
       this.entropy = Math.max(0, Math.min(this.level.entropyLimit, this.entropy + delta));
     }
 
+    const epicEnding = this.memorySystem.generateEpicEnding({
+      nightWatchResult: this.lastNightWatchResult,
+      airCombatResult: result
+    });
+    const resolvedResult = {
+      ...result,
+      endingTitle: epicEnding?.title || '',
+      endingSummary: epicEnding?.summary || '',
+      legacyBranch: epicEnding?.legacyBranch || epicEnding?.endingBranch || 'standard',
+      finalState: epicEnding?.finalState || (victory ? 'cleansed' : 'rift_open'),
+      finalNarrative: String(epicEnding?.text || '').replace(/\s+/g, ' ').trim().slice(0, 520)
+    };
+    this.lastAirCombatResult = resolvedResult;
+
     this.recordGameEvent({
       type: 'airspace_resolved',
-      levelId: result.regionId || this.level?.id || 'final-exam',
-      regionId: result.regionId || this.level?.id || 'final-exam',
+      levelId: resolvedResult.regionId || this.level?.id || 'final-exam',
+      regionId: resolvedResult.regionId || this.level?.id || 'final-exam',
       turn: this.turn,
-      payload: result,
+      payload: resolvedResult,
       importance: 1,
-      tags: ['airspace', 'air_combat', victory ? 'victory' : 'loss', result.endingModifier || 'ending_modifier']
+      tags: ['airspace', 'air_combat', victory ? 'victory' : 'loss', resolvedResult.finalState]
     });
 
-    this.addLog(`【第七天裂隙空域】${victory ? '清算完成' : '清算失败'}，分数 ${result.score || 0}，裂隙变化 ${delta >= 0 ? '+' : ''}${delta}。`, true);
-    if (result.notableMoment) this.addLog(`【空域裁决】${result.notableMoment}`);
+    this.addLog(`【第七天裂隙空域】${resolvedResult.endingTitle}，分数 ${resolvedResult.score || 0}，裂隙变化 ${delta >= 0 ? '+' : ''}${delta}。`, true);
+    if (resolvedResult.notableMoment) this.addLog(`【空域裁决】${resolvedResult.notableMoment}`);
     this.memoryStore?.saveWorld?.(this.worldSession.worldSimulation);
     this.updateUi();
-    this.showEndingCinematic(result);
+    this.tutorialDirector?.recordFinaleComplete();
+    try { localStorage.removeItem(FINALE_RETURN_KEY); } catch (_error) {}
+    this.showEndingCinematic(resolvedResult);
   }
 
   renderAirCombatPanel() {
     if (!this.ui.airCombatPanel) return;
-    const available = this.isFinalExam();
+    const result = this.lastAirCombatResult;
+    const available = this.isFinalExam() || Boolean(result);
     this.ui.airCombatPanel.classList.toggle('hidden', !available);
     if (!available) return;
 
-    const creations = this.creations.map(c => c.card?.name).filter(Boolean).slice(-3);
-    const result = this.lastAirCombatResult;
+    const creations = this.buildFinaleHistory(3).recentCreations.map(creation => creation.name).filter(Boolean);
     const watchText = this.lastNightWatchResult
-      ? `守夜${this.lastNightWatchResult.victory ? '已守住' : '留下裂隙伤口'}，空域难度会随之调整。`
-      : '可先预演；正式节奏建议在长夜守城后进入。';
+      ? `${this.lastNightWatchResult.theme || '长夜'}${this.lastNightWatchResult.victory ? '已守住' : '留下裂隙伤口'}，坚持 ${this.lastNightWatchResult.survivedWaves || 0} 波；空域载体会继承这次结果。`
+      : '长夜尚未结算；造物必须先在城墙上活过六更，才能压缩为空域载体。';
     this.ui.airCombatTitle.textContent = result ? '第七天裂隙空域已结算' : '第七天裂隙空域';
     this.ui.airCombatSummary.innerHTML = result
-      ? `<strong>${result.outcome === 'victory' ? '空域清算' : '载体坠落'} · ${result.clearedLayers || 0}/6 段</strong><span>分数 ${result.score || 0}，结局修饰 ${result.endingModifier || '未记录'}</span>`
+      ? `<strong>${result.endingTitle || (result.outcome === 'victory' ? '空域清算' : '载体坠落')} · ${result.clearedLayers || 0}/6 段</strong><span>${result.endingSummary || `分数 ${result.score || 0}`}</span>`
       : `<strong>熵值 ${this.entropy || 0} · ${watchText}</strong><span>${creations.length ? `造物武器来源：${creations.join('、')}` : '最近造物会压缩成空域武器。'}</span>`;
-    this.ui.airCombatBtn.textContent = result ? '再次进入空域' : (this.lastNightWatchResult ? '进入第七天空域' : '预演空域');
+    this.ui.airCombatBtn.disabled = !result && !this.lastNightWatchResult;
+    this.ui.airCombatBtn.textContent = result ? '再次进入空域' : (this.lastNightWatchResult ? '进入第七天空域' : '等待长夜结算');
+    if (this.ui.timelineEndingReplay) {
+      this.ui.timelineEndingReplay.hidden = !result;
+      this.ui.timelineEndingReplay.textContent = result?.timelineArchive?.completed ? '重看时间线终章' : '查看时间线终章';
+    }
   }
 
   loadNextRegion(regionData) {
@@ -2091,12 +2367,15 @@ class CreatorExam3D extends GameEngine {
   }
 
   // Override isPassable for simpler browser version (no trap avoidance)
-  isPassable(x, y, unit) {
+  isPassable(x, y, unit, options = {}) {
     // Support temporary pathfinding blocks used by _findNonReversingStep.
     if (unit?._pathfindBlock && unit._pathfindBlock.x === x && unit._pathfindBlock.y === y) return false;
+    const occupant = this.unitAt(x, y);
+    const sharedMeetingPoint = occupant && occupant !== unit && this.isMessenger(unit) && this.isMessenger(occupant)
+      && unit.goal?.x === x && unit.goal?.y === y && occupant.goal?.x === x && occupant.goal?.y === y;
+    if (!options.ignoreOccupants && occupant && occupant !== unit && occupant.status === 'active' && !sharedMeetingPoint) return false;
     const terrain = this.getTerrain(x, y);
     if (terrain === TILE.MOUNTAIN || terrain === TILE.WALL) return false;
-    // Multiple units may occupy the same tile.
     if (unit.type === 'beast') {
       // 裂隙兽（hazardPhase）可穿越洪水/黑暗/迷雾等灾害地形，仅被田地阻挡（墙/山已在上方统一阻挡）
       if (unit.hazardPhase) {
@@ -2178,7 +2457,16 @@ class CreatorExam3D extends GameEngine {
       this.addLog(`【工坊】${surviving.length} 个造物已存入跨关工坊。`, true);
     }
 
-    this.showModal('考核通过', message + (isFinal ? ' 防线入口已打开。' : ' 下一关已打开。'), isFinal ? '开启守城' : '继续', '重试');
+    if (isFinal) {
+      this.showModal(
+        '地面终考完成',
+        `${message}\n\n答案已经落在棋盘上，但它们还必须活过长夜六更，才能迎来第七日。`,
+        '把造物送上城墙',
+        '重试'
+      );
+    } else {
+      this.showModal('考核通过', `${message} 下一关已打开。`, '继续', '重试');
+    }
   }
 
   handleLose(message) {
@@ -2609,10 +2897,78 @@ class CreatorExam3D extends GameEngine {
     this.boardBase.material = this.boardMaterialCache.get(theme.id);
     this.boardBase.userData.boardTheme = theme.id;
     this.createBoardSurfaceDetails(theme);
+    this.loadBoardArtTexture(theme);
+  }
+
+  restoreFinaleResultsFromWorld() {
+    const events = this.worldSession?.worldSimulation?.eventBus?.events || [];
+    const defenseEvent = [...events].reverse().find(event => event.type === 'defense_resolved' && event.payload?.id);
+    const airspaceEvent = [...events].reverse().find(event => event.type === 'airspace_resolved' && event.payload?.id);
+    if (defenseEvent) {
+      this.lastNightWatchResult = defenseEvent.payload;
+      this.processedNightWatchResults.add(defenseEvent.payload.id);
+    }
+    if (airspaceEvent) {
+      this.lastAirCombatResult = airspaceEvent.payload;
+      this.processedAirCombatResults.add(airspaceEvent.payload.id);
+      this.lastTimelineArchive = airspaceEvent.payload.timelineArchive || null;
+    }
+    return Boolean(defenseEvent || airspaceEvent);
+  }
+
+  isBoardQaMode(search = window.location.search) {
+    const params = new URLSearchParams(search);
+    return params.get('debug') === '1' && params.get('boardQa') === '1';
+  }
+
+  debugBoardQaLevelIndex(search = window.location.search) {
+    if (!this.isBoardQaMode(search)) return null;
+    const requested = Number(new URLSearchParams(search).get('level'));
+    return Number.isInteger(requested) && LEVELS[requested] ? requested : 0;
+  }
+
+  loadBoardArtTexture(theme) {
+    const cached = this.boardArtTextureCache.get(theme.id);
+    if (cached) {
+      this.installBoardArtTexture(theme, cached);
+      return;
+    }
+    if (!theme.artTexture) return;
+    this.boardArtTextureLoader.load(theme.artTexture, texture => {
+      texture.colorSpace = THREE.SRGBColorSpace;
+      texture.anisotropy = Math.min(8, this.renderer.capabilities.getMaxAnisotropy());
+      texture.needsUpdate = true;
+      this.boardArtTextureCache.set(theme.id, texture);
+      this.installBoardArtTexture(theme, texture);
+    }, undefined, () => {
+      this.boardSurfaceGroup.userData.artTexture = '';
+      this.boardSurfaceGroup.userData.artTextureFallback = true;
+    });
+  }
+
+  installBoardArtTexture(theme, texture) {
+    const cachedMaterials = this.boardMaterialCache.get(theme.id);
+    const materials = cachedMaterials?.[1]?.map === texture
+      ? cachedMaterials
+      : [
+        new THREE.MeshStandardMaterial({ color: theme.side, roughness: 0.94, metalness: 0.03 }),
+        new THREE.MeshStandardMaterial({ color: 0xffffff, map: texture, roughness: 0.9, metalness: 0.01, emissive: theme.surface, emissiveIntensity: 0.025 }),
+        new THREE.MeshStandardMaterial({ color: theme.side, roughness: 1, metalness: 0 })
+      ];
+    this.boardMaterialCache.set(theme.id, materials);
+    if (this.activeBoardThemeId !== theme.id) return;
+    this.boardBase.material = materials;
+    this.clearBoardSurfaceDetails();
+    this.boardSurfaceGroup.userData.motif = theme.motif;
+    this.boardSurfaceGroup.userData.detailTypes = [...(theme.details || [])];
+    this.boardSurfaceGroup.userData.artTexture = theme.artTexture;
+    this.boardSurfaceGroup.userData.artTextureFallback = false;
+    if (this.isBoardQaMode()) this.renderer.render(this.scene, this.camera);
   }
 
   applyLevelEnvironment(levelId) {
     const preset = LEVEL_ENVIRONMENTS[levelId] || LEVEL_ENVIRONMENTS['final-exam'];
+    document.body.dataset.levelTheme = levelId;
     this.clearLevelEnvironment();
     this.applyBoardVisualTheme(levelId);
     this.scene.background = new THREE.Color(preset.background);
@@ -2872,17 +3228,15 @@ class CreatorExam3D extends GameEngine {
     const surfaceMaterial = this.getTerrainMaterial(terrain);
     group.rotation.y = (variation - 0.5) * 0.18;
 
+    if (terrain === TILE.LAND) return group;
+
     if (terrain === TILE.WATER) {
-      const basin = new THREE.Mesh(
-        this.getCachedGeometry('terrain-water-basin-v3', () => new THREE.CylinderGeometry(0.64, 0.72, 0.065, 14)),
-        this.material(style.secondary, { roughness: 0.95 })
-      );
       const water = new THREE.Mesh(
-        this.getCachedGeometry('terrain-water-surface-v3', () => new THREE.CylinderGeometry(0.59, 0.63, 0.035, 20)),
-        surfaceMaterial
+        this.getCachedGeometry('terrain-water-surface-image2', () => new THREE.PlaneGeometry(1.24, 1.24)),
+        this.material(style.color, { transparent: true, opacity: 0.16, roughness: 0.3, metalness: 0.05, depthWrite: false })
       );
-      water.position.y = 0.022;
-      water.scale.set(0.96 + variation * 0.07, 1, 1.02 - variation * 0.06);
+      water.rotation.x = -Math.PI / 2;
+      water.position.y = 0.045;
       const rippleA = new THREE.Mesh(this.getCachedGeometry('terrain-water-ripple-a-v3', () => new THREE.TorusGeometry(0.3, 0.009, 5, 22, Math.PI * 1.35)), this.material(style.accent, { transparent: true, opacity: 0.42, emissive: style.secondary, emissiveIntensity: 0.1 }));
       const rippleB = new THREE.Mesh(this.getCachedGeometry('terrain-water-ripple-b-v3', () => new THREE.TorusGeometry(0.49, 0.008, 5, 24, Math.PI * 0.9)), this.material(style.accent, { transparent: true, opacity: 0.24 }));
       rippleA.rotation.x = Math.PI / 2;
@@ -2891,7 +3245,7 @@ class CreatorExam3D extends GameEngine {
       rippleB.rotation.z = (1 - variation) * Math.PI;
       rippleA.position.y = 0.045;
       rippleB.position.y = 0.048;
-      group.add(basin, water, rippleA, rippleB);
+      group.add(water, rippleA, rippleB);
       if (this.activeBoardThemeId === 'flood-village' && variation > 0.46) {
         const debris = new THREE.Mesh(this.getCachedGeometry('terrain-water-driftwood-v3', () => new THREE.BoxGeometry(0.42, 0.035, 0.055)), this.material(0x66523c, { roughness: 1 }));
         debris.position.set((variation - 0.5) * 0.35, 0.065, 0.1 - variation * 0.2);
@@ -2953,22 +3307,24 @@ class CreatorExam3D extends GameEngine {
       return group;
     }
 
-    const base = new THREE.Mesh(
-      this.getCachedGeometry(`terrain-slab-v3-${terrain}-${height}`, () => new THREE.CylinderGeometry(0.62, 0.71, height, 9)),
-      surfaceMaterial
-    );
-    base.scale.set(0.96 + variation * 0.06, 1, 1.02 - variation * 0.05);
-    base.castShadow = terrain !== TILE.FOG && terrain !== TILE.DARK;
-    base.receiveShadow = true;
-    group.add(base);
+    if (terrain === TILE.HIGH) {
+      const base = new THREE.Mesh(
+        this.getCachedGeometry(`terrain-slab-v3-${terrain}-${height}`, () => new THREE.CylinderGeometry(0.62, 0.71, height, 9)),
+        surfaceMaterial
+      );
+      base.scale.set(0.96 + variation * 0.06, 1, 1.02 - variation * 0.05);
+      base.castShadow = true;
+      base.receiveShadow = true;
+      group.add(base);
 
-    const rim = new THREE.Mesh(
-      this.getCachedGeometry('terrain-slab-rim-v3', () => new THREE.TorusGeometry(0.6, 0.014, 5, 26)),
-      this.material(style.accent, { transparent: true, opacity: 0.22, roughness: 0.9 })
-    );
-    rim.rotation.x = Math.PI / 2;
-    rim.position.y = height / 2 + 0.016;
-    group.add(rim);
+      const rim = new THREE.Mesh(
+        this.getCachedGeometry('terrain-slab-rim-v3', () => new THREE.TorusGeometry(0.6, 0.014, 5, 26)),
+        this.material(style.accent, { transparent: true, opacity: 0.22, roughness: 0.9 })
+      );
+      rim.rotation.x = Math.PI / 2;
+      rim.position.y = height / 2 + 0.016;
+      group.add(rim);
+    }
 
     if (terrain === TILE.LAND) {
       for (let index = 0; index < 2; index += 1) {
@@ -4407,8 +4763,9 @@ class CreatorExam3D extends GameEngine {
       'modify-workshop'
     ]);
     if (tacticalIds.has(actionId)) {
-      this.executeTacticalAction(actionId);
-      return;
+      const result = this.executeTacticalAction(actionId);
+      if (result?.success) this.tutorialDirector?.recordSystemAction(actionId);
+      return result;
     }
 
     switch (actionId) {
@@ -4482,6 +4839,8 @@ class CreatorExam3D extends GameEngine {
     }
     this.renderWorld();
     this.updateUi();
+    this.tutorialDirector?.recordSystemAction(actionId);
+    return { success: true };
   }
 
   executeTacticalAction(actionId) {
@@ -4489,7 +4848,7 @@ class CreatorExam3D extends GameEngine {
     const option = this.buildTacticalOptions(snapshot).find(item => item.id === actionId);
     if (!option || option.enabled === false) {
       this.showToast(option?.disabledReason || '这张战术牌现在打不出去。');
-      return;
+      return { success: false, error: option?.disabledReason || '这张战术牌现在打不出去。' };
     }
 
     const before = this.summarizeTacticalBoard();
@@ -4527,7 +4886,7 @@ class CreatorExam3D extends GameEngine {
     if (!result?.success) {
       this.showToast(result?.error || '战术结算失败。');
       this.updateUi();
-      return;
+      return result || { success: false, error: '战术结算失败。' };
     }
 
     this.rememberTacticalAction(actionId, option.mechanism, result.summary || option.impact, option.interference || 0);
@@ -4537,6 +4896,7 @@ class CreatorExam3D extends GameEngine {
     this.invalidateIntentPreview();
     this.renderWorld();
     this.updateUi();
+    return result;
   }
 
   async runBrowserDemoSmoke(options = {}) {
@@ -6176,6 +6536,7 @@ class CreatorExam3D extends GameEngine {
     } finally {
       this.setNpcDialoguePending(false);
       this.renderNpcDialoguePanel();
+      this.tutorialDirector?.recordSystemAction('npc-dialogue');
     }
   }
 
@@ -7006,6 +7367,7 @@ class CreatorExam3D extends GameEngine {
       defaultStoryteller.setPersonality(personality);
       this.addLog(`【旁白】已切到${defaultStoryteller.personality.name}。`, true);
       this.renderStorytellerPanel();
+      this.tutorialDirector?.recordSystemAction('storyteller');
     }
   }
 
@@ -7306,6 +7668,11 @@ class CreatorExam3D extends GameEngine {
     this.ui.soundToggle.setAttribute('aria-label', enabled ? '关闭游戏声音' : '开启游戏声音');
   }
 
+  mainGameMusicTrackForLevel(levelIndex) {
+    if (!Number.isFinite(levelIndex)) return 0;
+    return Math.max(0, Math.min(5, Math.floor(levelIndex)));
+  }
+
   getGameContext() {
     return {
       levelTitle: this.level.title,
@@ -7594,6 +7961,7 @@ class CreatorExam3D extends GameEngine {
     });
     this.addLog?.(`World saved to slot ${snapshot.slotId}.`);
     this.renderSaveSlots();
+    this.tutorialDirector?.recordSystemAction('save-tutorial');
   }
 
   loadSelectedSlot() {
@@ -7759,7 +8127,9 @@ class CreatorExam3D extends GameEngine {
   }
 
   animate(now) {
-    requestAnimationFrame((t) => this.animate(t));
+    const boardQaMode = this.isBoardQaMode();
+    this.boardQaFrameCount = boardQaMode ? (this.boardQaFrameCount || 0) + 1 : 0;
+    if (!boardQaMode || this.boardQaFrameCount < 180) requestAnimationFrame((t) => this.animate(t));
     const deltaTime = Math.min((now - this.lastFrameTime) / 1000 || 0.016, 0.1); // Limit max delta
     this.lastFrameTime = now;
     const t = performance.now() / 1000;
@@ -7784,6 +8154,7 @@ class CreatorExam3D extends GameEngine {
     }
 
     this.controls.update();
+    this.tutorialDirector?.positionMarker();
     this.renderer.render(this.scene, this.camera);
   }
 
@@ -7803,14 +8174,7 @@ class CreatorExam3D extends GameEngine {
   }
 
   applyActiveCreationEffects() {
-    for (const creation of this.creations) {
-      if (creation.remaining <= 0 || creation.placed === false) continue;
-      const type = creation.card.specialEffect?.type;
-      if (type === 'mobile' || type === 'movement') this.moveCreationMobile(creation);
-      if (type === 'environmental') this.applyEnvironmentalEffect(creation);
-      if (type === 'sacrifice') this.applySacrificeEffect(creation);
-      applyAbility(this, creation, 'active');
-    }
+    super.applyActiveCreationEffects();
   }
 
   endTurn() {
@@ -7819,6 +8183,7 @@ class CreatorExam3D extends GameEngine {
       this.showToast('Level already ended.');
       return;
     }
+    this.tutorialDirector?.checkpoint('before-turn');
     this.setTurnControlsPending(true);
     try {
       this.addLog(`Turn ${this.turn} starts.`, true);
@@ -7849,6 +8214,7 @@ class CreatorExam3D extends GameEngine {
       this.renderWorld();
       this.updateUi();
       this.releaseTurnResolutionLock();
+      this.tutorialDirector?.render();
     }
   }
 

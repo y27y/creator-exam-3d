@@ -3,18 +3,22 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>第七天裂隙空域 - 造物者考核3D</title>
+  <title>第七日裂隙空域 - 造物者考核3D</title>
   <link rel="stylesheet" href="./style.css">
+  <link rel="stylesheet" href="../../ui-image2-skins.css">
 </head>
-<body>
+<body class="air-combat-mode">
   <main class="airspace-shell">
-    <section class="airspace-stage" aria-label="第七天裂隙空域">
+    <section class="airspace-stage" aria-label="第七日裂隙空域">
       <canvas id="airspace-canvas" width="540" height="860"></canvas>
+      <div id="airspace-briefing-visual" class="airspace-briefing-visual" data-briefing-step="0" data-cg-state="loading" aria-hidden="true">
+        <img id="airspace-bridge-cg" src="../../assets/art/cg-airspace-bridge.webp" alt="" decoding="async" fetchpriority="high">
+      </div>
       <div id="airspace-hud" class="airspace-hud hidden">
         <div class="hud-info-chip">
           <div class="hud-info-row">
             <span class="hud-label">阶段</span>
-            <strong id="hud-stage">第七天裂隙空域</strong>
+            <strong id="hud-stage">第七日裂隙空域</strong>
             <small id="hud-affix" class="hud-detail"></small>
           </div>
           <div class="hud-info-row">
@@ -30,14 +34,30 @@
         <p id="clearance-body"></p>
       </div>
       <button id="airspace-skill" class="airspace-skill hidden" type="button" title="释放造物副作用">造物脉冲</button>
-      <div id="airspace-menu" class="airspace-menu">
-        <div class="menu-kicker">第七天</div>
+      <button id="airspace-highlight" class="airspace-highlight hidden" type="button" hidden aria-hidden="true" tabindex="-1" data-tutorial-bailout="true" title="教学保底外挂：本局永久无敌，不计入正常玩法要求">教学保底 · 开启无敌</button>
+      <aside id="airspace-tutorial" class="airspace-tutorial hidden" aria-live="polite">
+        <button id="airspace-tutorial-toggle" class="airspace-tutorial-toggle" type="button" aria-expanded="true" aria-label="收起空战教学">教</button>
+        <div class="airspace-tutorial-body">
+          <strong>空战教学</strong>
+          <ol>
+            <li>保留第一件武器并起飞。</li>
+            <li>留在下方；紫色预警出现就横移。</li>
+            <li>Boss 出现后反复使用“造物脉冲”。</li>
+          </ol>
+          <small>实在过不了，就点“教学保底 · 开启无敌”。这是救急外挂，不计入正常流程。</small>
+        </div>
+      </aside>
+      <div id="airspace-menu" class="airspace-menu" data-briefing-step="0" data-briefing-phase="ground-exam">
+        <div class="menu-kicker">地面终考</div>
         <h1>裂隙空域</h1>
-        <p id="airspace-brief">白天留下的造物正在压缩为空域载体。</p>
+        <p id="airspace-brief">地面终考的答案正穿过长夜六更，等待第七日升空。</p>
+        <div id="airspace-briefing-progress" class="airspace-briefing-progress" role="progressbar" aria-label="空域过场进度" aria-valuemin="1" aria-valuemax="4" aria-valuenow="1">
+          <span class="active"></span><span></span><span></span><span></span>
+        </div>
         <div id="airspace-choices" class="airspace-choices hidden"></div>
         <div id="airspace-loadout" class="airspace-loadout"></div>
-        <button id="airspace-start" class="primary" type="button">进入空域</button>
-        <button id="airspace-return" class="secondary" type="button">返回考核</button>
+        <button id="airspace-start" class="primary" type="button">继续</button>
+        <button id="airspace-return" class="secondary" type="button">返回地面终考</button>
       </div>
       <div id="airspace-result" class="airspace-result hidden">
         <div class="menu-kicker">清算完成</div>

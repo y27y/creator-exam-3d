@@ -343,7 +343,7 @@ function buildResolvedDescription(ability, range, isTooStrong = false) {
   }
   if (ability === 'teleport') return '把附近一个人送到目标点，范围有限，代价不低。';
   if (ability === 'shield_units') return '给附近的人套层短护盾，挡一次危险地形的伤。';
-  if (ability === 'redirect_hazard') return '临时把附近最多两格洪水、雾或毒拨开，腾出通路。';
+  if (ability === 'redirect_hazard') return '临时把附近最多两格洪水、雾或毒改道拨开，腾出通路。';
   if (ability === 'attract') return '在3回合内把范围内的目标吸过来，期间它们会朝这里移动。';
   return buildDescription(ability, isTooStrong, true);
 }

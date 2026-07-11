@@ -1297,6 +1297,21 @@ runner.test('movement - units should not step into newly occupied tiles', () => 
   runner.assert(!(game.units[1].x === 4 && game.units[1].y === 4), 'second mover should not step into the first mover occupied tile');
 });
 
+runner.test('movement - messengers should share their authored meeting point', () => {
+  const game = new GameEngine();
+  game.levelIndex = 3;
+  game.reset();
+  game.terrain = Array.from({ length: 7 }, () => Array.from({ length: 7 }, () => TILE.LAND));
+  game.warMeter = 0;
+  game.units = [
+    { id: 'east', type: 'tribeA', name: 'East', x: 2, y: 3, goal: { x: 3, y: 3 }, status: 'active' },
+    { id: 'west', type: 'tribeB', name: 'West', x: 4, y: 3, goal: { x: 3, y: 3 }, status: 'active' }
+  ];
+
+  game.moveUnits();
+  runner.assert(game.units.every(unit => unit.x === 3 && unit.y === 3 && unit.met), 'both messengers should enter the shared meeting tile');
+});
+
 runner.test('movement - placed haste card should grant real extra steps in core and debug games', () => {
   for (const GameClass of [GameEngine, DebugGame]) {
     const game = new GameClass();
@@ -3420,6 +3435,8 @@ runner.test('GameEngine - 应为失败和单位迷失发出世界事件', () => 
   const villager = game.units.find(unit => unit.type === 'villager' && unit.status === 'active');
   game.setTerrain(villager.x, villager.y, 'water');
   game.applyTileHazardsToUnits();
+  runner.assert(!events.some(event => event.type === 'unit_lost'), '首次危险地形覆盖应保留一回合生机');
+  game.applyTileHazardsToUnits();
   runner.assert(events.some(event => event.type === 'unit_lost'), '单位迷失应发出unit_lost事件');
 
   game.gameState = 'playing';
@@ -3677,6 +3694,11 @@ runner.test('Save Slot UI - DOM should expose save, load, delete, export, and im
     runner.assert(html.includes(id), `index.html should include ${id}`);
   }
   runner.assert(css.includes('.save-slot-panel'), 'styles.css should style save slot panel');
+  runner.assert(css.includes('grid-template-columns: repeat(5, minmax(0, 1fr))'), 'save slot actions should share the narrow drawer width');
+  runner.assert(css.includes('grid-column: 1 / -1'), 'save slot name should occupy its own row');
+  runner.assert(css.includes('white-space: nowrap'), 'save slot action labels should not wrap vertically');
+  runner.assert(html.includes('class="save-slot-data-label"'), 'save slot backup data should have a visible explanation');
+  runner.assert(html.includes('placeholder="暂无备份数据"'), 'empty save slot backup data should explain its state');
 });
 
 runner.test('Save Slot UI - game.js should wire SaveSlotManager through explicit methods', async () => {
@@ -4681,10 +4703,11 @@ runner.test('WorldSimulation - 应包含rumorSystem序列化', async () => {
 
 // 运行测试
 runner.test('Night Watch integration - should keep AI bridge and result update wiring', async () => {
-  const { readFileSync } = await import('node:fs');
+  const { existsSync, readFileSync } = await import('node:fs');
   const bridge = readFileSync(new URL('../public/modes/tower-defense/towerBridge.js', import.meta.url), 'utf8');
   const tower = readFileSync(new URL('../public/modes/tower-defense/index.html', import.meta.url), 'utf8');
   const towerModule = readFileSync(new URL('../public/modes/tower-defense/nightWatchTowers.js', import.meta.url), 'utf8');
+  const towerArt = readFileSync(new URL('../public/modes/tower-defense/nightWatchArt.js', import.meta.url), 'utf8');
   const server = readFileSync(new URL('../server.js', import.meta.url), 'utf8');
   const game = readFileSync(new URL('../public/js/game.js', import.meta.url), 'utf8');
 
@@ -4707,13 +4730,29 @@ runner.test('Night Watch integration - should keep AI bridge and result update w
   runner.assert(bridge.includes('night-watch-causes'), 'Night Watch should render a causal briefing');
   runner.assert(bridge.includes('night-watch-buff-choices'), 'Night Watch should render three buff choices');
   runner.assert(bridge.includes('width: min(760px'), 'Night Watch setup should use a compact selection layout');
-  runner.assert(bridge.includes('第六关到第七关之间'), 'Night Watch should be framed as the interlude before level seven');
-  runner.assert(bridge.includes('每5波推进一夜'), 'Night Watch waves should be grouped into six nights');
+  for (const anchor of ['地面终考', '长夜六更', '第七日']) {
+    runner.assert(bridge.includes(anchor), `Night Watch should preserve the ${anchor} finale anchor`);
+  }
+  const slideStart = bridge.indexOf('  function cutsceneSlides() {');
+  const slideEnd = bridge.indexOf('  function showNightWatchCinematic() {', slideStart);
+  const slideBlock = bridge.slice(slideStart, slideEnd);
+  runner.assertEqual((slideBlock.match(/artPosition:/g) || []).length, 4, 'Night Watch should use four CG pages');
+  runner.assert(bridge.includes('长夜第 ${day}/6 更'), 'Night Watch waves should advance through six watches rather than six separate nights');
   runner.assert(tower.includes('for (const t of towers || [])'), 'resizeCanvas should tolerate pre-game resize');
-  runner.assert(game.includes('.slice(-18)'), 'main game should pass up to 18 creation cards into Night Watch');
+  runner.assert(game.includes('buildFinaleHistory(18)'), 'main game should build one cross-mode finale history');
+  runner.assert(game.includes('this.memorySystem?.creationHistory'), 'main game should pass cross-level creation memory into Night Watch');
+  for (const field of ['description:', 'tags:', 'levelId:']) {
+    runner.assert(game.includes(field), `main game should preserve creation ${field.slice(0, -1)} for later modes`);
+  }
   runner.assert(game.includes('experiences'), 'main game should pass recent story experiences into Night Watch');
   runner.assert(game.includes('processedNightWatchResults.has(result.id)'), 'game.js should dedupe Night Watch results');
   runner.assert(game.includes('event.payload = { ...event.payload, ...result }'), 'game.js should merge AI settlement updates into the world event payload');
+  runner.assert(tower.includes('nightWatchArt.js'), 'Night Watch should load its local tower-art adapter');
+  for (const asset of ['tower-assault.webp', 'tower-control.webp', 'tower-support.webp']) {
+    runner.assert(towerArt.includes(`../../assets/art/towers/${asset}`), `tower art adapter should reference ${asset}`);
+    runner.assert(existsSync(new URL(`../public/assets/art/towers/${asset}`, import.meta.url)), `${asset} should exist`);
+  }
+  runner.assert(tower.includes("if (!rendered && typeof fallbackDraw === 'function') fallbackDraw(portraitCtx)"), 'broken tower art should fall back to procedural portraits');
 });
 
 runner.test('Night Watch dynamic towers - should derive different tower plans from different creations', async () => {
@@ -4827,6 +4866,14 @@ runner.test('Air Combat integration - should keep finite airspace bridge and res
   runner.assert(airGame.includes("finish('victory')"), 'air combat should have a finite victory route');
   runner.assert(airGame.includes('CREATOR_EXAM_AIR_COMBAT_READY'), 'air combat should expose browser readiness');
   runner.assert(airGame.includes("dataset.airCombatReady = 'true'"), 'air combat readiness should be visible to DOM smoke tests');
+  runner.assert(bridge.includes('nightWatchResultSummary'), 'air combat briefing should normalize the prior Night Watch result');
+  for (const field of ['survivedWaves', 'residentsProtected', 'theme', 'selectedBuff', 'towerPlan?.briefing']) {
+    runner.assert(bridge.includes(field), `air combat briefing should consume Night Watch ${field}`);
+  }
+  for (const phase of ['ground-exam', 'night-watch', 'carrier-rise', 'seventh-day']) {
+    runner.assert(bridge.includes(`phase: '${phase}'`), `air combat should include the ${phase} briefing page`);
+  }
+  runner.assert(airHtml.includes('id="airspace-briefing-progress"') && airHtml.includes('aria-valuemax="4"'), 'air combat should expose four-page CG progress');
   runner.assert(bridge.includes('skywardBossSignals') && bridge.includes('Skyward更新回响'), 'air combat bridge should feed Skyward boss update signals into AI narrative context');
   runner.assert(bridge.includes('prismBurst') && bridge.includes('boss-08-prism-judge.png'), 'air combat bridge should include copied prism judge boss art and prism burst affix');
   runner.assert(bridge.includes('ironCarrier') && bridge.includes('boss-09-iron-carrier.png'), 'air combat bridge should include copied iron carrier boss art and guard affix');
@@ -4840,10 +4887,15 @@ runner.test('Air Combat integration - should keep finite airspace bridge and res
   for (const asset of [
     '../public/modes/air-combat/assets/images/bosses/boss-08-prism-judge.png',
     '../public/modes/air-combat/assets/images/bosses/boss-09-iron-carrier.png',
-    '../public/modes/air-combat/assets/images/bosses/boss-10-tide-core.png'
+    '../public/modes/air-combat/assets/images/bosses/boss-10-tide-core.png',
+    '../public/assets/art/ships/rift-carrier.webp',
+    '../public/assets/art/ships/lantern-wingman.webp'
   ]) {
     runner.assert(existsSync(new URL(asset, import.meta.url)), `${asset} should exist`);
   }
+  runner.assert(airAssets.includes('../../assets/art/ships/rift-carrier.webp'), 'air player variants should use the local rift carrier');
+  runner.assert(airAssets.includes('../../assets/art/ships/lantern-wingman.webp'), 'rescued-resident allies should use the local lantern wingman');
+  runner.assert(airGame.includes('if (!textured)') && airGame.includes('const texturedWingman = assets?.draw'), 'broken ship art should keep procedural player and wingman fallbacks');
   for (const eventType of [
     'airspace_intro',
     'airspace_segment',
@@ -4863,8 +4915,17 @@ runner.test('Air Combat integration - should keep finite airspace bridge and res
   runner.assert(!updateBlock.includes('requestAirCombatText'), 'air combat should not call AI narrative from the frame update loop');
   runner.assert(airHtml.includes('airCombatBridge.js'), 'air mode should load bridge before game logic');
   runner.assert(game.includes('buildAirCombatContext()'), 'main game should build air combat context');
+  runner.assert(game.includes('!options.testEntry && !this.lastNightWatchResult'), 'normal air combat should stay locked until Night Watch settles');
   runner.assert(game.includes("type: 'airspace_resolved'"), 'main game should write airspace_resolved events');
   runner.assert(world.includes('airspace_ending'), 'world simulation should derive an airspace ending hook');
+  const finalWinStart = game.indexOf('  winLevel(message) {');
+  const finalWinEnd = game.indexOf('  // Override failLevel for browser-specific effects', finalWinStart);
+  const finalWinBlock = game.slice(finalWinStart, finalWinEnd);
+  const airResultStart = game.indexOf('  applyAirCombatResult(result) {');
+  const airResultEnd = game.indexOf('  renderAirCombatPanel() {', airResultStart);
+  const airResultBlock = game.slice(airResultStart, airResultEnd);
+  runner.assert(finalWinBlock.includes('地面终考完成') && !finalWinBlock.includes('generateEpicEnding()'), 'ground-exam victory should hand off to Night Watch without ending early');
+  runner.assert(airResultBlock.includes('this.memorySystem.generateEpicEnding({') && airResultBlock.includes('this.showEndingCinematic(resolvedResult)'), 'contextual final ending should be generated and shown only after air combat settles');
 
   const combined = `${bridge}\n${airGame}\n${airHtml}`;
   for (const forbidden of ['Multiplayer', 'WebRTC', 'Leaderboard', 'ChallengeHistory', 'EndlessBoard', '普通关卡', '排行榜']) {

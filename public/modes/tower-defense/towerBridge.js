@@ -42,7 +42,7 @@
     },
     sun: {
       name: '黎明塔',
-      description: '把第七天之前的第一缕光提前封存，持续灼烧最顽固的来袭者。',
+      description: '把第七日之前的第一缕光提前封存，持续灼烧最顽固的来袭者。',
       color: '#f6d36b',
       projectileColor: '#fff2ae'
     },
@@ -157,6 +157,16 @@
   let enemyWhisperInFlight = false;
   let battleStart = { hp: 3, money: 2000, finalWave: 30 };
 
+  function isTutorialMode() {
+    return context.tutorialMode?.active === true;
+  }
+
+  const TUTORIAL_TOWER_TARGETS = Object.freeze([
+    Object.freeze({ x: 9, y: 5 }),
+    Object.freeze({ x: 14, y: 7 }),
+    Object.freeze({ x: 19, y: 9 })
+  ]);
+
   function parseJson(value) {
     try { return JSON.parse(value); } catch (_) { return null; }
   }
@@ -211,7 +221,7 @@
   function fallbackNarrative() {
     if (towerPlan?.briefing) return towerPlan.briefing;
     const names = creations().map(creationName).filter(Boolean).slice(0, 3).join('、') || '白天留下的造物';
-    return `第六关结束后，所有幸存区域被临时并入同一条防线。${names}被搬上城墙，居民把名字刻在临时墙背面；第七关还没有开始，但裂隙潮已经在夜里排队。`;
+    return `地面终考结束后，所有幸存区域被临时并入同一条防线。${names}被搬上城墙，居民把名字刻在临时墙背面；必须熬过长夜六更，才能进入第七日。`;
   }
 
   function buffChoices() {
@@ -290,30 +300,51 @@
     const waveNo = Math.max(1, Number(wave || 1));
     const day = Math.min(6, Math.max(1, Math.ceil(waveNo / 5)));
     const innerWave = ((waveNo - 1) % 5) + 1;
-    return { day, innerWave, label: `第 ${day} 夜 · 第 ${innerWave}/5 波` };
+    return { day, innerWave, label: `长夜第 ${day}/6 更 · 第 ${innerWave}/5 波` };
   }
 
   function cutsceneSlides() {
-    const names = creations().map(creationName).filter(Boolean).slice(0, 2);
+    const mappedCreations = creations().slice(0, 2);
+    const names = mappedCreations.map(creationName).filter(Boolean);
     const creationText = names.length ? names.join('、') : '白天留下的造物';
     const rescued = residentsCount();
+    const lostValue = Array.isArray(context.lostResidents) ? context.lostResidents.length : Number(context.lostResidents || 0);
+    const lost = Number.isFinite(lostValue) ? Math.max(0, lostValue) : 0;
+    const entropyValue = Number(context.entropy || 0);
+    const entropy = Number.isFinite(entropyValue) ? Math.max(0, entropyValue) : 0;
+    const plannedTowers = Array.isArray(towerPlan?.towerPool) ? towerPlan.towerPool : DEFAULT_TOWERS;
+    const creationTowerLinks = mappedCreations.map((creation, index) => {
+      const towerType = plannedTowers[index] || creationTowerMap[creationAbility(creation)] || DEFAULT_TOWERS[index];
+      const towerName = towerPlan?.towers?.[towerType]?.name || TOWER_THEME[towerType]?.name || towerType || '通用守夜塔';
+      return `「${creationName(creation) || '未命名造物'}」转译为「${towerName}」`;
+    });
+    const causalText = creationTowerLinks.length
+      ? creationTowerLinks.join('；')
+      : '未记录到具体造物，守夜队启用「守夜弩塔」作为通用防线原型';
+    const entropyText = entropy >= 7 ? '裂隙已接近临界' : entropy >= 4 ? '裂隙仍在持续增压' : '裂隙尚未越过警戒线';
     return [
       {
-        kicker: '第六关之后',
-        title: '第七关之前的长夜',
-        body: `主线的六场考核已经把世界撕开。${creationText}没有消失，它们像临时写下的答案，停在所有区域合并后的裂隙边缘。`,
+        kicker: '地面终考 · 收束',
+        title: '六片区域在暮色中合围',
+        body: `地面终考已经结束，${creationText}没有随棋盘收起。它们和幸存区域一起汇到城墙脚下；当前熵值 ${entropy}，${entropyText}。`,
         artPosition: '0% 50%'
       },
       {
-        kicker: '六段守夜',
-        title: '30 波被切成 6 个夜段',
-        body: `这里不是第一关到第六关的重复插播。30 波裂隙潮会被分成六段，每 5 波推进一夜；被救下的 ${rescued} 名居民会在这六夜里守住第七关的入口。`,
-        artPosition: '50% 50%'
+        kicker: '地面终考 → 长夜六更',
+        title: '造物被转译成守夜塔',
+        body: `${causalText}。塔的名称、偏向与可选加成都来自真实造物记录，不是另一场游戏临时发放的装备。`,
+        artPosition: '34% 50%'
       },
       {
-        kicker: '守夜配置',
-        title: '把白天的答案搬上防线',
-        body: `接下来是第六关到第七关之间的守夜。选择要带上城墙的器械，防线会从这些器械里成型；裂隙来袭者会在战场上回应你的塔和造物。`,
+        kicker: '长夜六更 · 人员编组',
+        title: `${rescued} 名居民接过城墙灯火`,
+        body: `30 波裂隙潮分为六更，每更 5 波。${rescued} 名获救居民会参与补给与守城${lost ? `；另有 ${lost} 个失落名字只能以回声留在防线中` : ''}。`,
+        artPosition: '64% 50%'
+      },
+      {
+        kicker: '长夜六更 → 第七日',
+        title: '守住黎明，才能进入第七日',
+        body: `当前熵值 ${entropy} 将决定来袭压力；六更后的基地损伤、受护居民与残余熵值会继续写入第七日，而不是在守夜结束时清零。`,
         artPosition: '100% 50%'
       }
     ];
@@ -323,6 +354,7 @@
     if (document.getElementById('night-watch-cinematic')) return;
     const slides = cutsceneSlides();
     let index = 0;
+    const previouslyFocused = document.activeElement;
     const overlay = document.createElement('section');
     overlay.id = 'night-watch-cinematic';
     overlay.setAttribute('role', 'dialog');
@@ -351,12 +383,17 @@
       overlay.querySelector('h2').textContent = slide.title;
       overlay.querySelector('p').textContent = slide.body;
       overlay.querySelector('.night-watch-cg-visual').style.setProperty('--night-watch-cg-position', slide.artPosition);
+      overlay.dataset.cgSlide = String(index + 1);
+      overlay.setAttribute('aria-label', `长夜守城过场，第 ${index + 1} 页，共 ${slides.length} 页`);
       overlay.querySelector('[data-cg-next]').textContent = index === slides.length - 1 ? '进入守夜配置' : '继续';
       overlay.querySelector('.night-watch-cg-dots').innerHTML = slides
         .map((_, i) => `<span class="night-watch-cg-dot${i === index ? ' active' : ''}"></span>`)
         .join('');
     };
-    const close = () => overlay.remove();
+    const close = () => {
+      overlay.remove();
+      if (previouslyFocused?.isConnected && typeof previouslyFocused.focus === 'function') previouslyFocused.focus();
+    };
     overlay.querySelector('[data-cg-skip]').addEventListener('click', close);
     overlay.querySelector('[data-cg-next]').addEventListener('click', () => {
       if (index >= slides.length - 1) close();
@@ -380,6 +417,15 @@
       if (event.key === 'Escape') {
         event.preventDefault();
         close();
+      }
+      if (event.key === 'ArrowRight') {
+        event.preventDefault();
+        last.click();
+      }
+      if (event.key === 'ArrowLeft' && index > 0) {
+        event.preventDefault();
+        index -= 1;
+        render();
       }
     });
     render();
@@ -421,7 +467,7 @@
           context: {
             eventType,
             characters: Array.isArray(context.rescuedResidents) ? context.rescuedResidents.slice(0, 5) : [],
-            location: context.regionTitle || '第七天之前',
+            location: context.regionTitle || '长夜六更',
             result: '裂隙潮正在反扑，居民与造物被编入防线。',
             ...extraContext
           },
@@ -444,12 +490,14 @@
     style.id = 'night-watch-style';
     style.textContent = `
       :root {
-        --bg-color: #070918;
-        --surface-color: #161923;
-        --primary-color: #d8c58a;
-        --text-color: #f5f5f7;
-        --border-color: rgba(216, 197, 138, .36);
+        --bg-color: #070a11;
+        --surface-color: #151923;
+        --primary-color: #d2b86b;
+        --text-color: #f0e4c1;
+        --border-color: rgba(210, 184, 107, .36);
         --shadow-color: rgba(0, 0, 0, .56);
+        --night-interactive: #59c7a6;
+        --night-rift: #8f73c8;
       }
       body {
         background:
@@ -598,6 +646,7 @@
         border: 1px solid rgba(216, 197, 138, .34);
         background: linear-gradient(180deg, rgba(20, 24, 37, .94), rgba(8, 11, 18, .98));
         box-shadow: 0 24px 70px rgba(0, 0, 0, .58);
+        clip-path: polygon(0 10px, 10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%);
       }
       .night-watch-cg-frame {
         position: relative;
@@ -636,10 +685,22 @@
         background-color: #0b0f18;
         background-image:
           linear-gradient(90deg, rgba(7,10,17,.82), rgba(7,10,17,.2) 58%, rgba(7,10,17,.62)),
-          url('../../assets/art/cg-night-watch.webp');
-        background-position: center, var(--night-watch-cg-position, 50% 50%);
+          url('../../assets/art/cg-night-watch.webp'),
+          radial-gradient(circle at 76% 36%, rgba(143,115,200,.46), transparent 34%),
+          linear-gradient(145deg, #151923, #070a11 64%);
+        background-position: center, var(--night-watch-cg-position, 50% 50%), center, center;
         background-size: cover;
         transition: background-position 520ms ease;
+      }
+      canvas[data-night-watch-art-type] {
+        background:
+          radial-gradient(circle at 50% 38%, rgba(89, 199, 166, .14), transparent 58%),
+          #0b1118;
+        border: 1px solid rgba(89, 199, 166, .18);
+        clip-path: polygon(0 7px, 7px 0, 100% 0, 100% calc(100% - 7px), calc(100% - 7px) 100%, 0 100%);
+      }
+      canvas[data-night-watch-art-ready="true"] {
+        filter: drop-shadow(0 4px 7px rgba(0, 0, 0, .42));
       }
       .night-watch-cg-footer {
         display: flex;
@@ -670,6 +731,85 @@
         color: #090b12;
         font-weight: 800;
       }
+      #night-watch-tutorial-guide {
+        position: fixed;
+        z-index: 90;
+        right: 14px;
+        top: 14px;
+        width: min(290px, calc(100vw - 28px));
+        padding: 10px;
+        color: #f0e4c1;
+        border: 1px solid rgba(216, 197, 138, .46);
+        background: linear-gradient(155deg, rgba(22, 29, 38, .97), rgba(8, 11, 17, .97));
+        box-shadow: 0 18px 50px rgba(0, 0, 0, .52);
+        font-size: 12px;
+        line-height: 1.55;
+      }
+      #night-watch-tutorial-guide.collapsed {
+        width: 48px;
+        padding: 0;
+        border: 0;
+        background: transparent;
+        box-shadow: none;
+      }
+      .night-watch-tutorial-toggle {
+        float: right;
+        width: 42px;
+        min-height: 42px;
+        margin: 0 0 6px 8px;
+        border: 1px solid rgba(216, 197, 138, .58);
+        background: rgba(20, 27, 35, .98);
+        color: #f4d779;
+        font: inherit;
+        font-weight: 900;
+        cursor: pointer;
+      }
+      #night-watch-tutorial-guide.collapsed .night-watch-tutorial-toggle { float: none; margin: 0; }
+      #night-watch-tutorial-guide.collapsed .night-watch-tutorial-body { display: none; }
+      #night-watch-tutorial-guide strong { display: block; color: #f4d779; font-size: 15px; }
+      #night-watch-tutorial-guide ol { margin: 8px 0; padding-left: 20px; }
+      #night-watch-tutorial-guide li + li { margin-top: 5px; }
+      #night-watch-tutorial-guide small { color: #aebdbe; }
+      body.in-battle #night-watch-tutorial-guide { top: auto; bottom: 14px; }
+      #night-watch-tutorial-targets {
+        position: absolute;
+        inset: 0;
+        z-index: 4;
+        display: none;
+        pointer-events: none;
+      }
+      body.in-battle #night-watch-tutorial-targets { display: block; }
+      .night-watch-tutorial-target {
+        position: absolute;
+        width: 48px;
+        height: 48px;
+        transform: translate(-50%, -50%);
+        display: grid;
+        place-items: center;
+        border: 3px solid #f4d779;
+        border-radius: 50%;
+        color: #17120a;
+        background: rgba(244, 215, 121, .78);
+        box-shadow: 0 0 0 8px rgba(244, 215, 121, .14), 0 0 24px rgba(244, 215, 121, .85);
+        font-size: 18px;
+        font-weight: 900;
+        animation: night-watch-tutorial-pulse 1.1s ease-in-out infinite;
+        transition: opacity .2s ease, transform .2s ease;
+      }
+      .night-watch-tutorial-target::before {
+        content: '▼';
+        position: absolute;
+        left: 50%;
+        bottom: calc(100% + 4px);
+        transform: translateX(-50%);
+        color: #f4d779;
+        filter: drop-shadow(0 2px 3px rgba(0, 0, 0, .8));
+      }
+      .night-watch-tutorial-target.placed { opacity: 0; transform: translate(-50%, -50%) scale(.5); }
+      @keyframes night-watch-tutorial-pulse {
+        0%, 100% { box-shadow: 0 0 0 5px rgba(244, 215, 121, .1), 0 0 16px rgba(244, 215, 121, .62); }
+        50% { box-shadow: 0 0 0 11px rgba(244, 215, 121, .18), 0 0 30px rgba(244, 215, 121, .95); }
+      }
       @media (max-width: 820px), (max-height: 680px) {
         #selection-screen {
           width: min(700px, calc(100vw - 22px));
@@ -697,16 +837,80 @@
     brief = document.createElement('div');
     brief.id = 'night-watch-brief';
     brief.innerHTML = `
-      <strong>${themeTitle()} · 第七关之前 · 六夜守城</strong>
+      <strong>${themeTitle()} · 地面终考之后 · 长夜六更</strong>
       <span id="night-watch-ai-text">${fallbackNarrative()}</span>
       <div id="night-watch-causes" aria-label="守夜因果简报"></div>
       <div id="night-watch-buff-choices" aria-label="守夜誓约选择"></div>
-      <span id="night-watch-wave">通讯正在整理六夜防守主题。</span>
+      <span id="night-watch-wave">通讯正在整理长夜六更的防守主题。</span>
     `;
     const selectionSlots = document.getElementById('selection-slots');
     selectionSlots?.parentElement?.insertBefore(brief, selectionSlots);
     renderCausalBriefing();
     return brief;
+  }
+
+  function ensureTutorialGuide() {
+    if (!isTutorialMode()) return null;
+    const bailout = document.getElementById('highlight-protocol-btn');
+    if (bailout) {
+      bailout.hidden = false;
+      bailout.setAttribute('aria-hidden', 'false');
+      bailout.tabIndex = 0;
+    }
+    let guide = document.getElementById('night-watch-tutorial-guide');
+    if (guide) return guide;
+    const selection = defaultSelection();
+    const pool = selection.towerPool || [];
+    const towerName = index => towerPlan?.towers?.[pool[index]]?.name || TOWER_THEME[pool[index]]?.name || pool[index] || `第 ${index + 1} 种守夜塔`;
+    ensureTutorialTargets();
+    guide = document.createElement('aside');
+    guide.id = 'night-watch-tutorial-guide';
+    guide.setAttribute('aria-live', 'polite');
+    guide.innerHTML = `
+      <button class="night-watch-tutorial-toggle" type="button" aria-expanded="true" aria-label="收起守夜教学">教</button>
+      <div class="night-watch-tutorial-body">
+        <strong>守夜教学</strong>
+        <ol>
+          <li>选第一项誓约，开始守夜。</li>
+          <li>依次选择“${towerName(0)}”“${towerName(1)}”“${towerName(2)}”，点击地图上的 1、2、3。</li>
+          <li>先升级 1 号塔，守到第 30 波。</li>
+        </ol>
+        <small>实在过不了，就点“教学保底 · 全塔裁决”。这是救急外挂，不计入正常流程。</small>
+      </div>
+    `;
+    const toggle = guide.querySelector('.night-watch-tutorial-toggle');
+    toggle?.addEventListener('click', () => {
+      const collapsed = guide.classList.toggle('collapsed');
+      toggle.setAttribute('aria-expanded', String(!collapsed));
+      toggle.setAttribute('aria-label', collapsed ? '展开守夜教学' : '收起守夜教学');
+    });
+    document.body.appendChild(guide);
+    return guide;
+  }
+
+  function ensureTutorialTargets() {
+    if (!isTutorialMode()) return null;
+    const container = document.getElementById('canvas-container');
+    if (!container) return null;
+    let overlay = document.getElementById('night-watch-tutorial-targets');
+    if (overlay) return overlay;
+    overlay = document.createElement('div');
+    overlay.id = 'night-watch-tutorial-targets';
+    overlay.setAttribute('aria-hidden', 'true');
+    overlay.innerHTML = TUTORIAL_TOWER_TARGETS.map((target, index) => `
+      <span class="night-watch-tutorial-target" data-tutorial-x="${target.x}" data-tutorial-y="${target.y}"
+        style="left:${((target.x + .5) / 25) * 100}%;top:${((target.y + .5) / 18) * 100}%">${index + 1}</span>
+    `).join('');
+    container.appendChild(overlay);
+    return overlay;
+  }
+
+  function markTutorialPlacement(x, y) {
+    if (!isTutorialMode()) return false;
+    const marker = document.querySelector(`.night-watch-tutorial-target[data-tutorial-x="${x}"][data-tutorial-y="${y}"]`);
+    if (!marker) return false;
+    marker.classList.add('placed');
+    return true;
   }
 
   function syncChrome() {
@@ -720,7 +924,7 @@
     const info = document.querySelector('#selection-info h4');
     if (info) info.textContent = '守夜塔信息';
     const infoText = document.querySelector('#selection-info p');
-    if (infoText) infoText.textContent = '白天创造过的造物会优先映射成今晚的防御塔。';
+    if (infoText) infoText.textContent = '地面终考中创造过的造物会优先映射成今晚的防御塔。';
     document.getElementById('open-announcement-btn')?.remove();
     const testBtn = document.getElementById('start-game-test-btn');
     if (testBtn) testBtn.style.display = 'none';
@@ -735,6 +939,7 @@
     const restartBtn = document.getElementById('restart-btn');
     if (restartBtn) restartBtn.textContent = '返回守夜菜单';
     ensureBrief();
+    ensureTutorialGuide();
     showNightWatchCinematic();
   }
 
@@ -745,11 +950,11 @@
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           type: 'event',
-          playerInput: '请为第六关到第七关之间的塔防守夜生成防守主题和第一波前的通讯旁白。30波会分成6个夜段。不要解释系统规则。',
+          playerInput: '请为地面终考之后、进入第七日前的长夜六更生成防守主题和第一波前通讯。30波分成六更，每更5波。不要解释系统规则。',
           context: {
             eventType: 'night_watch_theme',
             characters: Array.isArray(context.rescuedResidents) ? context.rescuedResidents.slice(0, 5) : [],
-            location: '第六关之后，第七关之前',
+            location: '地面终考之后，长夜六更',
             result: '裂隙潮正在反扑，居民与造物被编入防线'
           },
           worldState: {
@@ -797,6 +1002,7 @@
     if (selectedBuffIndex >= buffChoices().length) selectedBuffIndex = 0;
     if (towerDataRef && mapDataRef) {
       window.NightWatchTowers.applyPlan(towerDataRef, mapDataRef, towerPlan, selectedBuffChoice());
+      applyTutorialTowerAssist(towerDataRef);
     }
     publishTowerPlan();
     return towerPlan;
@@ -807,6 +1013,7 @@
     mapDataRef = mapData;
     if (window.NightWatchTowers?.applyPlan) {
       towerPlan = window.NightWatchTowers.applyPlan(towerData, mapData, towerPlan, selectedBuffChoice());
+      applyTutorialTowerAssist(towerData);
       return towerPlan;
     }
     for (const [key, value] of Object.entries(TOWER_THEME)) {
@@ -821,11 +1028,25 @@
       if (!mapData[key]) continue;
       Object.assign(mapData[key], value);
     }
+    applyTutorialTowerAssist(towerData);
+  }
+
+  function applyTutorialTowerAssist(towerData = {}) {
+    if (!isTutorialMode()) return;
+    for (const data of Object.values(towerData)) {
+      if (!Array.isArray(data?.levels)) continue;
+      for (const level of data.levels) {
+        if (Number.isFinite(level.damage)) level.damage = Math.max(1, level.damage * 2.4);
+        if (Number.isFinite(level.range)) level.range += 2;
+        if (Number.isFinite(level.cost)) level.cost = Math.max(50, Math.round(level.cost * 0.55));
+      }
+    }
   }
 
   function defaultSelection() {
     if (window.NightWatchTowers?.defaultSelection) {
-      return window.NightWatchTowers.defaultSelection(context, towerPlan, towerDataRef || {});
+      const selection = window.NightWatchTowers.defaultSelection(context, towerPlan, towerDataRef || {});
+      return isTutorialMode() ? { ...selection, mapId: 'MAP5' } : selection;
     }
     const mapped = creations()
       .map(creationAbility)
@@ -843,6 +1064,7 @@
     const effect = selectedBuffChoice()?.effect || {};
     const moneyBonus = effect.type === 'starting_money' ? Math.round(Number(effect.value || 0)) : 0;
     const hpBonus = effect.type === 'starting_hp' ? Math.round(Number(effect.value || 0)) : 0;
+    if (isTutorialMode()) return { hp: 12, money: 9000 };
     return {
       hp: Math.max(2, Math.min(7, 3 + Math.floor(protectedResidents / 3) - Math.floor(entropy / 6) + hpBonus)),
       money: Math.max(1400, 2000 + protectedResidents * 80 - entropy * 55 + moneyBonus)
@@ -871,7 +1093,7 @@
       finalWave: Number(state.finalWave || 30)
     };
     const target = document.getElementById('night-watch-wave');
-    if (target) target.textContent = '第 1 夜开始，裂隙潮正在靠近，六关记录已编入防线。';
+    if (target) target.textContent = '长夜第 1/6 更开始，裂隙潮正在靠近，地面终考记录已编入防线。';
   }
 
   function announceWave(wave, state = {}) {
@@ -880,10 +1102,10 @@
     const stage = watchStage(waveNo);
     const fallbackLines = [
       `${stage.label}：北墙有回声，别让它们穿过第一道弯。`,
-      `${stage.label}：裂隙正在模仿前六关里创造过的形状。`,
+      `${stage.label}：裂隙正在模仿地面终考里创造过的形状。`,
       `${stage.label}：拾荒队带回了材料，守住这一波就能继续加固。`,
       `${stage.label}：长夜进入深段，敌人的影子开始重叠。`,
-      `${stage.label}：第七关还没有开始，城墙必须先替我们醒着。`
+      `${stage.label}：第七日还没有开始，城墙必须先替我们醒着。`
     ];
     const target = document.getElementById('night-watch-wave');
     const fallback = fallbackLines[(waveNo - 1) % fallbackLines.length];
@@ -894,7 +1116,7 @@
     activeWaveRequest = requestId;
     requestNightWatchText(
       'night_watch_wave',
-      `请为长夜守城${stage.label}生成一句短通讯。30波代表第六关到第七关之间的六段守夜，每5波推进一夜。只写一句，必须结合当前血量、资源、塔数量和白天造物，不解释规则。`,
+      `请为${stage.label}生成一句短通讯。30波代表地面终考之后的长夜六更，每更5波。只写一句，必须结合当前血量、资源、塔数量和地面造物，不解释规则。`,
       { wave: waveNo, day: stage.day, innerWave: stage.innerWave },
       { wave: waveNo, day: stage.day, hp: state.hp, money: state.money, towerCount: state.towerCount }
     ).then(text => {
@@ -911,7 +1133,7 @@
       '守夜通讯：裂隙正在模仿你白天创造过的形状。',
       '居民通讯：拾荒队带回了材料，守住这一波就能继续加固。',
       '守夜通讯：长夜进入深段，敌人的影子开始重叠。',
-      '居民通讯：第七天还没有来，城墙必须先替我们醒着。'
+      '居民通讯：第七日还没有来，城墙必须先替我们醒着。'
     ];
     const target = document.getElementById('night-watch-wave');
     if (target) target.textContent = lines[(Math.max(1, Number(wave || 1)) - 1) % lines.length];
@@ -924,7 +1146,7 @@
     const stage = watchStage(wave);
     const text = await requestNightWatchText(
       'night_watch_enemy_whisper',
-      `请写一句裂隙来袭者在${stage.label}靠近${towerName}时的短句。敌人类型：${enemyType}。这发生在第六关到第七关之间。只写一句，18字以内，不解释规则。`,
+      `请写一句裂隙来袭者在${stage.label}靠近${towerName}时的短句。敌人类型：${enemyType}。这发生在地面终考之后、进入第七日前。只写一句，18字以内，不解释规则。`,
       { enemyType, towerName, wave, day: stage.day },
       { enemyType, towerName, wave, day: stage.day }
     );
@@ -949,7 +1171,7 @@
       mode: 'night_watch',
       victory: Boolean(isVictory),
       regionId: context.regionId || 'final-exam',
-      regionTitle: '第七关之前',
+      regionTitle: '长夜六更',
       survivedWaves,
       baseDamage,
       residentsProtected: protectedCount,
@@ -1004,7 +1226,7 @@
       mode: 'night_watch',
       victory: Boolean(isVictory),
       regionId: context.regionId || 'final-exam',
-      regionTitle: '第七关之前',
+      regionTitle: '长夜六更',
       survivedWaves,
       baseDamage,
       residentsProtected: protectedCount,
@@ -1039,6 +1261,8 @@
     applyTowerTheme,
     defaultSelection,
     getStartingState,
+    isTutorialMode,
+    markTutorialPlacement,
     markBattleStarted,
     announceWave,
     applyWaveBuff,

@@ -71,6 +71,7 @@ const MIME = {
   '.webp': 'image/webp',
   '.glb': 'model/gltf-binary',
   '.ogg': 'audio/ogg',
+  '.mp3': 'audio/mpeg',
   '.svg': 'image/svg+xml',
   '.ico': 'image/x-icon'
 };

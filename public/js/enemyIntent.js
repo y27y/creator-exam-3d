@@ -188,7 +188,7 @@ export class EnemyIntentSystem {
     }
 
     // Use effective goal (attract overrides original goal when active)
-    const effectiveGoal = engine.getEffectiveGoal(unit);
+    const effectiveGoal = engine.getEffectiveGoal?.(unit) || unit.goal;
     const isAttracted = unit.attractTurns > 0 && unit.attractedTo;
 
     // Attracted: show intent pointing toward attract point
@@ -290,7 +290,7 @@ export class EnemyIntentSystem {
 
   // Predict civilian's next action
   predictCivilianIntent(unit, engine, turn) {
-    const effectiveGoal = engine.getEffectiveGoal(unit);
+    const effectiveGoal = engine.getEffectiveGoal?.(unit) || unit.goal;
     const isAttracted = unit.attractTurns > 0 && unit.attractedTo;
     const guided = unit.guidedTurns > 0 || engine.nearActiveAbility(unit.x, unit.y, ['guide', 'memory_beacon', 'illuminate']);
     const immuneChaos = unit.immuneChaos > 0;
@@ -381,7 +381,7 @@ export class EnemyIntentSystem {
 
   // Predict messenger's next action
   predictMessengerIntent(unit, engine, turn) {
-    const effectiveGoal = engine.getEffectiveGoal(unit);
+    const effectiveGoal = engine.getEffectiveGoal?.(unit) || unit.goal;
     const isAttracted = unit.attractTurns > 0 && unit.attractedTo;
     const terrain = engine.getTerrain(unit.x, unit.y);
     const guided = unit.guidedTurns > 0 || engine.nearActiveAbility(unit.x, unit.y, ['calm', 'guide', 'memory_beacon']);

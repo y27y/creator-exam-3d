@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>裂隙考核：造物者 3D</title>
     <link rel="stylesheet" href="./styles.css" />
+    <link rel="stylesheet" href="./ui-image2-skins.css" />
     <script type="importmap">
       {
         "imports": {
@@ -14,7 +15,7 @@
       }
     </script>
   </head>
-  <body>
+  <body class="creator-exam-main" data-level-theme="flood-village">
     <div id="game-root">
       <canvas id="game-canvas"></canvas>
       <header id="topbar" class="glass panel-row">
@@ -33,9 +34,45 @@
           <summary>更多</summary>
           <a id="wiki-link" class="wiki-link" href="./wiki.html" target="_blank" rel="noopener">玩法 WIKI</a>
           <button id="sound-toggle" class="secondary" type="button" aria-pressed="true">声音：开</button>
+          <button id="tutorial-toggle" class="secondary" type="button">完整教学</button>
           <button id="restart-btn" class="secondary" type="button">重开本关</button>
         </details>
       </header>
+
+      <section id="tutorial-choice" class="tutorial-choice" role="dialog" aria-modal="true" aria-labelledby="tutorial-choice-title" hidden>
+        <div class="tutorial-choice-card glass">
+          <div class="eyebrow">考核官入场</div>
+          <h2 id="tutorial-choice-title">要先走一遍完整教学战役吗？</h2>
+          <p>六个地面章节、长夜守城与裂隙空战都会使用真实规则。引导只提示当前动作，目标位置直接标在场景里。</p>
+          <div class="button-row">
+            <button id="tutorial-choice-start" class="primary" type="button">开始完整教学</button>
+            <button id="tutorial-choice-free" class="secondary" type="button">直接自由考核</button>
+          </div>
+        </div>
+      </section>
+
+      <aside id="tutorial-panel" class="tutorial-panel glass" aria-live="polite" hidden>
+        <header class="tutorial-head">
+          <div>
+            <div id="tutorial-progress" class="eyebrow">教学战役</div>
+            <h2 id="tutorial-title">等待考核官</h2>
+          </div>
+          <button id="tutorial-collapse" class="secondary small" type="button">收起</button>
+        </header>
+        <p id="tutorial-copy" class="tutorial-copy"></p>
+        <div id="tutorial-prompt-block" class="tutorial-instruction" hidden>
+          <span>推荐描述</span>
+          <strong id="tutorial-prompt"></strong>
+        </div>
+        <div class="tutorial-actions">
+          <button id="tutorial-primary" class="primary" type="button">继续</button>
+          <button id="tutorial-recover" class="secondary" type="button">重置本课</button>
+        </div>
+      </aside>
+
+      <div id="tutorial-target-marker" class="tutorial-target-marker" aria-hidden="true" hidden>
+        <span id="tutorial-target-marker-label">放这里</span>
+      </div>
 
       <section id="npc-status-strip" class="npc-status-strip" aria-label="本关人物状态"></section>
 
@@ -96,6 +133,7 @@
         <button id="drawer-people-btn" type="button" data-drawer="people" aria-controls="right-panel" aria-expanded="false">人 <span id="drawer-people-badge" class="drawer-badge" hidden>0</span></button>
         <button id="drawer-world-btn" type="button" data-drawer="world" aria-controls="right-panel" aria-expanded="false">志 <span id="drawer-world-badge" class="drawer-badge" hidden>0</span></button>
         <button id="drawer-systems-btn" type="button" data-drawer="systems" aria-controls="right-panel" aria-expanded="false">术 <span id="drawer-systems-badge" class="drawer-badge" hidden>0</span></button>
+        <button id="tutorial-rail-btn" type="button" aria-controls="tutorial-panel" aria-expanded="false" aria-label="展开教学" hidden>教</button>
       </nav>
 
       <section id="right-panel" class="glass context-drawer" aria-hidden="true" hidden>
@@ -201,6 +239,7 @@
               <h3 id="air-combat-title">第七天裂隙空域</h3>
               <div id="air-combat-summary" class="night-watch-summary"></div>
               <button id="air-combat-btn" class="primary wide" type="button">进入空域</button>
+              <button id="timeline-ending-replay" class="secondary wide" type="button" hidden>重看时间线终章</button>
             </div>
           </section>
         </div>
@@ -307,7 +346,11 @@
               <button id="save-slot-export" type="button">导出</button>
               <button id="save-slot-import" type="button">导入</button>
             </div>
-            <textarea id="save-slot-import-data" aria-label="存档导入导出数据"></textarea>
+            <label class="save-slot-data-label" for="save-slot-import-data">
+              <span>备份数据</span>
+              <small>“导出”会在这里生成文本；粘贴备份文本后点“导入”即可恢复。</small>
+            </label>
+            <textarea id="save-slot-import-data" aria-label="存档导入导出数据" placeholder="暂无备份数据"></textarea>
             <ol id="save-slot-list" class="save-slot-list"></ol>
           </section>
 
@@ -365,6 +408,7 @@
           <div id="cinematic-kicker" class="eyebrow"></div>
           <h2 id="cinematic-title" tabindex="-1"></h2>
           <p id="cinematic-text"></p>
+          <div id="cinematic-choices" class="cinematic-choices" role="group" aria-label="时间线锚点" hidden></div>
           <div id="cinematic-progress" class="cinematic-progress" role="status" aria-live="polite" aria-label="章节画面进度" hidden></div>
           <div class="cinematic-actions">
             <button id="cinematic-skip" class="secondary" type="button">跳过</button>

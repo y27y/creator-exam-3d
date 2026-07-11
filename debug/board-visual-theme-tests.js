@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
+import { existsSync } from 'node:fs'
 import { TILE } from '../public/js/levels.js'
 import {
   BOARD_THEME_LEVEL_IDS,
@@ -24,6 +25,8 @@ assert.equal(new Set(LEVEL_IDS.map(id => getBoardVisualTheme(id).textureSeed)).s
 
 for (const levelId of LEVEL_IDS) {
   const theme = LEVEL_BOARD_THEMES[levelId]
+  assert.match(theme.artTexture, /^\/assets\/art\/board-surfaces\/.+-image2\.webp$/, `${levelId} should declare its image-2 board surface`)
+  assert.ok(existsSync(new URL(`../public${theme.artTexture}`, import.meta.url)), `${levelId} image-2 board surface should exist`)
   assert.deepEqual(theme.details, EXPECTED_DETAILS[levelId], `${levelId} should declare every authored environment detail`)
   for (const field of ['surface', 'side', 'edge', 'detailA', 'detailB']) {
     assert.ok(Number.isInteger(theme[field]) && theme[field] >= 0 && theme[field] <= 0xffffff, `${levelId} ${field} should be a valid RGB color`)
@@ -50,13 +53,16 @@ for (const contract of [
   'this.boardSurfaceGroup.userData.detailTypes = [...(theme.details || [])]',
   'details: [...(this.boardSurfaceGroup?.userData?.detailTypes || [])]',
   'applyBoardVisualTheme(levelId)',
+  'loadBoardArtTexture(theme)',
+  'installBoardArtTexture(theme, texture)',
+  'this.boardSurfaceGroup.userData.artTextureFallback = true',
   "visualStyle: 'sculpted-terrain-v3'",
   'existing.userData.themeId === this.activeBoardThemeId',
-  "this.getCachedGeometry('terrain-water-basin-v3'",
+  "this.getCachedGeometry('terrain-water-surface-image2'",
   "this.getCachedGeometry('terrain-forest-trunk-v3'",
   "this.getCachedGeometry('terrain-border-road-v3'"
 ]) {
   assert.ok(gameSource.includes(contract), `renderer should include board visual contract: ${contract}`)
 }
 
-console.log('Board visual theme tests passed (6 surfaces, 17 terrain forms).')
+console.log('Board visual theme tests passed (6 image-2 surfaces, procedural fallback, 17 terrain forms).')

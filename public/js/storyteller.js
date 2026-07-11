@@ -427,6 +427,7 @@ export class Storyteller {
   // Apply adaptive event effects
   applyAdaptiveEvent(game, event, aiMemory) {
     if (!game || !event) return false;
+    if (event.effect === 'minorSetback' && game.isTutorialRouteProtected?.()) return false;
 
     switch (event.effect) {
       case 'minorSetback': {

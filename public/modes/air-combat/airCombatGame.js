@@ -11,10 +11,13 @@
   const pauseResume = document.getElementById('airspace-resume');
   const pauseQuit = document.getElementById('airspace-quit');
   const comm = document.getElementById('airspace-comm');
+  const briefingVisual = document.getElementById('airspace-briefing-visual');
+  const briefingCg = document.getElementById('airspace-bridge-cg');
   const menu = document.getElementById('airspace-menu');
   const menuKicker = menu.querySelector('.menu-kicker');
   const menuTitle = menu.querySelector('h1');
   const brief = document.getElementById('airspace-brief');
+  const briefingProgress = document.getElementById('airspace-briefing-progress');
   const choices = document.getElementById('airspace-choices');
   const loadout = document.getElementById('airspace-loadout');
   const resultPanel = document.getElementById('airspace-result');
@@ -25,10 +28,71 @@
   const clearanceTitle = document.getElementById('clearance-title');
   const clearanceBody = document.getElementById('clearance-body');
   const skillBtn = document.getElementById('airspace-skill');
+  const highlightBtn = document.getElementById('airspace-highlight');
+  const tutorialGuide = document.getElementById('airspace-tutorial');
+  const tutorialGuideToggle = document.getElementById('airspace-tutorial-toggle');
   const startBtn = document.getElementById('airspace-start');
   const W = canvas.width;
   const H = canvas.height;
   const DEG = Math.PI / 180;
+  const AIR_COMBAT_SOUND_KEY = 'creatorExamSound';
+
+  const AirCombatAudio = (() => {
+    const track = new Audio('../../assets/audio/music/Ceremony_of_the_Sunken_Hall.mp3');
+    track.loop = true;
+    track.preload = 'auto';
+    track.volume = 0.3;
+    let unlocked = false;
+
+    function enabled() {
+      try {
+        return window.localStorage?.getItem(AIR_COMBAT_SOUND_KEY) !== 'muted';
+      } catch (_error) {
+        return true;
+      }
+    }
+
+    function play() {
+      if (!unlocked || !enabled()) return false;
+      const pending = track.play();
+      pending?.catch?.(() => {});
+      return true;
+    }
+
+    function unlock() {
+      unlocked = true;
+      return play();
+    }
+
+    function pause() {
+      track.pause();
+      return true;
+    }
+
+    function sync() {
+      if (!enabled()) {
+        track.pause();
+        return false;
+      }
+      return play();
+    }
+
+    window.addEventListener('storage', event => {
+      if (!event || event.key === AIR_COMBAT_SOUND_KEY) sync();
+    });
+
+    return { unlock, pause, play, sync };
+  })();
+
+  function markBriefingCg(state) {
+    if (briefingVisual) briefingVisual.dataset.cgState = state;
+  }
+
+  if (briefingCg) {
+    briefingCg.addEventListener('load', () => markBriefingCg('ready'));
+    briefingCg.addEventListener('error', () => markBriefingCg('fallback'));
+    if (briefingCg.complete) markBriefingCg(briefingCg.naturalWidth > 0 ? 'ready' : 'fallback');
+  }
 
   function clamp(value, min, max) {
     return Math.max(min, Math.min(max, value));
@@ -228,6 +292,10 @@
     }
 
     takeDamage(amount) {
+      if (game.highlightInvulnerable) {
+        game.burst(this.x, this.y, '#72d6bd', 5);
+        return;
+      }
       game.noHitT = 0;
       let rest = Math.max(1, amount * (this.resonance.damageTakenMult || 1));
       if (this.shield > 0) {
@@ -250,6 +318,11 @@
           game.lastStandTriggered = true;
           game.say('守夜黑匣子替空域载体保留了最后 1 点生命。', 2.6, { eventType: 'airspace_last_stand' });
         }
+        if (this.hp <= 0 && bridge.isTutorialMode?.()) {
+          this.hp = 1;
+          this.shield = Math.max(this.shield, 60);
+          game.say('教学护航接住了载体。向画面下方移动，等护盾重新稳定。', 2.8, { eventType: 'airspace_tutorial_rescue' });
+        }
       }
     }
 
@@ -257,6 +330,8 @@
       ctx.save();
       ctx.translate(this.x, this.y);
       const color = this.weapon.color || '#72d6bd';
+      ctx.shadowColor = color;
+      ctx.shadowBlur = 16;
       ctx.fillStyle = '#f6d36b';
       ctx.beginPath();
       ctx.moveTo(-5, 12);
@@ -278,7 +353,19 @@
         ctx.beginPath();
         ctx.ellipse(0, -6, 4, 7, 0, 0, Math.PI * 2);
         ctx.fill();
+      } else {
+        ctx.save();
+        ctx.globalCompositeOperation = 'screen';
+        ctx.globalAlpha = 0.58;
+        ctx.fillStyle = color;
+        ctx.shadowColor = color;
+        ctx.shadowBlur = 14;
+        ctx.beginPath();
+        ctx.arc(0, -2, 5 + Math.sin(game.time * 6), 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
       }
+      ctx.shadowBlur = 0;
       if (this.shield > 0) {
         ctx.strokeStyle = 'rgba(139,211,255,.8)';
         ctx.lineWidth = 3;
@@ -289,13 +376,32 @@
       ctx.restore();
 
       for (let i = 0; i < this.wings; i += 1) {
-        const x = this.x + (i - (this.wings - 1) / 2) * 36;
-        if (assets?.draw(ctx, assets.wingman(this.shipKey), x, this.y + 8, 32)) continue;
+        const side = i % 2 === 0 ? -1 : 1;
+        const rank = Math.floor(i / 2);
+        const x = this.x + side * (36 + rank * 18);
+        const wingY = this.y + 10 + rank * 5;
+        ctx.save();
+        ctx.shadowColor = color;
+        ctx.shadowBlur = 10;
+        const texturedWingman = assets?.draw(ctx, assets.wingman(this.shipKey), x, wingY, 32);
+        ctx.restore();
+        if (texturedWingman) {
+          ctx.save();
+          ctx.globalAlpha = 0.66;
+          ctx.fillStyle = color;
+          ctx.shadowColor = color;
+          ctx.shadowBlur = 9;
+          ctx.beginPath();
+          ctx.arc(x, wingY + 1, 2.6, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.restore();
+          continue;
+        }
         ctx.fillStyle = 'rgba(238,243,236,.82)';
         ctx.beginPath();
-        ctx.moveTo(x, this.y + 2);
-        ctx.lineTo(x - 9, this.y + 20);
-        ctx.lineTo(x + 9, this.y + 20);
+        ctx.moveTo(x, wingY - 6);
+        ctx.lineTo(x - 9, wingY + 12);
+        ctx.lineTo(x + 9, wingY + 12);
         ctx.closePath();
         ctx.fill();
       }
@@ -1121,12 +1227,22 @@
     nearLineCd: 0,
     commRequestId: 0,
     backgroundWorld: 1,
+    highlightInvulnerable: false,
 
     syncUiState() {
       const inGame = this.state === 'playing' || this.state === 'paused';
+      briefingVisual?.classList.toggle('hidden', this.state !== 'menu');
       hud?.classList.toggle('hidden', !inGame);
       comm?.classList.toggle('hidden', !inGame);
       skillBtn?.classList.toggle('hidden', !inGame);
+      if (highlightBtn) {
+        const showTutorialBailout = bridge.isTutorialMode?.() === true && inGame;
+        highlightBtn.hidden = !bridge.isTutorialMode?.();
+        highlightBtn.setAttribute('aria-hidden', String(!showTutorialBailout));
+        highlightBtn.tabIndex = showTutorialBailout ? 0 : -1;
+        highlightBtn.classList.toggle('hidden', !showTutorialBailout);
+      }
+      tutorialGuide?.classList.toggle('hidden', !bridge.isTutorialMode?.() || !inGame);
       pausePanel?.classList.toggle('hidden', this.state !== 'paused');
       if (!inGame) {
         if (comm) comm.textContent = '';
@@ -1229,11 +1345,15 @@
       this.repairLoopTriggers = 0;
       this.score = 0;
       this.time = 0;
+      this.highlightInvulnerable = false;
+      highlightBtn?.classList.remove('active');
+      if (highlightBtn) highlightBtn.textContent = '教学保底 · 开启无敌';
       this.backgroundWorld = backgroundWorldForRoute(this.route, this.segmentIndex);
       menu.classList.add('hidden');
       resultPanel.classList.add('hidden');
       pausePanel?.classList.add('hidden');
       this.syncUiState();
+      AirCombatAudio.play();
       this.hideClearanceCard();
       this.nextSegment();
     },
@@ -1241,12 +1361,14 @@
     pause() {
       if (this.state !== 'playing') return;
       this.state = 'paused';
+      AirCombatAudio.pause();
       this.syncUiState();
     },
 
     resume() {
       if (this.state !== 'paused') return;
       this.state = 'playing';
+      AirCombatAudio.play();
       this.syncUiState();
     },
 
@@ -1290,10 +1412,21 @@
       const slides = typeof bridge.briefingSlides === 'function' ? bridge.briefingSlides() : [];
       const slide = slides[this.briefingIndex] || slides[0] || null;
       const final = this.briefingIndex >= Math.max(0, slides.length - 1);
+      const step = Math.max(0, Math.min(slides.length - 1, this.briefingIndex));
       if (slide) {
         if (menuKicker) menuKicker.textContent = slide.kicker;
         if (menuTitle) menuTitle.textContent = slide.title;
         if (brief) brief.textContent = slide.text;
+      }
+      menu.dataset.briefingStep = String(step);
+      menu.dataset.briefingPhase = slide?.phase || 'ground-exam';
+      if (briefingVisual) briefingVisual.dataset.briefingStep = String(step);
+      document.documentElement.dataset.airCombatBriefingStep = String(step);
+      if (briefingProgress) {
+        briefingProgress.setAttribute('aria-valuenow', String(step + 1));
+        briefingProgress.querySelectorAll('span').forEach((dot, index) => {
+          dot.classList.toggle('active', index === step);
+        });
       }
       choices?.classList.toggle('hidden', !final);
       loadout?.classList.toggle('hidden', !final);
@@ -2000,6 +2133,7 @@
 
     finish(outcome) {
       this.state = 'result';
+      AirCombatAudio.pause();
       this.syncUiState();
       const victory = outcome === 'victory';
       const result = bridge.publishResult({
@@ -2068,7 +2202,7 @@
 
     updateHud() {
       const boss = this.route[this.segmentIndex] || this.route[this.route.length - 1];
-      hudStage.textContent = boss ? `${boss.stage}/6 ${boss.affix.name}·${boss.title}` : '第七天裂隙空域';
+      hudStage.textContent = boss ? `${boss.stage}/6 ${boss.affix.name}·${boss.title}` : '第七日裂隙空域';
       if (hudAffix) {
         const active = this.boss?.def === boss ? this.boss : null;
         const cd = active?.affix?.attack ? ` · ${Math.max(0, active.affixTimer || 0).toFixed(1)}s` : '';
@@ -2521,6 +2655,9 @@
   canvas.addEventListener('pointermove', pointerMove);
   canvas.addEventListener('touchstart', pointerMove, { passive: false });
   canvas.addEventListener('touchmove', pointerMove, { passive: false });
+  ['pointerdown', 'keydown', 'touchstart'].forEach(eventName => {
+    window.addEventListener(eventName, () => AirCombatAudio.unlock(), { passive: true });
+  });
   window.addEventListener('keydown', event => {
     if (event.key === 'Escape') {
       event.preventDefault();
@@ -2544,6 +2681,26 @@
   if (pauseResume) pauseResume.addEventListener('click', () => game.resume());
   if (pauseQuit) pauseQuit.addEventListener('click', () => bridge.returnToMain());
   skillBtn.addEventListener('click', () => game.useSkill());
+  tutorialGuideToggle?.addEventListener('click', () => {
+    const collapsed = tutorialGuide.classList.toggle('collapsed');
+    tutorialGuideToggle.setAttribute('aria-expanded', String(!collapsed));
+    tutorialGuideToggle.setAttribute('aria-label', collapsed ? '展开空战教学' : '收起空战教学');
+  });
+  function activateAirspaceHighlightProtocol() {
+    if (game.state !== 'playing' || !game.player || game.highlightInvulnerable) return false;
+    game.highlightInvulnerable = true;
+    game.player.hp = game.player.maxHp;
+    game.player.shield = Math.max(game.player.shield, 40);
+    game.enemyBullets = [];
+    game.lasers = [];
+    highlightBtn.classList.add('active');
+    highlightBtn.textContent = '教学保底 · 无敌生效';
+    game.burst(game.player.x, game.player.y, '#72d6bd', 28);
+    game.say('教学保底已经接管机体：本局伤害全部豁免。', 3, { eventType: 'airspace_highlight_protocol' });
+    return true;
+  }
+  window.activateAirspaceHighlightProtocol = activateAirspaceHighlightProtocol;
+  highlightBtn?.addEventListener('click', activateAirspaceHighlightProtocol);
 
 
   let last = performance.now();

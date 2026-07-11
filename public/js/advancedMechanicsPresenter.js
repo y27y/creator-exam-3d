@@ -247,7 +247,7 @@ export function buildAdvancedMechanicsViewModel(state = {}) {
       enabled: (legacy.total || 0) > 0 || legacy.canAdvance !== false,
       hint: (legacy.returned || []).length
         ? `已回归 ${(legacy.returned || []).map(unit => unit.name).join('、')}`
-        : '先把一个活下来的人记进名单'
+        : (legacy.total || 0) > 0 ? '让名单里的人在下一关回归' : '先把一个活下来的人记进名单，下一关再召回'
     },
     {
       id: 'trigger-social',

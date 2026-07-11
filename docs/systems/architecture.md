@@ -47,40 +47,55 @@
 - `npcPortraitAssets.js` 为同一批 20 名可交谈角色提供 image-2 透明立绘映射；圆形状态头像和右下角对话抠图共用该资产。头像状态只读取 `unit.status`，`lost` 通过 CSS 灰显，`rescued` 使用交互色勾选，不修改角色逻辑。
 - 棋盘 canvas 在非放置模式下对 `unitMeshPool` 做递归 raycast，命中角色根节点后直接打开轻量对话气泡。对话只显示最近三条消息、姓名／身份／情绪／态度／信任和输入框；完整人物档案仍留在“人”抽屉，造物坞始终可交互。
 - `world-signal` 固定锚定于右侧 `人 / 志 / 术` 轨道左侧，不再使用右下角位置，避免与 NPC 立绘和对话重叠。
-- `boardVisualThemes.js` 为六关分别提供沙盘底色、边缘、程序化纹理种子、17 类地形材质和显式 `details` 构件清单。洪水湿地、矿坑轨道、森林石庭、无人区战壕、记忆镜池和终考汇流裂纹分别由 `createBoardSurfaceTexture()` 与 `createBoardSurfaceDetails()` 生成；清单同步进入 `boardSurfaceGroup.userData` 和调试快照，浏览器验收可逐关核对，而不是只比较底色。主题 ID 进入地块缓存键，防止相同 terrain 在换关后沿用旧关材质。
+- `boardVisualThemes.js` 为六关分别映射一张 image-2 正交盘面底图，同时保留沙盘底色、边缘、程序化纹理种子、17 类地形材质和 `details` 回退清单。`loadBoardArtTexture()` 异步加载成功后由图片承担泥地、水面、道路、根系、镜池和裂纹等静态美术，并移除重复的程序化外围构件；加载失败时继续显示 `createBoardSurfaceTexture()` 与 `createBoardSurfaceDetails()`，不会留下空白盘面。透明 tile mesh 继续独立承担射线点击，动态单位、关键高差、建筑和特效保持 3D。主题 ID 进入地块缓存键，防止换关后沿用旧关材质。
 - 实时造物通过 `getAbilityVisualFamily()` 归入六种视觉语法，仍由一个 `createCreationMesh()` 入口生成。
 - 固定 CG、六关背景和 CC0 纹理位于 `public/assets/art/`，外圈 GLB 和界面音效位于 `public/assets/models/`、`public/assets/audio/`；缺失时 CSS 渐变或现有程序化画面继续工作。
 - `chapterIntros.js` 为六关分别提供三镜头章节开场；同一个模态播放器负责图片、极少量 HTML 文案、进度与跳过，第三镜用收卷淡出显露已渲染的实时棋盘。首见状态按关卡版本写入 `sessionStorage`，调试入口可以按当前关或 URL 参数强制重播，不会在重试本关时重复打断玩家。
-- `Soundscape` 只在指针或键盘手势后解锁短音效，覆盖轻量按钮反馈、造物编译／落地、新传说和胜负；不使用自动播放或循环背景音，静音偏好保存在本地。
+- `Soundscape` 只在指针或键盘手势后解锁声音：短音效覆盖按钮反馈、造物编译／落地、新传说和胜负，主游戏按关卡段落切换本地配乐；守城与空战模式各使用一条本地终局配乐，并与主游戏共享 `creatorExamSound` 静音偏好。
+
+### 2.0.2 完整教学战役
+
+- `tutorialCampaign.js` 是六关教学内容清单：保存推荐造物、内部目标格、诗性提示词与高级系统步骤；内部坐标只用于校验，不在玩家文案中显示。
+- `TutorialDirector` 维护独立的 `tutorial-campaign` 存档槽、关卡进度、检查点恢复、精确放置校验和最终模式上下文，不覆盖普通存档。
+- 主界面把教学入口放在 `人 / 志 / 术` 下方的“教”按钮；面板只显示当前动作，切换情境抽屉时自动折叠。生成和放置阶段由投影到目标格的金色标记承担位置指示。
+- 推荐造物经过校准后仍走真实能力、移动、灾害与胜负逻辑；教学专属复合效果会显式记录在卡牌 `tutorialEffects` 中，用于保证诗性描述承诺的多重效果实际成立。
+- 长夜守城把三个黄金塔位画成地图 1/2/3 标记，成功放塔后逐个熄灭；空战教学、守夜教学都能折叠为单个“教”按钮。
+- “教学保底 · 全塔裁决 / 开启无敌”是玩家可见的救急外挂，仅在教学战斗中出现，不属于正常步骤或高级系统覆盖，黄金路线测试禁止依赖它。
+- `debug/tutorial-campaign-tests.js` 逐回合证明六关、七张教学卡在固定不利随机条件下仍能通关；`debug/tutorial-mode-integration-tests.js` 检查 UI、检查点、31 次高级系统、最终模式辅助和保底边界。
+
+完整设计与验收约束见 [tutorial-mode.md](./tutorial-mode.md)。
 
 ### 2.1 长夜守城模式 (public/modes/tower-defense/)
-**职责**：第6到第7天之间的塔防过场、造物防线化、守夜结果回写
+**职责**：地面终考后的长夜六更、造物防线化、守夜结果回写
 **关键功能**：
-- 通过 `creatorExamNightWatchContext` 接收主游戏状态，包含熵值、居民、最多18张最近造物卡、近期世界事件经历和玩家风格
+- 主游戏用 `buildFinaleHistory()` 合并 `memorySystem.creationHistory`、跨区居民事件、持久传说与终考统计；通过 `creatorExamNightWatchContext` 传入最多 18 张跨关造物卡，并保留 `description`、`tags` 和 `levelId`
 - `towerBridge.js` 负责主游戏上下文、守夜旁白、波次通讯和结果写回；`nightWatchTowers.js` 负责前端塔计划应用、数值偏向、塔池筛选和普通放置上限移除
+- 四页入场 CG 固定解释“地面终考 → 长夜六更 → 第七日”；`nightWatchArt.js` 把攻击、控制、支援塔族映射到本地 image-2 塔图，图片未就绪或损坏时继续使用原 Canvas 程序化塔像
 - 后端 `/api/night-watch-towers` 使用 DeepSeek Flash 等 OpenAI-compatible 模型生成守夜塔名称、描述、EX说明、颜色、因果简报、三选一守夜加成和数值偏向；无密钥或失败时使用 `server/nightWatchTowers.js` 本地兜底
 - 塔的底层攻击/支援逻辑继续复用原有塔类型，AI只改变名称、说明、选择池和已白名单校验的数值倍率
 - 开局简报展示“此前行为 -> 守夜获得内容”，三选一加成只允许白名单效果（开局金币/生命、核心塔伤害/射程/折扣、周期补给），AI不直接生成可执行逻辑
 - 普通 `limit` 在守夜模式中移除；`exLimit` 保留，EX升级仍按原计数限制执行
-- 结算写入 `creatorExamNightWatchResult`，主游戏收到后记录 `defense_resolved` 世界事件，并把守夜塔计划摘要带给后续空域和结局
+- 结算写入 `creatorExamNightWatchResult`，主游戏收到后记录 `defense_resolved` 世界事件；结算 CG 显示主题、波数、受护居民、誓约和塔计划，并直接交给第七日空域入口
 
 **边界**：
 - 不把大型塔防 HTML 一次性拆入主引擎；当前只拆出守夜塔生成/应用模块，战斗循环仍留在独立模式页
 - 不允许AI返回新塔类型或任意执行逻辑；所有类型、数值范围和颜色都经过白名单/夹取校验
 - 不在每帧或每次攻击时调用AI；AI只在入场生成塔计划、波次通讯和结算文本时低频使用
 
-### 2.2 第七天空域模式 (public/modes/air-combat/)
+### 2.2 第七日空域模式 (public/modes/air-combat/)
 **职责**：终局空战清算层、造物武器化、结果回写
 **关键功能**：
-- 通过 `creatorExamAirCombatContext` 接收主游戏状态（熵值、居民、最近造物、守夜结果）
+- 非调试入口必须先取得守夜结果；通过 `creatorExamAirCombatContext` 接收同一份跨关造物、居民、经历、传说、终考统计和完整守夜结果
+- 四页空域简报依次展示地面终考、长夜六更、载体成形与第七日航线，并显式消费守夜的 `victory`、`survivedWaves`、`residentsProtected`、`theme`、`selectedBuff` 和 `towerPlan.briefing`
 - 将造物能力映射为 Canvas 空战武器与造物脉冲
 - 通过 `/api/narrative` 生成空域简报、Boss台词、武器副作用、近身通讯和胜负清算，DeepSeek Flash 等模型可由后端环境变量切换
-- 通过 `airCombatAssets.js` 统一加载 Skyward 的玩家机、僚机、20 类敌机、11 个 Boss、8 组分层背景和特效贴图；运行时贴图优先，Canvas 几何绘制兜底
+- 通过 `airCombatAssets.js` 按当前/下一阶段加载 Skyward 敌机、Boss、分层背景和特效；玩家机与僚机使用本地 `rift-carrier.webp`、`lantern-wingman.webp`，贴图不可用时 Canvas 几何绘制兜底
 - 读取 Skyward 空战仓库的 Boss 设计回响，将棱镜审判者、铁幕空母、引潮核心等原型转为 AI 上下文驱动的有限航线词缀和阶段弹幕
 - 裁剪迁入信标纵击、浮雷、相位闪现、后追自爆、牵引、监押护盾、镜面反击、收割补给等敌机行为，并由前序造物/守夜/熵值决定出现压力
 - 把实时射击、敌机、弹幕、Boss、碰撞、道具和分数限制在独立模式页
 - 将 6 段 Boss 航线结算为 `creatorExamAirCombatResult`
-- 主游戏收到结果后写入 `airspace_resolved` 世界事件，并生成最终结局钩子
+- 主游戏收到结果后，将六关历史轨迹、长夜代价与空域裁决交给 `generateEpicEnding({ nightWatchResult, airCombatResult })`，生成统一的 `legacyBranch`、`finalState`、标题、摘要和正文；同一结果写入 `airspace_resolved` 世界事件、世界志与最终结局 CG，地面终考胜利不再提前结束整条主线
+- 组合结局之后由 `TimelineArchive` 生成确定性时间线档案、六关失败回声和真实锚点候选，再由 `EndingDirector` 播放“虚假结局 → 退出世界 → 失败回声 → 造物真相 → 锚点传播”五幕终章；完成档案回写同一个 `airspace_resolved` 事件，刷新后可恢复并从世界志重播。完整契约见 `docs/systems/timeline-ending.md`
 
 **边界**：
 - 不迁入外部空战仓库的联机、排行榜、挑战码、普通关卡菜单
@@ -127,11 +142,13 @@
 - 4种AI人格：卡珊德拉（悲观）、菲比（乐观）、兰迪（混沌）、说书人（平衡）
 - 动态事件频率调整（基于人格）
 - 与aiMemory深度联动
-- 6种结局分支判定
+- 6 种历史轨迹分支判定：完美、牺牲、救赎、悲剧、隐藏、标准
+- 4 种最终世界状态判定：第七日净空、带伤封印、部分封印、裂隙未闭；空战失败时不会再生成“裂隙完全合上”的矛盾尾声
 
 **接口**：
 - `generateEvent(gameState)` - 生成随机事件
-- `determineEnding(gameState)` - 判定结局类型
+- `determineEndingBranch(profile, levels)` - 判定玩家历史轨迹
+- `determineFinalState(nightWatchResult, airCombatResult)` - 判定最终世界状态
 - `getNarrativeSummary()` - 获取叙事摘要
 
 ### 6. AIMemory (aiMemory.js)

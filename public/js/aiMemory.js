@@ -247,7 +247,7 @@ export class AIMemorySystem {
   }
 
   // Generate world epic ending with branching
-  generateEpicEnding() {
+  generateEpicEnding(finaleContext = {}) {
     const profile = this.getPlayerProfile();
     const creations = this.creationHistory;
     const levels = this.levelHistory;
@@ -266,26 +266,77 @@ export class AIMemorySystem {
     }
 
     // Determine ending branch based on player choices
-    const endingBranch = this.determineEndingBranch(profile, levels);
+    const legacyBranch = this.determineEndingBranch(profile, levels);
+    const finalState = this.determineFinalState(finaleContext.nightWatchResult, finaleContext.airCombatResult);
 
     // Generate ending text with specific references
-    const ending = this.generateEndingText(endingType, endingBranch, profile, creations, levels);
+    const ending = this.generateEndingText(endingType, legacyBranch, profile, creations, levels, {
+      ...finaleContext,
+      finalState
+    });
+    const title = this.generateFinaleTitle(legacyBranch, finalState);
+    const summary = this.generateFinaleSummary(finaleContext.nightWatchResult, finaleContext.airCombatResult, finalState);
 
     // Add to narrative memory
     this.addNarrativeMemory('milestone', {
       type: 'epic_ending',
       endingType,
-      endingBranch,
+      endingBranch: legacyBranch,
+      legacyBranch,
+      finalState,
+      title,
+      summary,
       text: ending
     });
 
     return {
       endingType,
-      endingBranch,
+      endingBranch: legacyBranch,
+      legacyBranch,
+      finalState,
+      title,
+      summary,
       text: ending,
       stats: profile,
       isMixed
     };
+  }
+
+  determineFinalState(nightWatchResult, airCombatResult) {
+    if (!airCombatResult) return 'legacy_only';
+    const clearedLayers = Number(airCombatResult.clearedLayers || 0);
+    if (airCombatResult.outcome === 'victory') {
+      return nightWatchResult?.victory === false || clearedLayers < 6 ? 'scarred_victory' : 'cleansed';
+    }
+    return clearedLayers >= 4 ? 'partial_seal' : 'rift_open';
+  }
+
+  generateFinaleTitle(legacyBranch, finalState) {
+    const branchNames = {
+      perfect: '完美结局', sacrifice: '牺牲结局', redemption: '救赎结局',
+      tragic: '悲剧结局', hidden: '隐藏结局', standard: '标准结局'
+    };
+    const stateNames = {
+      cleansed: '第七日净空', scarred_victory: '带伤封印',
+      partial_seal: legacyBranch === 'perfect' ? '无损者的坠落' : '未竟封印',
+      rift_open: legacyBranch === 'perfect' ? '无损者的坠落' : '裂隙未闭'
+    };
+    const branchName = branchNames[legacyBranch] || branchNames.standard;
+    return stateNames[finalState] ? `${branchName}·${stateNames[finalState]}` : branchName;
+  }
+
+  generateFinaleSummary(nightWatchResult, airCombatResult, finalState) {
+    if (!airCombatResult) return '';
+    const watch = nightWatchResult
+      ? `长夜${nightWatchResult.victory ? '守住' : '失守'}，坚持${nightWatchResult.survivedWaves || 0}波，保护${nightWatchResult.residentsProtected || 0}名居民`
+      : '长夜结果未记录';
+    const stateText = {
+      cleansed: '六段空域全部清算，裂隙完成净化',
+      scarred_victory: '空域清算完成，但世界保留了长夜的伤痕',
+      partial_seal: '载体坠落前完成大部分清算，裂隙被暂时封住',
+      rift_open: '空域载体坠落，裂隙仍然开放'
+    }[finalState] || '空域结果已经写入世界';
+    return `${watch}；${stateText}。`;
   }
 
   // Determine ending branch based on player behavior
@@ -362,7 +413,7 @@ export class AIMemorySystem {
     return scores;
   }
 
-  generateEndingText(endingType, endingBranch, profile, creations, levels) {
+  generateEndingText(endingType, endingBranch, profile, creations, levels, finaleContext = {}) {
     // Get specific references from player history
     const creationNames = creations.slice(-3).map(c => c.card.name);
     const favoriteCreation = this.getFavoriteCreation(creations);
@@ -377,9 +428,25 @@ export class AIMemorySystem {
     const mainText = this.generateStyleEnding(endingType, profile, creations, levels, creationNames, favoriteCreation, mostMemorableLevel, lostNames, rescuedNames);
 
     // Generate branch-specific epilogue
-    const epilogue = this.generateBranchEpilogue(endingBranch, profile, creations, levels);
+    const finalePassage = this.generateFinalePassage(finaleContext);
+    const epilogue = this.generateBranchEpilogue(endingBranch, profile, creations, levels, finaleContext.finalState);
 
-    return `${prologue}\n\n${mainText}\n\n${epilogue}`;
+    return [prologue, mainText, finalePassage, epilogue].filter(Boolean).join('\n\n');
+  }
+
+  generateFinalePassage({ nightWatchResult, airCombatResult, finalState } = {}) {
+    if (!airCombatResult) return '';
+    const watchText = nightWatchResult
+      ? `长夜${nightWatchResult.victory ? '守住了' : '失守了'}。防线坚持${nightWatchResult.survivedWaves || 0}波，护住${nightWatchResult.residentsProtected || 0}名居民。`
+      : '长夜留下的记录已经模糊。';
+    const cleared = Number(airCombatResult.clearedLayers || 0);
+    const airText = {
+      cleansed: `第七日，空域载体走完六段航线。裂隙被清算干净，天空重新连成一片。`,
+      scarred_victory: `第七日，空域载体完成${cleared}/6段清算。裂隙封住了，长夜留下的伤痕却没有消失。`,
+      partial_seal: `第七日，空域载体在第${Math.min(6, cleared + 1)}段前后坠落。已经完成的${cleared}/6段清算把裂隙压成一道不稳定的封口。`,
+      rift_open: `第七日，空域载体在只完成${cleared}/6段清算后坠落。裂隙没有合上，警戒线重新围住了地平线。`
+    }[finalState] || '';
+    return `${watchText}\n\n${airText}`.trim();
   }
 
   generateBranchPrologue(branch, profile, levels, lostNames, rescuedNames) {
@@ -395,7 +462,14 @@ export class AIMemorySystem {
     return prologues[branch] || prologues.standard;
   }
 
-  generateBranchEpilogue(branch, profile, creations, levels) {
+  generateBranchEpilogue(branch, profile, creations, levels, finalState = 'legacy_only') {
+    const finalStateEpilogues = {
+      cleansed: `【最终裁决】\n裂隙完成净化。世界没有忘记此前的代价，但第七日的天空终于安静下来。`,
+      scarred_victory: `【最终裁决】\n裂隙被封住了。仍会发光的伤口提醒所有人：这次胜利不是一次无损的归还。`,
+      partial_seal: `【最终裁决】\n裂隙被暂时压成窄缝。守望没有结束，下一班人已经接过地图和警戒表。`,
+      rift_open: `【最终裁决】\n裂隙仍然开放。居民退到新的警戒线后，而你留下的记录成为下一次升空的航图。`
+    };
+    if (finalStateEpilogues[finalState]) return finalStateEpilogues[finalState];
     const epilogues = {
       perfect: `\n\n【完美结局】\n裂隙合上了。考核台撤掉警戒线，你留下最后一张地图，然后离开。`,
       sacrifice: `\n\n【牺牲结局】\n裂隙缩小了，仍有几处夜里会发光。你留在防线边，继续处理没清完的危险格。`,

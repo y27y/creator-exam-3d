@@ -38,10 +38,12 @@ for (const asset of ['cg-prologue.webp', 'cg-ending.webp']) {
 assert.ok(htmlSource.includes('id="cinematic"'), 'main page should expose a fixed cinematic dialog');
 assert.ok(gameSource.includes("creatorExamPrologueSeen"), 'prologue should be session-scoped');
 const airResultAdd = airResultBlock.indexOf('this.processedAirCombatResults.add(result.id)');
-const endingCall = 'this.showEndingCinematic(result)';
+const endingCall = 'this.showEndingCinematic(resolvedResult)';
 assert.notEqual(airResultAdd, -1, 'air result should enter the first-result branch');
-assert.equal((airResultBlock.match(/this\.showEndingCinematic\(result\)/g) || []).length, 1, 'air result should open one ending plate');
+assert.equal((airResultBlock.match(/this\.showEndingCinematic\(/g) || []).length, 1, 'air result should open one ending plate');
 assert.ok(airResultBlock.indexOf(endingCall) > airResultAdd, 'ending plate should only open after first-result dedupe');
+assert.ok(airResultBlock.includes('this.memorySystem.generateEpicEnding({'), 'the final ending should consume Night Watch and airspace settlement');
+assert.ok(airResultBlock.includes('payload: resolvedResult'), 'world events should store the same resolved ending shown by the cinematic');
 assert.ok(
   turnPendingBlock.includes('!pending && this.ui?.cinematic && !this.ui.cinematic.hidden')
     && turnPendingBlock.includes('this.cinematicWasResolving = false'),

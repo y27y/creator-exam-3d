@@ -1,0 +1,389 @@
+/*
+ * Image-2 interface skins
+ * -----------------------
+ * Eight generated material plates share one archive-and-brass language while
+ * preserving the six chapter identities and the two finale modes.
+ */
+
+:root {
+  --image2-panel-dark: rgba(8, 11, 16, 0.88);
+  --image2-panel-deep: rgba(5, 8, 12, 0.96);
+  --image2-paper: rgba(236, 224, 188, 0.1);
+  --image2-brass: #d2b86b;
+  --image2-ink: #f0e4c1;
+}
+
+/* Main exam: one shared structure, six image-2 chapter materials. */
+body.creator-exam-main {
+  --ui-theme-art: url('./assets/art/ui-image2/ui-flood-village.webp');
+  --ui-theme-accent: #88c8c1;
+  --ui-theme-accent-rgb: 136, 200, 193;
+  --ui-theme-brass: #d5bd78;
+}
+
+body.creator-exam-main[data-level-theme='night-mine'] {
+  --ui-theme-art: url('./assets/art/ui-image2/ui-night-mine.webp');
+  --ui-theme-accent: #e0ad61;
+  --ui-theme-accent-rgb: 224, 173, 97;
+  --ui-theme-brass: #c79554;
+}
+
+body.creator-exam-main[data-level-theme='giant-city'] {
+  --ui-theme-art: url('./assets/art/ui-image2/ui-giant-city.webp');
+  --ui-theme-accent: #9dbb79;
+  --ui-theme-accent-rgb: 157, 187, 121;
+  --ui-theme-brass: #bba36b;
+}
+
+body.creator-exam-main[data-level-theme='wordless-war'] {
+  --ui-theme-art: url('./assets/art/ui-image2/ui-wordless-war.webp');
+  --ui-theme-accent: #a9b9c8;
+  --ui-theme-accent-rgb: 169, 185, 200;
+  --ui-theme-brass: #b9a276;
+}
+
+body.creator-exam-main[data-level-theme='memory-plague'] {
+  --ui-theme-art: url('./assets/art/ui-image2/ui-memory-plague.webp');
+  --ui-theme-accent: #9fc9b0;
+  --ui-theme-accent-rgb: 159, 201, 176;
+  --ui-theme-brass: #c1aa73;
+}
+
+body.creator-exam-main[data-level-theme='final-exam'] {
+  --ui-theme-art: url('./assets/art/ui-image2/ui-final-exam.webp');
+  --ui-theme-accent: #a987dc;
+  --ui-theme-accent-rgb: 169, 135, 220;
+  --ui-theme-brass: #d0ae69;
+}
+
+.creator-exam-main .glass {
+  --image2-frame-width: 7px;
+  clip-path: none;
+  border: var(--image2-frame-width) solid transparent;
+  border-image-source: var(--ui-theme-art);
+  border-image-slice: 150;
+  border-image-width: var(--image2-frame-width);
+  border-image-repeat: stretch;
+  background-color: var(--image2-panel-deep);
+  background-image:
+    linear-gradient(155deg, rgba(7, 10, 15, 0.62), rgba(13, 17, 23, 0.84)),
+    var(--ui-theme-art);
+  background-position: center, center;
+  background-size: auto, 100% 100%;
+  background-blend-mode: normal, soft-light;
+  box-shadow:
+    0 18px 45px rgba(0, 0, 0, 0.38),
+    inset 0 0 0 1px rgba(240, 228, 193, 0.1),
+    inset 0 0 34px rgba(var(--ui-theme-accent-rgb), 0.055);
+}
+
+.creator-exam-main #topbar {
+  --image2-frame-width: 5px;
+  background-image:
+    linear-gradient(90deg, rgba(6, 9, 14, 0.8), rgba(15, 18, 25, 0.66) 48%, rgba(6, 9, 14, 0.84)),
+    var(--ui-theme-art);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.34), inset 0 -1px rgba(var(--ui-theme-accent-rgb), 0.18);
+}
+
+.creator-exam-main #topbar h1,
+.creator-exam-main .eyebrow,
+.creator-exam-main .section-title,
+.creator-exam-main .objective-label,
+.creator-exam-main .card-type {
+  color: var(--ui-theme-brass);
+  text-shadow: 0 1px 10px rgba(0, 0, 0, 0.7);
+}
+
+.creator-exam-main .topbar-status .stat {
+  border-color: rgba(var(--ui-theme-accent-rgb), 0.22);
+  background: linear-gradient(180deg, rgba(240, 228, 193, 0.09), rgba(5, 8, 12, 0.28));
+  box-shadow: inset 0 1px rgba(255, 255, 255, 0.06);
+}
+
+.creator-exam-main #level-chip {
+  color: var(--ui-theme-brass);
+  border-color: color-mix(in srgb, var(--ui-theme-brass) 44%, transparent);
+  background: linear-gradient(180deg, rgba(210, 184, 107, 0.17), rgba(14, 17, 22, 0.48));
+}
+
+.creator-exam-main #left-panel {
+  --image2-frame-width: 8px;
+  background-image:
+    linear-gradient(165deg, rgba(9, 12, 17, 0.61), rgba(13, 17, 23, 0.87)),
+    var(--ui-theme-art);
+}
+
+.creator-exam-main .mission-dossier::before {
+  left: -12px;
+  width: 3px;
+  border-radius: 0;
+  background: linear-gradient(180deg, var(--ui-theme-brass), rgba(var(--ui-theme-accent-rgb), 0.35));
+  box-shadow: 0 0 12px rgba(var(--ui-theme-accent-rgb), 0.18);
+}
+
+.creator-exam-main .mission-threat {
+  border-color: rgba(var(--ui-theme-accent-rgb), 0.42);
+  background: linear-gradient(180deg, rgba(var(--ui-theme-accent-rgb), 0.16), rgba(4, 7, 11, 0.38));
+  box-shadow: inset 0 0 14px rgba(var(--ui-theme-accent-rgb), 0.08);
+}
+
+.creator-exam-main .objective-box,
+.creator-exam-main .meter {
+  border-color: rgba(210, 184, 107, 0.28);
+  background:
+    linear-gradient(145deg, rgba(236, 224, 188, 0.13), rgba(31, 29, 24, 0.24)),
+    var(--ui-theme-art);
+  background-size: auto, 100% 100%;
+  background-blend-mode: normal, soft-light;
+  box-shadow: inset 0 0 0 1px rgba(255, 248, 224, 0.035);
+}
+
+.creator-exam-main #creation-dock {
+  --image2-frame-width: 9px;
+  background-image:
+    linear-gradient(145deg, rgba(5, 8, 13, 0.56), rgba(11, 14, 20, 0.85)),
+    var(--ui-theme-art);
+  box-shadow:
+    0 20px 55px rgba(0, 0, 0, 0.48),
+    0 0 24px rgba(var(--ui-theme-accent-rgb), 0.08),
+    inset 0 0 0 1px rgba(240, 228, 193, 0.1);
+}
+
+.creator-exam-main #creation-input {
+  border: 1px solid rgba(var(--ui-theme-accent-rgb), 0.3);
+  border-radius: 6px;
+  background:
+    linear-gradient(110deg, rgba(3, 6, 10, 0.86), rgba(22, 22, 22, 0.7)),
+    var(--ui-theme-art);
+  background-size: auto, 100% 100%;
+  background-blend-mode: normal, soft-light;
+  box-shadow: inset 0 0 24px rgba(0, 0, 0, 0.42), 0 0 0 1px rgba(240, 228, 193, 0.035);
+}
+
+.creator-exam-main #creation-input:focus {
+  border-color: var(--ui-theme-accent);
+  box-shadow: inset 0 0 24px rgba(0, 0, 0, 0.36), 0 0 0 3px rgba(var(--ui-theme-accent-rgb), 0.13);
+}
+
+.creator-exam-main button.primary {
+  border-color: color-mix(in srgb, var(--ui-theme-brass) 48%, transparent);
+  background:
+    linear-gradient(180deg, rgba(210, 184, 107, 0.24), rgba(32, 30, 25, 0.54)),
+    var(--ui-theme-art);
+  background-size: auto, 100% 100%;
+  background-blend-mode: normal, soft-light;
+  box-shadow: inset 0 1px rgba(255, 248, 224, 0.09), 0 7px 18px rgba(0, 0, 0, 0.24);
+}
+
+.creator-exam-main button.primary:hover {
+  border-color: var(--ui-theme-brass);
+  box-shadow: 0 0 18px rgba(var(--ui-theme-accent-rgb), 0.14), 0 8px 22px rgba(0, 0, 0, 0.3);
+}
+
+.creator-exam-main .drawer-rail > button {
+  border: 7px solid transparent;
+  border-image-source: var(--ui-theme-art);
+  border-image-slice: 150;
+  border-image-width: 7px;
+  color: var(--image2-ink);
+  background:
+    linear-gradient(rgba(7, 10, 15, 0.78), rgba(12, 16, 21, 0.86)),
+    var(--ui-theme-art);
+  background-size: auto, 100% 100%;
+  background-blend-mode: normal, soft-light;
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.32);
+}
+
+.creator-exam-main .drawer-rail > button[aria-expanded='true'] {
+  color: #07100d;
+  background: linear-gradient(180deg, var(--ui-theme-accent), color-mix(in srgb, var(--ui-theme-accent) 66%, #18201f));
+  border-image-source: none;
+  border-color: var(--ui-theme-accent);
+  box-shadow: 0 0 20px rgba(var(--ui-theme-accent-rgb), 0.28);
+}
+
+.creator-exam-main #right-panel {
+  --image2-frame-width: 12px;
+}
+
+/* Long Night: the generated fortress plate becomes the selection, HUD and modal frame. */
+body.night-watch-mode {
+  --night-watch-art: url('./assets/art/ui-image2/ui-night-watch.webp');
+  --primary-color: #e6a14e;
+  --border-color: #715335;
+  background:
+    linear-gradient(rgba(8, 10, 15, 0.62), rgba(12, 9, 10, 0.82)),
+    url('./assets/art/cg-night-watch.webp') center / cover fixed !important;
+}
+
+body.night-watch-mode::before {
+  inset: 0;
+  background:
+    radial-gradient(circle at 50% 40%, rgba(240, 160, 72, 0.12), transparent 45%),
+    linear-gradient(90deg, rgba(3, 5, 9, 0.62), transparent 42%, rgba(3, 5, 9, 0.62));
+}
+
+.night-watch-mode .screen,
+.night-watch-mode #ui-panel,
+.night-watch-mode #floating-info-panel,
+.night-watch-mode #modal-content,
+.night-watch-mode #confirm-modal-content,
+.night-watch-mode #abandon-confirm-content,
+.night-watch-mode #exit-confirm-content,
+.night-watch-mode #preferences-content,
+.night-watch-mode #announcement-content,
+.night-watch-mode #leaderboard-content,
+.night-watch-mode #wiki-content {
+  border: 12px solid transparent;
+  border-image: var(--night-watch-art) 150 / 12px stretch;
+  background:
+    linear-gradient(155deg, rgba(8, 9, 14, 0.78), rgba(17, 14, 15, 0.94)),
+    var(--night-watch-art) center / 100% 100%;
+  background-blend-mode: normal, soft-light;
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.55), inset 0 0 30px rgba(240, 160, 72, 0.04);
+}
+
+.night-watch-mode #selection-slots,
+.night-watch-mode #tower-pool,
+.night-watch-mode #selection-info,
+.night-watch-mode .tower-card,
+.night-watch-mode .map-card,
+.night-watch-mode .stats-display,
+.night-watch-mode .tower-btn,
+.night-watch-mode .skill-rail-slot,
+.night-watch-mode #pause-button,
+.night-watch-mode #settings-button,
+.night-watch-mode #exit-button,
+.night-watch-mode #quick-restart-btn,
+.night-watch-mode #abandon-button {
+  background:
+    linear-gradient(155deg, rgba(18, 17, 20, 0.8), rgba(7, 8, 12, 0.94)),
+    var(--night-watch-art) center / 100% 100%;
+  background-blend-mode: normal, soft-light;
+  border-color: rgba(230, 161, 78, 0.36);
+}
+
+.night-watch-mode #ui-panel::before,
+.night-watch-mode #ui-panel::after {
+  border-color: #e6a14e;
+  filter: drop-shadow(0 0 5px rgba(230, 161, 78, 0.38));
+}
+
+.night-watch-mode #night-watch-cinematic {
+  background:
+    linear-gradient(145deg, rgba(3, 5, 12, 0.76), rgba(10, 15, 28, 0.91)),
+    url('./assets/art/cg-night-watch.webp') center / cover !important;
+}
+
+body.night-watch-mode #night-watch-cinematic .night-watch-cg {
+  border: 12px solid transparent;
+  border-image: var(--night-watch-art) 150 / 12px stretch;
+  clip-path: none;
+  background:
+    linear-gradient(155deg, rgba(8, 9, 14, 0.72), rgba(17, 14, 15, 0.92)),
+    var(--night-watch-art) center / 100% 100%;
+  background-blend-mode: normal, soft-light;
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.64), inset 0 0 28px rgba(230, 161, 78, 0.05);
+}
+
+body.night-watch-mode #night-watch-cinematic .night-watch-cg-frame::before {
+  border-color: rgba(230, 161, 78, 0.24);
+}
+
+body.night-watch-mode #night-watch-cinematic .night-watch-cg-footer {
+  border-top-color: rgba(230, 161, 78, 0.3);
+  background: rgba(5, 7, 11, 0.46);
+}
+
+/* Rift Airspace: an image-2 carrier instrument frame for every flight overlay. */
+body.air-combat-mode {
+  --airspace-art: url('./assets/art/ui-image2/ui-airspace.webp');
+  background:
+    linear-gradient(rgba(5, 8, 13, 0.72), rgba(5, 7, 12, 0.9)),
+    url('./assets/art/cg-airspace-bridge.webp') center / cover fixed;
+}
+
+.air-combat-mode .airspace-stage {
+  border: 10px solid transparent;
+  border-image: var(--airspace-art) 150 / 10px stretch;
+  border-radius: 0;
+  background:
+    linear-gradient(rgba(5, 8, 13, 0.46), rgba(7, 9, 14, 0.78)),
+    var(--airspace-art) center / 100% 100%;
+  background-blend-mode: normal, soft-light;
+  box-shadow: 0 22px 60px rgba(0, 0, 0, 0.58), 0 0 30px rgba(114, 214, 189, 0.08);
+}
+
+.air-combat-mode .hud-info-chip,
+.air-combat-mode .airspace-comm,
+.air-combat-mode .airspace-clearance-card,
+.air-combat-mode .airspace-menu,
+.air-combat-mode .airspace-result,
+.air-combat-mode .airspace-pause {
+  border: 9px solid transparent;
+  border-image: var(--airspace-art) 150 / 9px stretch;
+  border-radius: 0;
+  background:
+    linear-gradient(145deg, rgba(5, 8, 14, 0.72), rgba(11, 13, 20, 0.93)),
+    var(--airspace-art) center / 100% 100%;
+  background-blend-mode: normal, soft-light;
+  box-shadow: 0 16px 38px rgba(0, 0, 0, 0.42), inset 0 0 24px rgba(114, 214, 189, 0.05);
+}
+
+.air-combat-mode .airspace-choice,
+.air-combat-mode .secondary,
+.air-combat-mode .airspace-skill {
+  border-color: rgba(114, 214, 189, 0.28);
+  border-radius: 4px;
+  background:
+    linear-gradient(150deg, rgba(12, 17, 23, 0.75), rgba(7, 10, 15, 0.92)),
+    var(--airspace-art) center / 100% 100%;
+  background-blend-mode: normal, soft-light;
+}
+
+.air-combat-mode .primary,
+.air-combat-mode .airspace-choice.selected {
+  color: #07100d;
+  border-color: rgba(114, 214, 189, 0.72);
+  background: linear-gradient(180deg, #8be4ca, #4fae98);
+  box-shadow: 0 0 18px rgba(114, 214, 189, 0.2);
+}
+
+@media (max-width: 720px) {
+  .creator-exam-main #topbar {
+    grid-template-columns: minmax(180px, 1fr) auto auto;
+    gap: 8px;
+  }
+
+  .creator-exam-main #topbar h1 {
+    font-size: 20px;
+  }
+
+  .creator-exam-main .npc-status-strip {
+    top: 92px;
+    left: 292px;
+    right: 70px;
+    justify-content: center;
+  }
+
+  .creator-exam-main .glass {
+    --image2-frame-width: 8px;
+  }
+
+  .creator-exam-main #creation-dock {
+    --image2-frame-width: 9px;
+  }
+
+  .air-combat-mode .airspace-stage {
+    border-width: 0;
+    border-image: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .creator-exam-main .glass,
+  .night-watch-mode .screen,
+  .air-combat-mode .airspace-stage {
+    transition: none;
+  }
+}

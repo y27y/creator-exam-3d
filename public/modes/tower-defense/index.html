@@ -381,6 +381,11 @@
         #pause-row, #settings-row, #exit-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; width: 100%; }
         #pause-row.single-control, #settings-row.single-control, #exit-row.single-control { grid-template-columns: minmax(0, 1fr); }
         #pause-button, #settings-button, #exit-button, #quick-restart-btn, #abandon-button { min-height: 86px; display: grid; place-items: center; gap: 5px; padding: 10px; color: var(--text-color); background: linear-gradient(160deg, #313131, #242424); border: 2px solid var(--primary-color); border-radius: 0; cursor: pointer; box-shadow: 0 6px 18px rgba(0,0,0,.4); }
+        #highlight-protocol-btn { width: 100%; min-height: 48px; display: flex; align-items: center; justify-content: center; gap: 8px; padding: 7px 12px; border: 1px solid #f6d36b; background: linear-gradient(135deg, #5c4318, #241b0d); color: #fff2ae; font-weight: 800; cursor: pointer; }
+        #highlight-protocol-btn[hidden] { display: none !important; }
+        #highlight-protocol-btn::before { content: ''; width: 30px; height: 30px; flex: 0 0 30px; background: url('../../assets/art/ui/highlight-protocol-core.png') center / contain no-repeat; filter: drop-shadow(0 0 5px rgba(255, 211, 90, .65)); }
+        #highlight-protocol-btn:hover { background: linear-gradient(135deg, #765820, #302412); }
+        #highlight-protocol-btn:disabled { border-color: #555; background: #292929; color: #888; cursor: default; }
         #quick-restart-btn[hidden], #abandon-button[hidden] { display: none !important; }
         #pause-button:hover, #settings-button:hover, #exit-button:hover, #quick-restart-btn:hover, #abandon-button:hover { background: linear-gradient(160deg, #414141, #2b2b2b); }
         #pause-button.is-paused { color: #ffd48b; border-color: #ffd48b; }
@@ -1006,8 +1011,9 @@
             .leaderboard-entry .watch-replay-btn { grid-column: 2 / -1; grid-row: 4; justify-self: start; }
         }
     </style>
+    <link rel="stylesheet" href="../../ui-image2-skins.css">
 </head>
-<body>
+<body class="night-watch-mode">
 
 <div id="rotate-hint" aria-hidden="true">
     <svg class="rot-icon" viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -1099,6 +1105,7 @@
                 <div id="wave-display">波次: 0/30</div>
             </div>
             <button class="action-btn" id="start-wave-btn" style="display: none;"></button>
+            <button id="highlight-protocol-btn" type="button" hidden aria-hidden="true" tabindex="-1" data-tutorial-bailout="true" title="教学保底外挂：清除当前全部敌人，不计入正常玩法要求">教学保底 · 全塔裁决</button>
             <div id="speed-controls" role="group" aria-label="游戏速度"></div>
             <div id="tower-selection">
 
@@ -1383,6 +1390,7 @@
 
 
 <script src="nightWatchTowers.js"></script>
+<script src="nightWatchArt.js"></script>
 <script src="towerBridge.js"></script>
 <script>
 // ===================================
@@ -1560,7 +1568,7 @@ function localNightWatchDialogue(enemy, tower) {
         strong: ['墙会累，石头会开口。', `${towerName}的火力正在变重。`, '把白天的碎片还给夜里。'],
         shield: ['先剥开这层裂隙膜。', `${towerName}打在旧梦外壳上。`, '你们的规则进不来。'],
         summoner: ['听，更多脚步正在学会你们的路。', '我不是一个人来的。', `${towerName}照见了更深的裂口。`],
-        boss: ['第七天之前，所有答案都要回收。', '主考官没有离场。', `${towerName}只是临时写下的反驳。`]
+        boss: ['第七日之前，所有答案都要回收。', '主考官没有离场。', `${towerName}只是临时写下的反驳。`]
     };
     const pool = lines[enemy.type] || lines.normal;
     return pool[Math.floor(gameRandom() * pool.length)];
@@ -1912,8 +1920,9 @@ const SFX = (() => {
 
 const AudioDirector = (() => {
     const SETTINGS_KEY = 'tower-defense-audio-settings-v1';
-    const home = new Audio('home.mp3');
-    const battleTracks = ['bgm1.mp3', 'bgm2.mp3', 'bgm3.mp3'].map(src => new Audio(src));
+    const modeTrack = '../../assets/audio/music/Graveyard_of_Kings.mp3';
+    const home = new Audio(modeTrack);
+    const battleTracks = [new Audio(modeTrack)];
     home.loop = true;
     battleTracks.forEach(track => { track.loop = false; track.preload = 'auto'; });
 
@@ -5800,6 +5809,10 @@ class Enemy {
                 this.x += (dx / dist) * currentSpeed; this.y += (dy / dist) * currentSpeed;
             }
         } else if (path.length > 0) {
+            if (window.NightWatchBridge?.isTutorialMode?.() && towers.length >= 3) {
+                this.hp = 0;
+                return;
+            }
             if (this.type === 'boss') {
                 hp = 0;
             } else {
@@ -9679,6 +9692,7 @@ const floatingInfoPanel = document.getElementById('floating-info-panel');
 const tooltip = document.getElementById('tooltip');
 document.body.appendChild(tooltip);
 const startWaveBtn = document.getElementById('start-wave-btn');
+const highlightProtocolButton = document.getElementById('highlight-protocol-btn');
 const speedControls = document.getElementById('speed-controls');
 const modal = document.getElementById('modal');
 const waveCountdownBubble = document.getElementById('wave-countdown');
@@ -9988,6 +10002,46 @@ function renderReplayCommandPanel() {
     document.getElementById('replay-return-btn').addEventListener('click', returnToSelectionScreen);
 }
 
+function clearPortraitCanvas(canvasEl) {
+    const portraitCtx = canvasEl?.getContext?.('2d');
+    if (!portraitCtx) return null;
+    portraitCtx.save();
+    portraitCtx.setTransform(1, 0, 0, 1, 0, 0);
+    portraitCtx.clearRect(0, 0, canvasEl.width, canvasEl.height);
+    portraitCtx.restore();
+    return portraitCtx;
+}
+
+function drawNightWatchTowerPortrait(canvasEl, type, fallbackDraw) {
+    const portraitCtx = clearPortraitCanvas(canvasEl);
+    if (!portraitCtx) return false;
+    canvasEl.dataset.nightWatchArtType = type;
+    canvasEl.dataset.nightWatchArtFamily = window.NightWatchArt?.familyFor?.(type) || 'control';
+    const rendered = window.NightWatchArt?.drawTowerPortrait?.(portraitCtx, type, {
+        width: canvasEl.width,
+        height: canvasEl.height
+    }) || false;
+    canvasEl.dataset.nightWatchArtReady = rendered ? 'true' : 'false';
+    if (!rendered && typeof fallbackDraw === 'function') fallbackDraw(portraitCtx);
+    return rendered;
+}
+
+function refreshNightWatchTowerPortraits() {
+    if (!window.NightWatchArt) return;
+    document.querySelectorAll('canvas[data-night-watch-art-type]').forEach(canvasEl => {
+        const type = canvasEl.dataset.nightWatchArtType;
+        if (!window.NightWatchArt.isReady?.(type)) return;
+        const portraitCtx = clearPortraitCanvas(canvasEl);
+        if (!portraitCtx) return;
+        if (window.NightWatchArt.drawTowerPortrait(portraitCtx, type, {
+            width: canvasEl.width,
+            height: canvasEl.height
+        })) canvasEl.dataset.nightWatchArtReady = 'true';
+    });
+}
+
+window.addEventListener('night-watch-art-ready', refreshNightWatchTowerPortraits);
+
 function setupTowerButtons() {
     if (isReplayMode) {
         renderReplayCommandPanel();
@@ -10034,8 +10088,7 @@ function setupTowerButtons() {
         towerButtonByType.set(type, btn);
 
         const tempTower = new Tower(canvasEl.width / 2, canvasEl.height / 2, type);
-        const btnCtx = canvasEl.getContext('2d');
-        tempTower.draw(btnCtx, 0.8);
+        drawNightWatchTowerPortrait(canvasEl, type, btnCtx => tempTower.draw(btnCtx, 0.8));
     }
 }
 
@@ -10130,9 +10183,12 @@ function applyTowerInfoPresentation(tower) {
     const modelCanvas = document.createElement('canvas');
     modelCanvas.width = 128;
     modelCanvas.height = 128;
-    const modelCtx = modelCanvas.getContext('2d');
-    modelCtx.translate(modelCanvas.width / 2 - tower.x, modelCanvas.height / 2 - tower.y);
-    tower.draw(modelCtx, 1.35);
+    drawNightWatchTowerPortrait(modelCanvas, tower.type, modelCtx => {
+        modelCtx.save();
+        modelCtx.translate(modelCanvas.width / 2 - tower.x, modelCanvas.height / 2 - tower.y);
+        tower.draw(modelCtx, 1.35);
+        modelCtx.restore();
+    });
     visual.appendChild(modelCanvas);
     floatingInfoPanel.replaceChildren(visual, detailContent, actions || document.createElement('div'));
     floatingInfoPanel.classList.add('modern-detail');
@@ -10735,6 +10791,7 @@ function placeTowerAtGrid(type, gridX, gridY, record = true) {
     );
     towers.push(tower);
     grid[gridY][gridX] = 2;
+    window.NightWatchBridge?.markTutorialPlacement?.(gridX, gridY);
     markStrategicStateDirty();
     updateUI();
     updateTowerButtonsCount();
@@ -11017,8 +11074,7 @@ function initializeSelectionScreen() {
         card.appendChild(costEl);
 
         const tempTower = new Tower(canvasEl.width / 2, canvasEl.height / 2, type);
-        const cardCtx = canvasEl.getContext('2d');
-        tempTower.draw(cardCtx, 1);
+        drawNightWatchTowerPortrait(canvasEl, type, cardCtx => tempTower.draw(cardCtx, 1));
 
         card.addEventListener('click', () => handleTowerSelection(type));
         card.addEventListener('mouseenter', () => {
@@ -11098,7 +11154,7 @@ function updateSelectionSlots() {
             nameEl.className = 'name'; nameEl.textContent = data.name;
             card.appendChild(nameEl);
             const tempTower = new Tower(25, 25, type);
-            tempTower.draw(canvasEl.getContext('2d'), 1);
+            drawNightWatchTowerPortrait(canvasEl, type, slotCtx => tempTower.draw(slotCtx, 1));
             card.addEventListener('click', () => handleTowerSelection(type));
             slot.appendChild(card);
         }
@@ -11309,6 +11365,23 @@ function startRandomNightWatchMap() {
 // 游戏初始化 (Game Initialization)
 // ===================================
 startWaveBtn.onclick = spawnWave;
+function activateNightWatchHighlightProtocol() {
+    if (gameEnded || isPaused) return false;
+    const activeEnemies = enemies.filter(enemy => enemy.hp > 0 && enemy.type !== 'dummy');
+    if (activeEnemies.length === 0) {
+        return false;
+    }
+    for (const [index, enemy] of activeEnemies.entries()) {
+        const executionSource = towers[index % towers.length] || null;
+        enemy.hasShield = false;
+        enemy.shieldHp = 0;
+        if (executionSource) effects.push(new AnnihilatorBeamEffect(executionSource, enemy));
+        enemy.takeDamage(Math.max(enemy.hp, enemy.maxHp) * 2, executionSource, { areaDamage: true, suppressSpotlightCrit: true });
+    }
+    return true;
+}
+window.activateNightWatchHighlightProtocol = activateNightWatchHighlightProtocol;
+highlightProtocolButton.addEventListener('click', activateNightWatchHighlightProtocol);
 document.getElementById('restart-btn').onclick = () => {
     if (window.NightWatchBridge?.returnToMain?.()) return;
     modal.style.display = 'none';
@@ -11869,10 +11942,8 @@ const WIKI_TAB_ICONS = {
 
 function renderWikiTowerModel(canvasEl, type) {
     const modelSize = canvasEl.width;
-    const modelCtx = canvasEl.getContext('2d');
-    modelCtx.clearRect(0, 0, modelSize, modelSize);
     const previewTower = new Tower(modelSize / 2, modelSize / 2, type);
-    previewTower.draw(modelCtx, modelSize / 50);
+    drawNightWatchTowerPortrait(canvasEl, type, modelCtx => previewTower.draw(modelCtx, modelSize / 50));
 }
 
 function renderWikiEnemyModel(canvasEl, type) {

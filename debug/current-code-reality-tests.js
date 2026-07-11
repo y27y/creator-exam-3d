@@ -471,6 +471,86 @@ function assertAirCombatIntegration() {
   assert.ok(world.getFutureHooks('final-exam').some(hook => hook.type === 'airspace_ending'), 'airspace_resolved must create an ending hook');
 }
 
+function assertFinaleContinuity() {
+  const gameSource = readSource('public/js/game.js');
+  const historyBlock = sourceBlock(gameSource, '  buildFinaleHistory(limit = 18) {', '  buildAirCombatContext() {');
+  const airContextBlock = sourceBlock(gameSource, '  buildAirCombatContext() {', '  async openAirCombatMode(options = {}) {');
+  const airOpenBlock = sourceBlock(gameSource, '  async openAirCombatMode(options = {}) {', '  isFinalExam() {');
+  const finalWinBlock = sourceBlock(gameSource, '  winLevel(message) {', '  // Override failLevel for browser-specific effects');
+  const nightResultBlock = sourceBlock(gameSource, '  applyNightWatchResult(result) {', '  renderNightWatchPanel() {');
+  const airResultBlock = sourceBlock(gameSource, '  applyAirCombatResult(result) {', '  renderAirCombatPanel() {');
+  const airPanelBlock = sourceBlock(gameSource, '  renderAirCombatPanel() {', '  loadNextRegion(regionData) {');
+
+  assert.ok(historyBlock.includes('this.memorySystem?.creationHistory'), 'finale history must use cross-level creation memory instead of only the current board');
+  for (const field of ['description:', 'tags:', 'levelId:']) {
+    assert.ok(historyBlock.includes(field), `finale history must preserve creation ${field.slice(0, -1)}`);
+  }
+  assert.ok(historyBlock.includes("event.type === 'unit_rescued'") && historyBlock.includes("event.type === 'unit_lost'"), 'finale history must aggregate resident outcomes across regions');
+  assert.ok(historyBlock.includes('this.memorySystem?.worldState?.discoveredLore'), 'finale history must preserve cross-level lore');
+  for (const field of ['history.recentCreations', 'history.rescuedResidents', 'history.lostResidents', 'history.experiences', 'history.discoveredLore', 'history.finalExamStats']) {
+    assert.ok(airContextBlock.includes(field), `air context must inherit ${field}`);
+  }
+
+  assert.ok(airOpenBlock.includes('!options.testEntry && !this.lastNightWatchResult'), 'normal air combat must stay locked until Night Watch settles');
+  assert.ok(airOpenBlock.indexOf('!options.testEntry && !this.lastNightWatchResult') < airOpenBlock.indexOf('this.buildAirCombatContext()'), 'air combat gate must run before publishing a normal context');
+  assert.ok(airPanelBlock.includes('this.ui.airCombatBtn.disabled = !result && !this.lastNightWatchResult'), 'air combat button must visibly mirror the Night Watch gate');
+
+  assert.ok(finalWinBlock.includes('地面终考完成') && finalWinBlock.includes('长夜六更') && finalWinBlock.includes('第七日'), 'ground-exam victory must hand off to the finale timeline');
+  assert.ok(!finalWinBlock.includes('generateEpicEnding()'), 'ground-exam victory must not generate the final ending before both modes resolve');
+  assert.ok(airResultBlock.includes('this.memorySystem.generateEpicEnding({'), 'air combat settlement must generate the contextual final ending');
+  assert.ok(airResultBlock.includes('payload: resolvedResult'), 'air combat settlement must persist the same resolved ending shown to the player');
+  assert.ok(airResultBlock.includes('this.showEndingCinematic'), 'air combat settlement must present the generated ending');
+
+  for (const field of ['result.theme', 'result.survivedWaves', 'result.residentsProtected', 'result.selectedBuff?.name', 'result.towerPlan?.briefing']) {
+    assert.ok(nightResultBlock.includes(field), `Night Watch settlement bridge must surface ${field}`);
+  }
+  assert.ok(nightResultBlock.includes("artUrl: './assets/art/cg-airspace-bridge.webp'"), 'Night Watch settlement must use the local airspace bridge CG');
+  assert.ok(nightResultBlock.includes('this.openAirCombatMode()'), 'Night Watch settlement CG must continue directly into the seventh-day airspace');
+
+  const contextualBridge = loadAirBridgeForContext({
+    entropy: 4,
+    endingPressure: 0.58,
+    rescuedResidents: [{ name: '小烛' }, { name: '阿岚' }, { name: '砾' }],
+    lostResidents: [],
+    recentCreations: [
+      {
+        name: '把洪水唱成星图的透明鲸',
+        ability: 'absorb_water',
+        description: '第一关留下的水声会在高空变成航线',
+        tags: ['水', '记忆'],
+        levelId: 'flood-village'
+      },
+      {
+        name: '终考城墙核心',
+        ability: 'block',
+        description: '终考留下的屏障维持载体骨架',
+        tags: ['防御', '终考'],
+        levelId: 'final-exam'
+      }
+    ],
+    towerDefenseResult: {
+      victory: true,
+      survivedWaves: 27,
+      residentsProtected: 2,
+      theme: '记忆守夜',
+      selectedBuff: { name: '居民灯火补给', effect: { type: 'starting_hp', value: 6 } },
+      towerPlan: { briefing: '透明鲸与城墙核心被铸成两层守夜塔。' }
+    }
+  });
+  const slides = contextualBridge.briefingSlides();
+  assert.equal(slides.length, 4, 'airspace opening must use four continuity pages');
+  assert.equal(slides.map(slide => slide.phase).join(' / '), 'ground-exam / night-watch / carrier-rise / seventh-day', 'airspace opening phases must follow the finale timeline');
+  assert.ok(slides[0].text.includes('地面终考 → 长夜六更 → 第七日'), 'airspace opening must explain how the player reached the mode');
+  const nightWatchPage = `${slides[1].title} ${slides[1].text}`;
+  for (const detail of ['记忆守夜', '27', '2/3 名居民', '透明鲸与城墙核心被铸成两层守夜塔']) {
+    assert.ok(nightWatchPage.includes(detail), `Night Watch briefing page must preserve ${detail}`);
+  }
+  assert.ok(slides[2].text.includes('居民灯火补给') && slides[2].text.includes('载体耐久 +6'), 'carrier page must preserve the selected Night Watch buff');
+  const loadout = contextualBridge.weaponLoadout();
+  assert.equal(loadout.sourceDescription, '终考留下的屏障维持载体骨架', 'air loadout must preserve the selected creation description');
+  assert.ok(loadout.sourceTags.includes('防御') && loadout.sourceTags.includes('终考'), 'air loadout must preserve creation tags');
+}
+
 function assertAirCombatRouteBalance() {
   const highPressure = loadAirBridgeForContext({
     entropy: 8,
@@ -751,6 +831,7 @@ assertBrowserImportsAndEscapes();
 assertWorldTextAndResidents();
 assertRuleAlphabetMatchesGeneratedRegions();
 assertAirCombatIntegration();
+assertFinaleContinuity();
 assertAirCombatRouteBalance();
 assertMainMobileLayoutContracts();
 await assertNoKeyServerFallbacks();

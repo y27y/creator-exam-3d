@@ -72,13 +72,13 @@
       id: 'final-order',
       skywardBossIndex: 10,
       title: '终考秩序',
-      memory: '第六关的答案正在检查自己是否成立。',
+      memory: '地面终考的答案正在检查自己是否成立。',
       color: '#8bd3ff',
       hp: 760,
       pattern: 'mixed',
       lines: [
         '秩序从来不是静止，它只是崩塌前还愿意排队。',
-        '第七天不看说法，只看防线还剩几格。'
+        '第七日不看说法，只看防线还剩几格。'
       ]
     }
   ];
@@ -543,6 +543,10 @@
 
   const context = loadContext();
 
+  function isTutorialMode() {
+    return context.tutorialMode?.active === true;
+  }
+
   function residentsCount(value = context.rescuedResidents) {
     if (Array.isArray(value)) return value.length;
     const count = Number(value);
@@ -966,7 +970,7 @@
       ...boss,
       memory: lore && index === BOSS_ROUTE.length - 1 ? `${boss.memory}${lore}` : boss.memory,
       affix: affixForStage(index),
-      hp: boss.hp + pressure * 55 + index * 20,
+      hp: Math.round((boss.hp + pressure * 55 + index * 20) * (isTutorialMode() ? 0.58 : 1)),
       stage: index + 1
     }));
   }
@@ -977,16 +981,92 @@
     const comm = communicator();
     const lore = loreSignal();
     const skyward = skywardBossSignals().map(signal => signal.name).join('、');
-    return `第六关和长夜之后，${names}被压缩为空域载体。${rescued}名居民的回声在通讯里等待第七天清算；${comm.line}${skyward ? ` Skyward更新回响：${skyward}。` : ''}${lore ? ` ${lore}` : ''}`;
+    const defense = nightWatchResultSummary();
+    const defenseText = defense.hasResult
+      ? `长夜六更以${defense.outcome}收束，推进到第 ${defense.survivedWaves} 波并保护 ${defense.protectedResidents} 名居民`
+      : '长夜六更的结算记录尚未回写';
+    return `地面终考结束后，${names}被压缩为空域载体；${defenseText}。第七日由${comm.name}接入通讯，${rescued}名居民的回声随载体升空。${skyward ? ` 高空裂隙信号：${skyward}。` : ''}${lore ? ` ${lore}` : ''}`;
+  }
+
+  function selectedBuffEffectText(effect = {}) {
+    const value = Number(effect.value);
+    if (effect.type === 'starting_money' && Number.isFinite(value)) return `守夜物资 ${Math.round(value)}`;
+    if (effect.type === 'starting_hp' && Number.isFinite(value)) return `载体耐久 +${Math.round(value)}`;
+    if (effect.type === 'tower_damage' && Number.isFinite(value)) return `守夜火力 +${Math.round((value - 1) * 100)}%`;
+    if (effect.type === 'tower_range' && Number.isFinite(value)) return `守夜射程 +${value.toFixed(1)}`;
+    if (effect.type === 'tower_discount' && Number.isFinite(value)) return `构筑消耗 -${Math.round((1 - value) * 100)}%`;
+    if (effect.type === 'wave_income' && Number.isFinite(value)) return `每波补给 +${Math.round(value)}`;
+    return '';
+  }
+
+  function nightWatchResultSummary() {
+    const defense = context.towerDefenseResult && typeof context.towerDefenseResult === 'object'
+      ? context.towerDefenseResult
+      : {};
+    const hasResult = Object.keys(defense).length > 0;
+    const survivedWaves = Math.max(0, Math.round(Number(defense.survivedWaves) || 0));
+    const protectedResidents = Math.max(0, Math.round(Number(defense.residentsProtected) || 0));
+    const theme = String(defense.theme || '无名守夜').trim() || '无名守夜';
+    const selectedBuff = defense.selectedBuff && typeof defense.selectedBuff === 'object'
+      ? defense.selectedBuff
+      : null;
+    const selectedBuffName = String(selectedBuff?.name || '未记录守夜誓约').trim() || '未记录守夜誓约';
+    const towerBriefing = String(defense.towerPlan?.briefing || '').trim();
+    const outcome = defense.victory === true ? '防线守住' : defense.victory === false ? '防线破损' : '结果待回写';
+    return {
+      hasResult,
+      victory: defense.victory,
+      outcome,
+      survivedWaves,
+      protectedResidents,
+      theme,
+      selectedBuff,
+      selectedBuffName,
+      selectedBuffEffect: selectedBuffEffectText(selectedBuff?.effect),
+      towerBriefing
+    };
   }
 
   function briefingSlides() {
     const weapon = weaponLoadout();
     const resonance = routeResonance();
+    const defense = nightWatchResultSummary();
+    const creationNames = creations().map(creationName).filter(Boolean).slice(0, 2).join('、') || '白天留下的造物';
+    const residents = residentsCount();
+    const defenseResidentText = residents > 0
+      ? `${defense.protectedResidents}/${residents} 名居民`
+      : `${defense.protectedResidents} 名居民`;
+    const defenseText = defense.hasResult
+      ? `${defense.theme}以${defense.outcome}收束，推进到第 ${defense.survivedWaves} 波，保护 ${defenseResidentText}。${defense.towerBriefing ? `守夜塔简报：${defense.towerBriefing}` : '守夜塔把地面答案保留成了起飞结构。'}`
+      : '守夜结算尚未回写；空域先用地面终考留下的造物与居民记录建立临时航线。';
+    const buffText = defense.selectedBuff
+      ? `长夜誓约「${defense.selectedBuffName}」${defense.selectedBuffEffect ? `（${defense.selectedBuffEffect}）` : ''}被写入载体档案。`
+      : '没有可读的守夜誓约，载体改用基础起飞校准。';
     return [
-      { kicker: '第六关之后', title: '第七天抵达', text: fallbackBrief() },
-      { kicker: '造物压缩', title: weapon.name, text: `「${weapon.sourceCreation}」被压缩为空域武器。${weapon.description}` },
-      { kicker: '清算航线', title: resonance.name, text: `6 段 Boss 航线已锁定：${route().map(boss => `${boss.affix.name}·${boss.title}`).join(' / ')}。最终压力 ${Math.round(endingPressure() * 100)}%。${loreSignal()}` }
+      {
+        phase: 'ground-exam',
+        kicker: '地面终考',
+        title: '六关答案合拢',
+        text: `${creationNames}与${residents}名获救居民抵达终考边缘。接下来只有一条连续路线：地面终考 → 长夜六更 → 第七日。`
+      },
+      {
+        phase: 'night-watch',
+        kicker: '长夜六更',
+        title: `${defense.theme} · ${defense.outcome}`,
+        text: defenseText
+      },
+      {
+        phase: 'carrier-rise',
+        kicker: '第七日 · 载体成形',
+        title: weapon.name,
+        text: `${buffText}「${weapon.sourceCreation}」被压缩为空域武器，${weapon.description}`
+      },
+      {
+        phase: 'seventh-day',
+        kicker: '第七日 · 清算航线',
+        title: resonance.name,
+        text: `6 段 Boss 航线已锁定：${route().map(boss => `${boss.affix.name}·${boss.title}`).join(' / ')}。最终压力 ${Math.round(endingPressure() * 100)}%。${loreSignal()}`
+      }
     ];
   }
 
@@ -995,6 +1075,17 @@
     const defense = context.towerDefenseResult || {};
     const defenseRelief = defense.victory ? 0.85 : 1.12;
     const resonance = routeResonance();
+    if (isTutorialMode()) {
+      return {
+        enemyRate: 0.72,
+        bulletRate: 0.8,
+        playerHp: 240,
+        allyWings: 4,
+        startingShield: 100,
+        lastStandShield: 80,
+        fieldRepair: { name: '教学护航修复', healPct: 0.06, delay: 2, tick: 0.8 }
+      };
+    }
     return {
       enemyRate: Math.max(0.72, Math.min(1.35, (0.9 + entropy * 0.035) * defenseRelief)),
       bulletRate: Math.max(0.8, Math.min(1.45, 0.95 + entropy * 0.04 + lostCount() * 0.04)),
@@ -1063,7 +1154,7 @@
     const creationNames = creations().map(creationName).filter(Boolean).slice(-5);
     return {
       currentLevel: context.regionId || 'final-exam',
-      currentLevelTitle: context.regionTitle || '第七天裂隙空域',
+      currentLevelTitle: context.regionTitle || '第七日裂隙空域',
       entropy: Number(context.entropy || 0),
       endingPressure: endingPressure(),
       rescued: residentsCount(),
@@ -1105,8 +1196,8 @@
               ...residentNames(context.lostResidents).slice(0, 2)
             ],
             communicator: communicator(),
-            location: context.regionTitle || '第七天裂隙空域',
-            result: '第七天裂隙空域正在把地面考核记忆清算成 Boss 航线。',
+            location: context.regionTitle || '第七日裂隙空域',
+            result: '第七日裂隙空域正在把地面终考与长夜六更的记忆清算成 Boss 航线。',
             weapon: weapon.name,
             weaponSource: weapon.sourceCreation,
             weaponSourceDescription: weapon.sourceDescription,
@@ -1136,7 +1227,7 @@
     if (event === 'near') return comm.kind === 'rescued'
       ? `${comm.name}提醒：裂隙残影贴近机翼，立刻拉开。`
       : `${comm.name}在噪声里重复：残影贴近机翼，别回头。`;
-    if (event === 'victory') return `${comm.name}记录：第七天航线清空，地面防线仍在。`;
+    if (event === 'victory') return `${comm.name}记录：第七日航线清空，长夜防线仍在。`;
     if (event === 'defeat') return `${comm.name}失去信号：空域载体坠回裂隙，清算未完成。`;
     if (event === 'boss-defeated' && boss) return `${comm.name}记录${boss.title}被清算，${boss.memory}`;
     if (event === 'boss' && boss?.affix) return `${boss.affix.name}·${boss.title}进入航线。${boss.affix.line}`;
@@ -1146,7 +1237,7 @@
   }
 
   function syncChrome() {
-    document.title = '第七天裂隙空域 - 造物者考核3D';
+    document.title = '第七日裂隙空域 - 造物者考核3D';
     const brief = document.getElementById('airspace-brief');
     const loadout = document.getElementById('airspace-loadout');
     const weapon = weaponLoadout();
@@ -1225,6 +1316,7 @@
     context,
     route,
     difficulty,
+    isTutorialMode,
     weaponOptions,
     selectWeaponOption,
     weaponLoadout,

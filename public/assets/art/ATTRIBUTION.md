@@ -2,6 +2,18 @@
 
 All files are stored locally. The running game does not request any image-generation or third-party asset service.
 
+## README AI-native concept art
+
+- Model: OpenAI GPT Image 2, built-in image generation
+- Generated: 2026-07-14
+- Deliverable: [`docs/images/ai-native-world-memory.png`](../../../docs/images/ai-native-world-memory.png)
+- Dimensions: 1672×941 PNG
+- Purpose: documentation-only concept art for the README; it is explicitly captioned as concept art and is not presented as a gameplay screenshot
+- Reference inputs: `cg-prologue.webp`, `cg-night-watch.webp`, `cg-airspace-bridge.webp`, and [`docs/images/gameplay-flood-village.png`](../../../docs/images/gameplay-flood-village.png)
+- Runtime: local documentation asset only; no image generation call or third-party hotlink during play
+- SHA-256: `BF9D57C42CC1A3E267A5935370EA6379DC375D6AB4C390FECDC5126AF3170154`
+- Final prompt: Use case: stylized-concept. Asset type: wide README concept art illustrating the game's AI-native core loop. Create a single cohesive cinematic scene showing open-ended player intent becoming a real game creation, then becoming persistent world memory that shapes the night watch and rift-airspace finale. Image 1 is the world palette, mood, and painterly low-poly environment reference; Image 2 is the night-watch fortification, warm memory-light, and tower reference; Image 3 is the rift-airspace carrier and purple fracture reference; Image 4 is the actual 7x7 game board, residents, flood terrain, and scale reference. Set the scene in the same fractured floating-world setting, with a grounded 7x7 board in the center and the rift sky continuing naturally into the distance. Abstract luminous intent-ribbons enter a faceted crystal-like creation compiler above the board; the compiler resolves them into one poetic creature or artifact that visibly redirects floodwater and protects residents. Golden memory threads then connect the creation and rescued residents to a world chronicle, night-watch towers, and a distant rift carrier in the sky. Make the cause-and-effect readable without labels. Use cinematic painterly game concept art with refined low-poly geometry and materials matching the supplied project CGs; authored fantasy strategy-game key art, not a generic AI illustration. Frame as a 16:9 landscape wide establishing view with a strong central focal point on the compiler and board. Lead the eye from player intent, to executable creation, to memory threads, to the night-watch and airspace continuation. Keep all elements inside safe margins for GitHub README display. Use a deep slate-blue world, rain-washed teal terrain, restrained violet rift light, warm amber-gold memory threads and resident lanterns; mysterious, intelligent, hopeful, high contrast but not oversaturated. Preserve the project's dark fantasy, fractured-world, low-poly visual language and palette. No readable text, letters, UI panels, flowchart boxes, logos, watermark, generic AI brain, humanoid robot, circuit-board imagery, neon cyberpunk, holographic corporate interface, stock infographic arrows, photorealistic humans, or cluttered split panels.
+
 ## NPC portraits
 
 - Model: OpenAI image-2, built-in image generation

@@ -2447,28 +2447,6 @@ body { margin: 0; background: var(--world-bg); color: var(--text-main); }
 }
 .topbar-status { display: flex; align-items: center; gap: 8px; }
 .topbar-status .stat { min-width: 62px; padding: 4px 8px; }
-.secondary-menu {
-  position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-.secondary-menu[open] {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 8px;
-}
-.secondary-menu > summary {
-  cursor: pointer;
-  list-style: none;
-  white-space: nowrap;
-}
-.secondary-menu > summary::-webkit-details-marker { display: none; }
-.secondary-menu > a,
-.secondary-menu > button { min-width: 120px; }
 #left-panel {
   position: fixed; z-index: 20; top: 86px; left: 16px; width: min(310px, calc(100vw - 96px));
   max-height: calc(100vh - 286px); overflow: auto; padding: 14px;
@@ -3116,6 +3094,137 @@ body { margin: 0; background: var(--world-bg); color: var(--text-main); }
 @media (max-width: 760px) {
   .world-signal { top: auto; right: 8px; bottom: calc(var(--dock-height) + 24px); left: 8px; width: auto; }
 }
+
+/* ===== Target screenshot layout overrides ===== */
+
+.topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  pointer-events: auto;
+}
+
+.topbar-actions > .chip,
+.topbar-actions > .wiki-link,
+.topbar-actions > button {
+  min-height: 38px;
+  padding: 8px 12px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.left-panel-stats {
+  margin: 14px 0 10px;
+}
+
+.left-panel-stats .stat {
+  padding: 10px 12px;
+  text-align: center;
+}
+
+.left-panel-stats .stat span {
+  font-size: 11px;
+}
+
+.left-panel-stats .stat strong {
+  font-size: 17px;
+}
+
+#creation-dock {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) auto;
+  gap: 10px;
+  align-items: start;
+}
+
+#creation-dock .dock-input-col {
+  grid-column: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+#creation-dock .dock-input-col textarea {
+  margin: 0 0 8px;
+}
+
+#creation-dock .dock-input-col #ai-mode {
+  margin: 0;
+}
+
+#creation-dock .dock-action-grid {
+  grid-column: 2;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: 1fr 1fr;
+  gap: 10px;
+}
+
+#creation-dock .dock-action-grid button {
+  width: 100%;
+  min-width: 120px;
+}
+
+#creation-dock #card-panel,
+#creation-dock #next-btn {
+  grid-column: 1 / -1;
+}
+
+/* Restore drawer rail buttons to the previous clean style shown in the reference image */
+body.creator-exam-main #drawer-rail > button {
+  min-width: 44px;
+  min-height: 48px;
+  padding: 11px 14px;
+  border: 1px solid rgba(89, 199, 166, 0.42);
+  border-radius: 4px;
+  background: rgba(21, 25, 35, 0.96);
+  color: var(--text-main);
+  font-size: 16px;
+  font-weight: 800;
+  box-shadow: none;
+}
+
+body.creator-exam-main #drawer-rail > button:hover {
+  background: rgba(30, 35, 48, 0.96);
+  border-color: rgba(89, 199, 166, 0.62);
+}
+
+body.creator-exam-main #drawer-rail > button[aria-expanded="true"] {
+  color: #07100d;
+  background: var(--interactive);
+  border-color: var(--interactive);
+  box-shadow: none;
+}
+
+@media (max-width: 760px) {
+  #creation-dock {
+    grid-template-columns: 1fr;
+  }
+
+  #creation-dock .dock-input-col,
+  #creation-dock .dock-action-grid,
+  #creation-dock #card-panel,
+  #creation-dock #next-btn {
+    grid-column: 1;
+  }
+
+  #creation-dock .dock-action-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  #creation-dock .dock-action-grid button {
+    min-width: 0;
+  }
+
+  .left-panel-stats {
+    margin: 10px 0;
+  }
+
+  .left-panel-stats .stat strong {
+    font-size: 15px;
+  }
+}
+
 body[data-board-qa='1'] .topbar,
 body[data-board-qa='1'] .left-panel,
 body[data-board-qa='1'] .right-panel,

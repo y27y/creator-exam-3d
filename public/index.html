@@ -20,23 +20,15 @@
       <canvas id="game-canvas"></canvas>
       <header id="topbar" class="glass panel-row">
         <div class="brand-block">
-          <div class="eyebrow">七格战术 · 自然语言造物</div>
+          <div class="eyebrow">七维战术：自然语言造物</div>
           <h1>裂隙考核：造物者</h1>
         </div>
-        <div class="topbar-status" aria-label="当前关卡状态">
-          <div class="stat"><span>回合</span><strong id="turn-stat">1 / 6</strong></div>
-          <div class="stat"><span>还能造</span><strong id="charges-stat">3</strong></div>
-          <div class="stat"><span>奇迹点</span><strong id="miracle-stat">6</strong></div>
-          <div class="stat"><span>裂隙</span><strong id="entropy-stat">0 / 7</strong></div>
-          <div id="level-chip" class="chip">第 1 关</div>
-        </div>
-        <details class="secondary-menu">
-          <summary>更多</summary>
+        <div class="topbar-actions" aria-label="顶部操作">
+          <div id="level-chip" class="chip">第 1 / 6 关</div>
           <a id="wiki-link" class="wiki-link" href="./wiki.html" target="_blank" rel="noopener">玩法 WIKI</a>
           <button id="sound-toggle" class="secondary" type="button" aria-pressed="true">声音：开</button>
           <button id="tutorial-toggle" class="secondary" type="button">完整教学</button>
-          <button id="restart-btn" class="secondary" type="button">重开本关</button>
-        </details>
+        </div>
       </header>
 
       <section id="tutorial-choice" class="tutorial-choice" role="dialog" aria-modal="true" aria-labelledby="tutorial-choice-title" hidden>
@@ -92,16 +84,26 @@
           </div>
           <div id="mission-goals" class="mission-goals" hidden aria-hidden="true"></div>
         </div>
+        <div class="left-panel-stats stat-grid" aria-label="当前关卡状态">
+          <div class="stat"><span>回合</span><strong id="turn-stat">1 / 6</strong></div>
+          <div class="stat"><span>还能造</span><strong id="charges-stat">3</strong></div>
+          <div class="stat"><span>奇迹点</span><strong id="miracle-stat">6</strong></div>
+          <div class="stat"><span>裂隙</span><strong id="entropy-stat">0 / 7</strong></div>
+        </div>
         <div id="special-meters" class="meters"></div>
       </section>
 
       <section id="creation-dock" class="glass creation-dock" aria-label="造物操作">
-        <textarea id="creation-input" maxlength="120" placeholder="例如：造一群透明鲸鱼，把洪水驮到云上"></textarea>
-        <div class="button-row">
-          <button id="compile-btn" class="primary">生成造物卡</button>
-          <button id="random-btn" class="secondary">灵感</button>
+        <div class="dock-input-col">
+          <textarea id="creation-input" maxlength="120" placeholder="例如：造一群透明鲸鱼，把洪水驮到云上"></textarea>
+          <div id="ai-mode" class="hint">写清它是什么、要挡谁、放哪儿。剩下的交给编译器。</div>
         </div>
-        <div id="ai-mode" class="hint">写清它是什么、要挡谁、放哪儿。剩下的交给编译器。</div>
+        <div class="dock-action-grid">
+          <button id="compile-btn" class="primary" type="button">生成造物卡</button>
+          <button id="random-btn" class="secondary" type="button">灵感</button>
+          <button id="end-turn-btn" class="primary" type="button">结束回合</button>
+          <button id="restart-btn" class="secondary" type="button">重开本关</button>
+        </div>
 
         <div id="card-panel" class="card hidden">
           <div class="card-head">
@@ -120,13 +122,10 @@
             <span id="card-duration">持续 3</span>
           </div>
           <div id="card-side" class="side-effect"></div>
-          <button id="place-btn" class="primary wide">放置造物</button>
+          <button id="place-btn" class="primary wide" type="button">放置造物</button>
         </div>
 
-        <div class="button-row with-margin">
-          <button id="end-turn-btn" class="primary">结束回合</button>
-        </div>
-        <button id="next-btn" class="secondary wide hidden">进入下一关</button>
+        <button id="next-btn" class="secondary wide hidden" type="button">进入下一关</button>
       </section>
 
       <nav id="drawer-rail" class="drawer-rail" aria-label="情境档案">
@@ -425,8 +424,20 @@
           <p id="modal-text"></p>
           <div id="exploration-choices" class="exploration-choice-list hidden"></div>
           <div class="button-row center">
-            <button id="modal-primary" class="primary">继续</button>
-            <button id="modal-secondary" class="secondary">重试</button>
+            <button id="modal-primary" class="primary" type="button">继续</button>
+            <button id="modal-secondary" class="secondary" type="button">重试</button>
+          </div>
+        </div>
+      </div>
+
+      <div id="restart-confirm" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="restart-confirm-title">
+        <div class="modal-box glass">
+          <div class="eyebrow">考核重置</div>
+          <h2 id="restart-confirm-title">重开本关</h2>
+          <p>确定要重开本关吗？当前进度将重置。</p>
+          <div class="button-row center">
+            <button id="restart-confirm-btn" class="primary" type="button">确认</button>
+            <button id="restart-cancel-btn" class="secondary" type="button">取消</button>
           </div>
         </div>
       </div>

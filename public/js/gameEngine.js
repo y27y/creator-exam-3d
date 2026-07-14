@@ -135,20 +135,23 @@ class GameEngine {
     this.log(`考核开始：${this.level.shortTitle}。`, true);
     for (const tip of this.level.tips || []) this.log(`提示：${tip}`);
 
-    // 加载传承NPC
-    const legacyNPCs = legacySystem.getNPCsForNextLevel(this.level.id);
-    if (legacyNPCs && legacyNPCs.length > 0) {
-      this.log(`【传承】${legacyNPCs.length} 位故人出现在此关卡`, true);
-      for (const npc of legacyNPCs) {
-        this.log(`  ${npc.name} - ${npc.lore}`);
+    // 巨兽困城与终考特殊规则：这两关不继承前序关卡居民
+    if (this.level.id !== 'giant-city' && this.level.id !== 'final-exam') {
+      // 加载传承NPC
+      const legacyNPCs = legacySystem.getNPCsForNextLevel(this.level.id);
+      if (legacyNPCs && legacyNPCs.length > 0) {
+        this.log(`【传承】${legacyNPCs.length} 位故人出现在此关卡`, true);
+        for (const npc of legacyNPCs) {
+          this.log(`  ${npc.name} - ${npc.lore}`);
+        }
       }
-    }
-    this.legacyUnits = legacyNPCs;
-    this.applyLegacyUnitEffects(this.legacyUnits);
+      this.legacyUnits = legacyNPCs;
+      this.applyLegacyUnitEffects(this.legacyUnits);
 
-    // 加载会作为真实棋盘单位回归的传承角色，而不只是 NPC 面板展示。
-    const legacyReturnUnits = legacySystem.getUnitsForNextLevel(this.level.id);
-    this.integrateLegacyReturnUnits(legacyReturnUnits);
+      // 加载会作为真实棋盘单位回归的传承角色，而不只是 NPC 面板展示。
+      const legacyReturnUnits = legacySystem.getUnitsForNextLevel(this.level.id);
+      this.integrateLegacyReturnUnits(legacyReturnUnits);
+    }
 
     this.hooks.onStateChange();
   }
@@ -1185,10 +1188,21 @@ class GameEngine {
 
   moveUnits() {
     for (const unit of this.units) {
+      // 重置每回合移动标记
+      unit._movedThisTurn = false;
+      unit._arrivalTerrain = null;
       if (unit.status !== 'active') continue;
+      const prevX = unit.x;
+      const prevY = unit.y;
       if (this.isCivilian(unit)) this.moveCivilian(unit);
       else if (this.isMessenger(unit)) this.moveMessenger(unit);
       else if (unit.type === 'beast') this.moveBeast(unit);
+      if (unit.x !== prevX || unit.y !== prevY) {
+        unit._movedThisTurn = true;
+      }
+      // 为所有活跃单位记录灾害扩散前的落脚地形，供"安全变致命"豁免判定。
+      // 无论单位是否移动，只要落脚时地块安全、灾害扩散后变致命，即可触发豁免。
+      unit._arrivalTerrain = this.getTerrain(unit.x, unit.y);
     }
   }
 
@@ -1505,6 +1519,8 @@ class GameEngine {
 
   applyTileHazardsToUnits() {
     const HAZARD_TERRAINS = [TILE.WATER, TILE.DARK, TILE.FOG, TILE.POISON];
+    // 致命地形：水/黑暗/污染会导致居民迷失死亡；迷雾仅引发混乱（偏离寻路），不致死
+    const DEADLY_HAZARD_TERRAINS = [TILE.WATER, TILE.DARK, TILE.POISON];
     for (const unit of this.units) {
       if (unit.status !== 'active') continue;
       const terrain = this.getTerrain(unit.x, unit.y);
@@ -1539,6 +1555,19 @@ class GameEngine {
         this.log(`${unit.name} 的夜行者之眼使其不受黑暗侵蚀`);
         unit.hazardCoverTurns = 0;
         unit.lastHazardTerrain = null;
+        continue;
+      }
+
+      // 豁免：单位所在地块在灾害扩散前属于安全区域（非致命地形），但灾害扩散后变为致命地块。
+      // 无论单位是否移动，只要地块从安全变为致命，每次均给予一回合宽限，重置覆盖计数。
+      // 与迷雾混乱严格区分——迷雾仅引发寻路偏离不致死；此豁免针对水/黑暗/污染等致命地形，
+      // 水、黑暗、污染待遇完全一致。
+      if (unit._arrivalTerrain != null
+        && !DEADLY_HAZARD_TERRAINS.includes(unit._arrivalTerrain)
+        && DEADLY_HAZARD_TERRAINS.includes(terrain)) {
+        unit.hazardCoverTurns = 1;
+        unit.lastHazardTerrain = terrain;
+        this.log(`${unit.name} 所在地块被${TERRAIN_LABELS[terrain]}蔓延覆盖，获得一回合豁免`);
         continue;
       }
 
@@ -2023,10 +2052,8 @@ class GameEngine {
   isPassable(x, y, unit, options = {}) {
     // Support temporary pathfinding blocks used by _findNonReversingStep.
     if (unit?._pathfindBlock && unit._pathfindBlock.x === x && unit._pathfindBlock.y === y) return false;
-    const occupant = this.unitAt(x, y);
-    const sharedMeetingPoint = occupant && occupant !== unit && this.isMessenger(unit) && this.isMessenger(occupant)
-      && unit.goal?.x === x && unit.goal?.y === y && occupant.goal?.x === x && occupant.goal?.y === y;
-    if (!options.ignoreOccupants && occupant && occupant !== unit && occupant.status === 'active' && !sharedMeetingPoint) return false;
+    // 寻路与移动允许两个对象共享同一坐标，只要地形本身允许通过即可。
+    // 需要显式忽略 occupant 的调用方仍可传入 { ignoreOccupants: true }，行为不变。
     const terrain = this.getTerrain(x, y);
     if (terrain === TILE.MOUNTAIN || terrain === TILE.WALL) return false;
     if (unit.type === 'beast') {

@@ -731,10 +731,11 @@ runner.test('边界条件 - 裂隙值恰好等于上限', () => {
   runner.assert(game.gameState === 'playing' || game.gameState === 'lost', '裂隙等于上限时应继续游戏或已结束');
 });
 
-// 测试多单位碰撞 - 两个单位不应同时占据同一格
-runner.test('单位碰撞 - 两个单位不应占据同一格', () => {
+// 测试多单位碰撞 - 两个单位允许暂时共享同一格
+runner.test('单位碰撞 - 两个单位允许共享同一格', () => {
   const game = new DebugGame();
   game.reset();
+  game.terrain = Array.from({ length: 7 }, () => Array.from({ length: 7 }, () => TILE.LAND));
 
   const villagers = game.units.filter(u => u.type === 'villager' && u.status === 'active');
   if (villagers.length >= 2) {
@@ -743,21 +744,14 @@ runner.test('单位碰撞 - 两个单位不应占据同一格', () => {
     villagers[0].y = 3;
     villagers[1].x = 3;
     villagers[1].y = 3;
+    villagers[0].goal = { x: 5, y: 3 };
+    villagers[1].goal = { x: 5, y: 3 };
 
     game.endTurn();
 
-    // 检查移动后是否还有碰撞
-    const positions = new Map();
-    for (const unit of game.units.filter(u => u.status === 'active')) {
-      const key = `${unit.x},${unit.y}`;
-      if (positions.has(key)) {
-        // 允许碰撞存在，但记录日志
-        runner.assertTrue(true, '单位碰撞检测：允许暂时重叠');
-        return;
-      }
-      positions.set(key, unit.id);
-    }
-    runner.assertTrue(true, '无单位碰撞');
+    // 两个单位共享起点且目标相同，都应能继续前进，不会因对方阻挡而卡住
+    runner.assert(villagers[0].x !== 3 || villagers[0].y !== 3 || game.isGoalReached(villagers[0]), '第一个居民应能离开共享格或已到达目标');
+    runner.assert(villagers[1].x !== 3 || villagers[1].y !== 3 || game.isGoalReached(villagers[1]), '第二个居民应能离开共享格或已到达目标');
   } else {
     runner.assertTrue(true, '单位数量不足，跳过碰撞测试');
   }
@@ -858,6 +852,66 @@ runner.test('传承系统 - 后续关卡应把传承者作为真实单位加入'
     runner.assert(returned.goal, '回归单位应继承当前关卡目标');
     runner.assert(returned.residentId === `legacy-resident-${legacy.id}`, '回归单位应保留稳定居民身份');
     runner.assert(game.isGoalReached(returned) || game.nextStepToward(returned, returned.goal), '回归单位应能参与寻路移动');
+  } finally {
+    legacySystem.deserialize(snapshot);
+  }
+});
+
+runner.test('传承系统 - 第三关巨兽困城不继承前序居民', () => {
+  const snapshot = JSON.parse(JSON.stringify(legacySystem.serialize()));
+  try {
+    legacySystem.deserialize({ legacyUnits: [], globalTraits: [], rescueHistory: [], levelCompletions: 0 });
+
+    const game = new DebugGame();
+    game.levelIndex = 0;
+    game.reset();
+
+    const villager = game.units.find(u => u.type === 'villager' && u.status === 'active');
+    runner.assert(villager, '需要一名可记录的村民');
+
+    const legacy = legacySystem.recordRescue(villager, game.level.id, {
+      turn: 1,
+      maxTurns: game.level.maxTurns,
+      lost: 0
+    });
+    legacy.tier = 'legend';
+
+    game.loadLevel(2);
+
+    runner.assertEqual(game.level.id, 'giant-city', '应加载第三关巨兽困城');
+    runner.assert(game.legacyUnits.length === 0, '第三关不应加载传承 NPC');
+    runner.assert(game.returnedLegacyUnits.length === 0, '第三关不应有回归单位');
+    runner.assert(!game.units.some(u => u.isLegacy || u.legacyId === legacy.id), '第三关棋盘上不应出现前序居民');
+  } finally {
+    legacySystem.deserialize(snapshot);
+  }
+});
+
+runner.test('传承系统 - 第六关终考不继承前序居民', () => {
+  const snapshot = JSON.parse(JSON.stringify(legacySystem.serialize()));
+  try {
+    legacySystem.deserialize({ legacyUnits: [], globalTraits: [], rescueHistory: [], levelCompletions: 0 });
+
+    const game = new DebugGame();
+    game.levelIndex = 0;
+    game.reset();
+
+    const villager = game.units.find(u => u.type === 'villager' && u.status === 'active');
+    runner.assert(villager, '需要一名可记录的村民');
+
+    const legacy = legacySystem.recordRescue(villager, game.level.id, {
+      turn: 1,
+      maxTurns: game.level.maxTurns,
+      lost: 0
+    });
+    legacy.tier = 'legend';
+
+    game.loadLevel(5);
+
+    runner.assertEqual(game.level.id, 'final-exam', '应加载第六关终考');
+    runner.assert(game.legacyUnits.length === 0, '第六关不应加载传承 NPC');
+    runner.assert(game.returnedLegacyUnits.length === 0, '第六关不应有回归单位');
+    runner.assert(!game.units.some(u => u.isLegacy || u.legacyId === legacy.id), '第六关棋盘上不应出现前序居民');
   } finally {
     legacySystem.deserialize(snapshot);
   }
@@ -1282,7 +1336,7 @@ runner.test('movement - haste should grant real extra steps', () => {
   runner.assertEqual(unit.x, 2, 'unit should consume the extra action on the path');
 });
 
-runner.test('movement - units should not step into newly occupied tiles', () => {
+runner.test('movement - units can share a tile when paths cross', () => {
   const game = new GameEngine();
   game.reset();
   game.terrain = Array.from({ length: 7 }, () => Array.from({ length: 7 }, () => TILE.LAND));
@@ -1292,9 +1346,9 @@ runner.test('movement - units should not step into newly occupied tiles', () => 
   ];
 
   game.moveUnits();
-  const occupied = game.units.filter(unit => unit.status === 'active').map(unit => `${unit.x},${unit.y}`);
-  runner.assertEqual(new Set(occupied).size, occupied.length, 'active units should end movement on distinct tiles');
-  runner.assert(!(game.units[1].x === 4 && game.units[1].y === 4), 'second mover should not step into the first mover occupied tile');
+  // 寻路现在允许两个对象处于同一坐标，路径交叉时后移动者可以进入已占据格
+  runner.assert(game.units[0].x === 4 && game.units[0].y === 4, 'lead should take one step toward its goal');
+  runner.assert(game.units[1].x === 4 && game.units[1].y === 4, 'follower should step into the tile occupied by lead');
 });
 
 runner.test('movement - messengers should share their authored meeting point', () => {
@@ -1635,6 +1689,65 @@ runner.test('性能优化 - 路径缓存应减少计算', () => {
 
   runner.assert(step1 !== undefined, '应找到下一步');
   runner.assert(time1 < 100, '寻路应在100ms内完成');
+});
+
+runner.test('寻路 - 两个对象应能共享同一坐标而不互相阻挡', () => {
+  const game = new DebugGame();
+  game.reset();
+  game.terrain = Array.from({ length: 7 }, () => Array.from({ length: 7 }, () => TILE.LAND));
+
+  const civilian = game.units.find(u => game.isCivilian(u));
+  runner.assert(civilian, '应存在居民单位');
+  const other = game.units.find(u => u.status === 'active' && u.id !== civilian.id);
+  runner.assert(other, '应存在另一个活跃单位');
+
+  // 将两个单位放到同一格
+  civilian.x = 3;
+  civilian.y = 3;
+  other.x = 3;
+  other.y = 3;
+
+  // 目标设为同一格右侧相邻格
+  civilian.goal = { x: 5, y: 3 };
+  const step = game.nextStepToward(civilian, civilian.goal);
+  runner.assert(step && step.x === 4 && step.y === 3, '共享坐标时居民应仍能向右移动');
+
+  // 另一个单位挡在路径上也不应造成阻挡
+  other.x = 4;
+  other.y = 3;
+  const step2 = game.nextStepToward(civilian, civilian.goal);
+  runner.assert(step2 && step2.x === 4 && step2.y === 3, '目标格被其他单位占据时仍应可移动至同一格');
+});
+
+runner.test('敌方意图 - 共享坐标的单位仍能生成带 targetPosition 的意图预览', async () => {
+  const { EnemyIntentSystem } = await import('../public/js/enemyIntent.js');
+  const intentSystem = new EnemyIntentSystem();
+
+  const mockEngine = {
+    units: [
+      { id: 'c1', name: '小哇', type: 'villager', status: 'active', x: 3, y: 3, goal: { x: 5, y: 3 }, guidedTurns: 0, dreamLinked: null, immuneChaos: 0, attractTurns: 0, attractedTo: null },
+      { id: 'c2', name: '阿黑', type: 'villager', status: 'active', x: 3, y: 3, goal: { x: 5, y: 3 }, guidedTurns: 0, dreamLinked: null, immuneChaos: 0, attractTurns: 0, attractedTo: null }
+    ],
+    isCivilian: (u) => u.type === 'villager',
+    isMessenger: () => false,
+    getEffectiveGoal: (u) => u.goal,
+    nextStepToward: (u, g) => {
+      if (!g || u.x === g.x && u.y === g.y) return null;
+      if (u.x < g.x) return { x: u.x + 1, y: u.y };
+      if (u.x > g.x) return { x: u.x - 1, y: u.y };
+      if (u.y < g.y) return { x: u.x, y: u.y + 1 };
+      return { x: u.x, y: u.y - 1 };
+    },
+    getTerrain: () => TILE.LAND,
+    nearActiveAbility: () => false,
+    level: {}
+  };
+
+  const result = intentSystem.generatePreviews({ turn: 1 }, mockEngine);
+  const p1 = result.previews.find(p => p.unitId === 'c1');
+  const p2 = result.previews.find(p => p.unitId === 'c2');
+  runner.assert(p1 && p1.targetPosition, '共享坐标时小哇的意图预览应包含下一步目标');
+  runner.assert(p2 && p2.targetPosition, '共享坐标时阿黑的意图预览应包含下一步目标');
 });
 
 // 测试 SocialGraph 系统
@@ -3444,6 +3557,197 @@ runner.test('GameEngine - 应为失败和单位迷失发出世界事件', () => 
   runner.assert(events.some(event => event.type === 'region_lost'), '失败应发出region_lost事件');
 });
 
+
+runner.test('迷失判定 - 水域：安全地块变致命应获得豁免', () => {
+  const game = new DebugGame();
+  game.reset();
+  game.terrain = Array.from({ length: 7 }, () => Array.from({ length: 7 }, () => TILE.LAND));
+
+  const villager = game.units.find(u => u.type === 'villager' && u.status === 'active');
+  runner.assert(villager, '应存在居民单位');
+  villager.x = 3;
+  villager.y = 3;
+
+  // 模拟 moveUnits 已执行：落脚时地块为平地（安全）
+  villager._arrivalTerrain = TILE.LAND;
+  villager.hazardCoverTurns = 0;
+  villager.lastHazardTerrain = null;
+
+  // 灾害扩散使落脚地块变为水域（致命）
+  game.setTerrain(3, 3, TILE.WATER);
+
+  game.applyTileHazardsToUnits();
+
+  runner.assert(villager.status === 'active', '安全变致命时应获得一回合豁免，不立即迷失');
+  runner.assert(villager.hazardCoverTurns === 1, '豁免应将覆盖计数设为1');
+  runner.assert(villager.lastHazardTerrain === TILE.WATER, '应记录当前致命地形类型');
+});
+
+runner.test('迷失判定 - 黑暗：安全地块变致命应与水域获得相同豁免', () => {
+  const game = new DebugGame();
+  game.reset();
+  game.terrain = Array.from({ length: 7 }, () => Array.from({ length: 7 }, () => TILE.LAND));
+
+  const villager = game.units.find(u => u.type === 'villager' && u.status === 'active');
+  runner.assert(villager, '应存在居民单位');
+  villager.x = 3;
+  villager.y = 3;
+
+  // 落脚时地块为平地（安全），灾害扩散变为黑暗（致命）
+  villager._arrivalTerrain = TILE.LAND;
+  villager.hazardCoverTurns = 0;
+  villager.lastHazardTerrain = null;
+  game.setTerrain(3, 3, TILE.DARK);
+
+  game.applyTileHazardsToUnits();
+
+  runner.assert(villager.status === 'active', '黑暗覆盖安全地块时应与水域一样获得豁免');
+  runner.assert(villager.hazardCoverTurns === 1, '豁免应将覆盖计数设为1');
+  runner.assert(villager.lastHazardTerrain === TILE.DARK, '应记录当前致命地形类型');
+});
+
+runner.test('迷失判定 - 修复上一处致命地形计数残留导致的误杀', () => {
+  const game = new DebugGame();
+  game.reset();
+  game.terrain = Array.from({ length: 7 }, () => Array.from({ length: 7 }, () => TILE.LAND));
+
+  const villager = game.units.find(u => u.type === 'villager' && u.status === 'active');
+  runner.assert(villager, '应存在居民单位');
+  villager.x = 3;
+  villager.y = 3;
+
+  // 上一回合曾在水域上（hazardCoverTurns=1, lastHazardTerrain=water）
+  villager.hazardCoverTurns = 1;
+  villager.lastHazardTerrain = TILE.WATER;
+  // 本回合落脚时为安全地块，但灾害扩散使该地块也变为水域
+  villager._arrivalTerrain = TILE.LAND;
+  game.setTerrain(3, 3, TILE.WATER);
+
+  game.applyTileHazardsToUnits();
+
+  // 若无豁免，lastHazardTerrain===water 会使 hazardCoverTurns 升到 2 并触发迷失
+  runner.assert(villager.status === 'active', '计数残留不应导致落脚安全地块后立即迷失');
+  runner.assert(villager.hazardCoverTurns === 1, '豁免应重置覆盖计数为1');
+});
+
+runner.test('迷失判定 - 未移动时地块从安全变致命同样触发豁免', () => {
+  const game = new DebugGame();
+  game.reset();
+  game.terrain = Array.from({ length: 7 }, () => Array.from({ length: 7 }, () => TILE.LAND));
+
+  const villager = game.units.find(u => u.type === 'villager' && u.status === 'active');
+  runner.assert(villager, '应存在居民单位');
+  villager.x = 3;
+  villager.y = 3;
+  // 单位未移动，但 moveUnits 仍会记录灾害扩散前的地形（平地=安全）
+  villager._arrivalTerrain = TILE.LAND;
+  villager.hazardCoverTurns = 0;
+  villager.lastHazardTerrain = null;
+
+  // 灾害扩散到单位所在格（黑暗）
+  game.setTerrain(3, 3, TILE.DARK);
+
+  game.applyTileHazardsToUnits();
+
+  runner.assert(villager.status === 'active', '未移动时地块从安全变致命应触发豁免');
+  runner.assert(villager.hazardCoverTurns === 1, '豁免应将覆盖计数设为1');
+});
+
+runner.test('迷失判定 - 每次触发条件时豁免均可执行', () => {
+  const game = new DebugGame();
+  game.reset();
+  game.terrain = Array.from({ length: 7 }, () => Array.from({ length: 7 }, () => TILE.LAND));
+
+  const villager = game.units.find(u => u.type === 'villager' && u.status === 'active');
+  runner.assert(villager, '应存在居民单位');
+  villager.x = 3;
+  villager.y = 3;
+
+  // 第一回合：落脚安全，水域扩散 → 豁免
+  villager._arrivalTerrain = TILE.LAND;
+  villager.hazardCoverTurns = 0;
+  villager.lastHazardTerrain = null;
+  game.setTerrain(3, 3, TILE.WATER);
+  game.applyTileHazardsToUnits();
+  runner.assert(villager.status === 'active', '第一回合应豁免');
+  runner.assert(villager.hazardCoverTurns === 1, '第一回合豁免后计数应为1');
+
+  // 第二回合：地块仍为水域（致命），_arrivalTerrain 为水域 → 豁免不触发 → 迷失
+  villager._arrivalTerrain = TILE.WATER;
+  game.applyTileHazardsToUnits();
+  runner.assert(villager.status === 'lost', '第二回合仍在致命地块应迷失');
+
+  // 重置，模拟连续多回合安全变致命场景
+  villager.status = 'active';
+  villager.hazardCoverTurns = 0;
+  villager.lastHazardTerrain = null;
+
+  // 回合A：落脚安全，黑暗扩散 → 豁免
+  game.setTerrain(3, 3, TILE.LAND);
+  villager._arrivalTerrain = TILE.LAND;
+  game.setTerrain(3, 3, TILE.DARK);
+  game.applyTileHazardsToUnits();
+  runner.assert(villager.status === 'active', '回合A黑暗扩散应豁免');
+
+  // 回合B：造物清除黑暗，单位移动到另一安全格，水域扩散 → 豁免再次触发
+  game.setTerrain(3, 3, TILE.LAND);
+  villager._arrivalTerrain = TILE.LAND;
+  villager.hazardCoverTurns = 0;
+  villager.lastHazardTerrain = null;
+  game.setTerrain(3, 3, TILE.WATER);
+  game.applyTileHazardsToUnits();
+  runner.assert(villager.status === 'active', '回合B水域扩散应再次豁免');
+  runner.assert(villager.hazardCoverTurns === 1, '回合B豁免后计数应重置为1');
+});
+
+runner.test('迷失判定 - 迷雾不致死与致命地形严格区分', () => {
+  const game = new DebugGame();
+  game.reset();
+  game.terrain = Array.from({ length: 7 }, () => Array.from({ length: 7 }, () => TILE.LAND));
+
+  const villager = game.units.find(u => u.type === 'villager' && u.status === 'active');
+  runner.assert(villager, '应存在居民单位');
+  villager.x = 3;
+  villager.y = 3;
+
+  // 迷雾覆盖：不致死，不进入覆盖计数
+  game.setTerrain(3, 3, TILE.FOG);
+  villager._arrivalTerrain = TILE.LAND;
+  game.applyTileHazardsToUnits();
+  runner.assert(villager.status === 'active', '迷雾内居民不应迷失');
+  runner.assert(villager.hazardCoverTurns === 0, '迷雾不应累计致命覆盖计数');
+
+  // 同一单位连续两回合在迷雾中仍不应迷失
+  game.applyTileHazardsToUnits();
+  runner.assert(villager.status === 'active', '连续两回合迷雾仍不应迷失');
+});
+
+runner.test('迷失判定 - 豁免仅一回合，次回合仍在致命地块应迷失', () => {
+  const game = new DebugGame();
+  game.reset();
+  game.terrain = Array.from({ length: 7 }, () => Array.from({ length: 7 }, () => TILE.LAND));
+
+  const villager = game.units.find(u => u.type === 'villager' && u.status === 'active');
+  runner.assert(villager, '应存在居民单位');
+  villager.x = 3;
+  villager.y = 3;
+
+  // 第一回合：落脚安全地块，灾害扩散变水域 → 豁免
+  villager._arrivalTerrain = TILE.LAND;
+  game.setTerrain(3, 3, TILE.WATER);
+  game.applyTileHazardsToUnits();
+  runner.assert(villager.status === 'active', '首回合应豁免');
+
+  // 第二回合：单位仍在水域，_arrivalTerrain 为水域（致命）→ 豁免不触发 → 迷失
+  villager._arrivalTerrain = TILE.WATER;
+  game.applyTileHazardsToUnits();
+  runner.assert(villager.status === 'lost', '豁免仅一回合，次回合仍在致命地块应迷失');
+});
+
+
+
+
+
 runner.test('浏览器入口 - 应调用统一世界事件辅助方法', async () => {
   const { readFileSync } = await import('node:fs');
   const source = readFileSync(new URL('../public/js/game.js', import.meta.url), 'utf8');
@@ -4957,7 +5261,7 @@ runner.test('Test jump UI - should expose all levels, mode buttons, and smoke ve
   runner.assert(game.includes('window.__creatorExam3D = this'), 'browser game should expose the live instance for behavior verification');
   runner.assert(game.includes('updateDebugDataset()') && game.includes('dataset.debugState'), 'browser game should expose compact DOM debug state for behavior verification');
   runner.assert(game.includes('return super.moveCivilian(unit)') && game.includes('return super.moveMessenger(unit)'), 'browser movement should reuse core movement rules');
-  runner.assert(game.includes('occupant && occupant !== unit'), 'browser passability should reject occupied tiles during movement');
+  runner.assert(game.includes('寻路与移动允许两个对象共享同一坐标'), 'browser passability should allow shared coordinates during movement');
 });
 
 runner.test('NPC runtime - residentId should resolve to the same NPC memory record', () => {

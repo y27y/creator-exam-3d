@@ -58,7 +58,8 @@
         </div>
         <div class="tutorial-actions">
           <button id="tutorial-primary" class="primary" type="button">继续</button>
-          <button id="tutorial-recover" class="secondary" type="button">重置本课</button>
+          <button id="tutorial-recover" class="secondary" type="button">重新开始本关</button>
+          <button id="tutorial-reset-all" class="secondary" type="button">重置全部教学</button>
         </div>
       </aside>
 
@@ -438,6 +439,18 @@
           <div class="button-row center">
             <button id="restart-confirm-btn" class="primary" type="button">确认</button>
             <button id="restart-cancel-btn" class="secondary" type="button">取消</button>
+          </div>
+        </div>
+      </div>
+
+      <div id="tutorial-reset-confirm" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="tutorial-reset-confirm-title" aria-describedby="tutorial-reset-confirm-copy">
+        <div class="modal-box glass">
+          <div class="eyebrow">教学战役重置</div>
+          <h2 id="tutorial-reset-confirm-title">重置全部教学</h2>
+          <p id="tutorial-reset-confirm-copy">六关教学进度、当前检查点和完成记录都会清空，并返回第一关。普通存档不会被删除。</p>
+          <div class="button-row center">
+            <button id="tutorial-reset-confirm-btn" class="primary" type="button">确认全部重置</button>
+            <button id="tutorial-reset-cancel-btn" class="secondary" type="button">取消</button>
           </div>
         </div>
       </div>

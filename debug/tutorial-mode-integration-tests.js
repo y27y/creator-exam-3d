@@ -27,6 +27,10 @@ for (const id of [
   'tutorial-rail-btn',
   'tutorial-primary',
   'tutorial-recover',
+  'tutorial-reset-all',
+  'tutorial-reset-confirm',
+  'tutorial-reset-confirm-btn',
+  'tutorial-reset-cancel-btn',
   'tutorial-target-marker'
 ]) {
   assert.ok(html.includes(`id="${id}"`), `main tutorial UI should expose #${id}`)
@@ -50,6 +54,8 @@ assert.ok(game.includes('recordLevelWon()'), 'victory path should record tutoria
 assert.ok(game.includes('tutorialMode: this.tutorialDirector?.modeContext?.()'), 'finale contexts should carry tutorial mode')
 assert.ok(director.includes("checkpoint('before-turn')") && director.includes('restoreCheckpoint()'), 'tutorial should save and restore tactical checkpoints')
 assert.ok(director.includes("value = 'tutorial-campaign'"), 'tutorial should use an isolated save slot')
+assert.ok(director.includes('resetCurrentLesson()') && director.includes('resetAllTutorial()'), 'tutorial should expose separate current-level and full-campaign resets')
+assert.ok(director.includes("message: '全部教学进度已重置，已返回第一关。普通存档保持不变。'"), 'full tutorial reset should explain its scope')
 assert.ok(director.includes("['compile', 'place'].includes(phase.kind)"), 'the map target should stay visible from prompt through placement')
 assert.ok(director.includes('this.panelExpanded = !this.panelExpanded'), 'the tutorial rail button should collapse and expand the guide')
 assert.ok(!director.includes('推荐卡必须放在第'), 'tutorial placement feedback should point to the map instead of printing coordinates')

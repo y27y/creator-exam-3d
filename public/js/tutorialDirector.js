@@ -54,6 +54,9 @@ export class TutorialDirector {
     ui.tutorialChoiceFree?.addEventListener('click', () => this.chooseFreePlay())
     ui.tutorialPrimary?.addEventListener('click', () => this.handlePrimary())
     ui.tutorialRecover?.addEventListener('click', () => this.resetCurrentLesson())
+    ui.tutorialResetAll?.addEventListener('click', () => this.requestResetAll())
+    ui.tutorialResetConfirmBtn?.addEventListener('click', () => this.resetAllTutorial())
+    ui.tutorialResetCancelBtn?.addEventListener('click', () => this.cancelResetAll())
     ui.tutorialRailBtn?.addEventListener('click', () => this.togglePanel())
     ui.tutorialCollapse?.addEventListener('click', () => this.setPanelExpanded(false))
     for (const button of ui.drawerButtons || []) {
@@ -95,7 +98,7 @@ export class TutorialDirector {
     this.ensureResources()
     this.persist()
     this.render()
-    this.game.showToast?.('完整教学已开启。按考核官给出的造物与目标格操作即可通关。')
+    this.game.showToast?.(options.message || '完整教学已开启。按考核官给出的造物与目标格操作即可通关。')
   }
 
   chooseFreePlay() {
@@ -390,13 +393,34 @@ export class TutorialDirector {
     if (!this.isActive()) return
     const levelId = this.game.level?.id
     this.clearLevelProgress(levelId)
+    this.state.completedLevels = this.state.completedLevels.filter(id => id !== levelId)
     delete this.state.checkpoint
     this.state.assists += 1
     this.persist()
     this.game.loadLevel(this.game.levelIndex)
     this.ensureResources()
     this.render()
-    this.game.showToast?.('本课已重置，黄金路线重新开始。')
+    this.game.showToast?.('本关已重新开始；其他教学章节进度保持不变。')
+  }
+
+  requestResetAll() {
+    if (!this.isActive()) return
+    this.game.ui.tutorialResetConfirm?.classList.remove('hidden')
+    this.game.ui.tutorialResetConfirmBtn?.focus?.()
+  }
+
+  cancelResetAll() {
+    this.game.ui.tutorialResetConfirm?.classList.add('hidden')
+    this.game.ui.tutorialResetAll?.focus?.()
+  }
+
+  resetAllTutorial() {
+    if (!this.isActive()) return
+    this.game.ui.tutorialResetConfirm?.classList.add('hidden')
+    this.start({
+      reset: true,
+      message: '全部教学进度已重置，已返回第一关。普通存档保持不变。'
+    })
   }
 
   checkpoint(reason) {

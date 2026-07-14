@@ -2042,13 +2042,22 @@ button.loading {
 
 .tutorial-actions {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
   margin-top: 9px;
 }
 
 .tutorial-actions button {
   min-width: 0;
+}
+
+.tutorial-actions #tutorial-primary {
+  grid-column: 1 / -1;
+}
+
+#tutorial-reset-all {
+  border-color: rgba(232, 127, 114, .42);
+  color: #f2b0a7;
 }
 
 .tutorial-target-marker {

@@ -10,7 +10,7 @@
     "debug": "node debug/cli.js",
     "check": "node debug/syntax-check.js",
     "test:reality": "node debug/current-code-reality-tests.js",
-    "test:tutorial": "node debug/tutorial-campaign-tests.js && node debug/tutorial-mode-integration-tests.js"
+    "test:tutorial": "node debug/tutorial-campaign-tests.js && node debug/tutorial-state-tests.js && node debug/tutorial-mode-integration-tests.js"
   },
   "engines": {
     "node": ">=18"

@@ -75,12 +75,12 @@ const MATERIAL_COLORS = {
 };
 
 const LEVEL_ENVIRONMENTS = Object.freeze({
-  'flood-village': { background: 0x07151b, fog: 0x102b33, near: 13, far: 30, ambient: 1.85, sun: 0xffd487, sunPower: 2.35, rim: 0x59c7a6 },
-  'night-mine': { background: 0x050609, fog: 0x090b10, near: 10, far: 24, ambient: 1.05, sun: 0xdceeff, sunPower: 1.45, rim: 0xf2e7c2 },
-  'giant-city': { background: 0x081512, fog: 0x173027, near: 14, far: 31, ambient: 1.75, sun: 0xe0b86a, sunPower: 2.4, rim: 0x59c7a6 },
-  'wordless-war': { background: 0x0d0b14, fog: 0x292338, near: 12, far: 27, ambient: 1.45, sun: 0xe6c778, sunPower: 2.05, rim: 0x8f73c8 },
-  'memory-plague': { background: 0x071310, fog: 0x241e35, near: 13, far: 29, ambient: 1.7, sun: 0xb9e8d5, sunPower: 2.25, rim: 0xa993da },
-  'final-exam': { background: 0x070a11, fog: 0x181429, near: 14, far: 32, ambient: 1.65, sun: 0xd2b86b, sunPower: 2.3, rim: 0x8f73c8 }
+  'flood-village': { background: 0x0b1f27, fog: 0x173943, near: 18, far: 38, ambient: 2, sun: 0xffdc9b, sunPower: 2.55, fill: 1.3, rim: 0x67d6b3, rimPower: 2.5, exposure: 1.24 },
+  'night-mine': { background: 0x0b0e15, fog: 0x171b25, near: 16, far: 34, ambient: 1.55, sun: 0xe7f2ff, sunPower: 1.9, fill: 1.6, rim: 0xf2e7c2, rimPower: 2.7, exposure: 1.42 },
+  'giant-city': { background: 0x0d201b, fog: 0x234237, near: 18, far: 38, ambient: 1.95, sun: 0xe8c578, sunPower: 2.55, fill: 1.3, rim: 0x68d7b2, rimPower: 2.5, exposure: 1.24 },
+  'wordless-war': { background: 0x171320, fog: 0x3a3249, near: 17, far: 35, ambient: 1.85, sun: 0xf0d58e, sunPower: 2.35, fill: 1.5, rim: 0xaa8bd6, rimPower: 2.8, exposure: 1.34 },
+  'memory-plague': { background: 0x0d201b, fog: 0x352c47, near: 17, far: 37, ambient: 1.95, sun: 0xcaf1e2, sunPower: 2.45, fill: 1.45, rim: 0xb9a5e1, rimPower: 2.8, exposure: 1.32 },
+  'final-exam': { background: 0x0d111b, fog: 0x29213d, near: 18, far: 39, ambient: 1.9, sun: 0xe1c77d, sunPower: 2.45, fill: 1.5, rim: 0xaa8bd6, rimPower: 2.9, exposure: 1.36 }
 });
 
 const ABILITY_COLORS = {
@@ -176,6 +176,10 @@ class CreatorExam3D extends GameEngine {
     this.environmentGroup.name = 'level-environment';
     this.boardSurfaceGroup = new THREE.Group();
     this.boardSurfaceGroup.name = 'board-surface-details';
+    this.boardGridGroup = new THREE.Group();
+    this.boardGridGroup.name = 'board-grid-overlay';
+    this.planetaryRingGroup = new THREE.Group();
+    this.planetaryRingGroup.name = 'planetary-rings';
     this.activeCard = null;
     this.placementMode = false;
     this.selectedRitualCreations = new Set();
@@ -559,6 +563,9 @@ class CreatorExam3D extends GameEngine {
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    this.renderer.outputColorSpace = THREE.SRGBColorSpace;
+    this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    this.renderer.toneMappingExposure = 1.28;
 
     const textureLoader = new THREE.TextureLoader();
     const gltfLoader = new GLTFLoader();
@@ -574,7 +581,7 @@ class CreatorExam3D extends GameEngine {
     this.controls.minDistance = 8;
     this.controls.maxDistance = 22;
 
-    this.ambientLight = new THREE.HemisphereLight(0xcfe8ff, 0x12162e, 2.1);
+    this.ambientLight = new THREE.HemisphereLight(0xe3f2ff, 0x263146, 2.1);
     this.scene.add(this.ambientLight);
 
     this.sunLight = new THREE.DirectionalLight(0xffffff, 2.8);
@@ -592,17 +599,33 @@ class CreatorExam3D extends GameEngine {
     this.rimLight.position.set(-7, 5, -6);
     this.scene.add(this.rimLight);
 
+    this.fillLight = new THREE.DirectionalLight(0x9fc9ff, 1.2);
+    this.fillLight.position.set(-8, 7, 5);
+    this.scene.add(this.fillLight);
+
     const base = new THREE.Mesh(
-      new THREE.CylinderGeometry(8.8, 9.6, 0.28, 8),
+      new THREE.CylinderGeometry(8.78, 9.08, 0.36, 64),
       new THREE.MeshStandardMaterial({ color: 0x11162c, roughness: 0.8, metalness: 0.1 })
     );
-    base.position.y = -0.25;
+    base.position.y = -0.26;
     base.receiveShadow = true;
     base.userData.decorative = true;
     this.boardBase = base;
     this.scene.add(base);
 
+    this.planetShell = new THREE.Mesh(
+      new THREE.SphereGeometry(9.02, 64, 24),
+      new THREE.MeshStandardMaterial({ color: 0x151b2d, roughness: 0.88, metalness: 0.06 })
+    );
+    this.planetShell.position.y = -1.28;
+    this.planetShell.scale.y = 0.13;
+    this.planetShell.receiveShadow = true;
+    this.planetShell.userData.decorative = true;
+    this.scene.add(this.planetShell);
+
     this.scene.add(this.boardSurfaceGroup);
+    this.scene.add(this.boardGridGroup);
+    this.scene.add(this.planetaryRingGroup);
     this.scene.add(this.environmentGroup);
     this.scene.add(this.worldGroup);
     this.worldGroup.add(this.intentArrowGroup);
@@ -2659,7 +2682,6 @@ class CreatorExam3D extends GameEngine {
         const [x, z] = squarePoint(angle, 6.6);
         add(kind, color, [x, 0.72, z], [scale, scale, scale], [0.2, -angle, 0.15]);
       });
-      add('ring', 0x8f73c8, [0, 0.02, 0], [0.76, 0.76, 0.76], [-Math.PI / 2, 0, 0], { transparent: true, opacity: 0.32, emissive: 0x8f73c8, emissiveIntensity: 0.35, side: THREE.DoubleSide });
     }
   }
 
@@ -2827,6 +2849,108 @@ class CreatorExam3D extends GameEngine {
     while (this.boardSurfaceGroup.children.length > 0) this.boardSurfaceGroup.remove(this.boardSurfaceGroup.children[0]);
   }
 
+  updatePlanetaryRings(theme) {
+    while (this.planetaryRingGroup.children.length > 0) this.planetaryRingGroup.remove(this.planetaryRingGroup.children[0]);
+    this.planetaryRingGroup.rotation.set(-Math.PI / 2 + 0.085, 0.08, -0.1);
+    this.planetaryRingGroup.position.y = -0.38;
+    this.planetaryRingGroup.userData.themeId = theme.id;
+    this.planetaryRingGroup.userData.decorative = true;
+
+    const addBand = (innerRadius, outerRadius, opacity, color = theme.edge) => {
+      const band = new THREE.Mesh(
+        this.getCachedGeometry(`planet-ring-band-${innerRadius}-${outerRadius}`, () => new THREE.RingGeometry(innerRadius, outerRadius, 128)),
+        this.material(color, {
+          transparent: true,
+          opacity,
+          depthWrite: false,
+          roughness: 0.42,
+          metalness: 0.18,
+          emissive: theme.surface,
+          emissiveIntensity: 0.12,
+          side: THREE.DoubleSide
+        })
+      );
+      band.userData.decorative = true;
+      band.renderOrder = -1;
+      this.planetaryRingGroup.add(band);
+    };
+
+    addBand(9.16, 9.24, 0.42);
+    addBand(9.38, 9.49, 0.28, theme.detailB);
+    addBand(9.63, 9.68, 0.2, theme.detailA);
+
+    const asteroidMaterialA = this.material(theme.edge, { roughness: 0.84, metalness: 0.14, emissive: theme.surface, emissiveIntensity: 0.08 });
+    const asteroidMaterialB = this.material(theme.detailB, { roughness: 0.9, metalness: 0.08 });
+    for (let index = 0; index < 32; index += 1) {
+      const angle = index * Math.PI * 2 / 32 + Math.sin(index * 1.7) * 0.035;
+      const radius = 9.18 + (index % 5) * 0.115;
+      const asteroid = new THREE.Mesh(
+        this.getCachedGeometry(`planet-ring-asteroid-v1-${index % 3}`, () => new THREE.DodecahedronGeometry(0.055 + (index % 3) * 0.018, 0)),
+        index % 3 === 0 ? asteroidMaterialB : asteroidMaterialA
+      );
+      asteroid.position.set(Math.cos(angle) * radius, Math.sin(angle) * radius, (index % 4 - 1.5) * 0.035);
+      asteroid.scale.set(0.8 + (index % 4) * 0.14, 0.48 + (index % 3) * 0.16, 0.65 + (index % 5) * 0.1);
+      asteroid.rotation.set(index * 0.31, index * 0.47, angle);
+      asteroid.userData.decorative = true;
+      this.planetaryRingGroup.add(asteroid);
+    }
+
+    this.planetShell.material = this.material(theme.side, {
+      roughness: 0.86,
+      metalness: 0.08,
+      emissive: theme.surface,
+      emissiveIntensity: 0.1
+    });
+  }
+
+  updateBoardGrid(theme) {
+    while (this.boardGridGroup.children.length > 0) this.boardGridGroup.remove(this.boardGridGroup.children[0]);
+    const halfExtent = BOARD_SIZE * TILE_SIZE / 2;
+    const seam = theme.grid;
+    const length = BOARD_SIZE * TILE_SIZE;
+    const grooveMaterial = this.material(seam.groove, { transparent: true, opacity: Math.min(0.72, seam.opacity * 1.35), roughness: 0.96, metalness: 0.02, depthWrite: false });
+    const grooveBoundaryMaterial = this.material(seam.groove, { transparent: true, opacity: Math.min(0.82, seam.opacity * 1.65), roughness: 0.94, metalness: 0.03, depthWrite: false });
+    const highlightMaterial = this.material(seam.highlight, { transparent: true, opacity: seam.opacity * 0.9, roughness: 0.76, metalness: 0.05, emissive: seam.highlight, emissiveIntensity: 0.07, depthWrite: false });
+    const highlightBoundaryMaterial = this.material(seam.highlight, { transparent: true, opacity: Math.min(0.58, seam.opacity * 1.2), roughness: 0.72, metalness: 0.06, emissive: seam.highlight, emissiveIntensity: 0.09, depthWrite: false });
+
+    for (let index = 0; index <= BOARD_SIZE; index += 1) {
+      const offset = -halfExtent + index * TILE_SIZE;
+      const boundary = index === 0 || index === BOARD_SIZE;
+      const grooveWidth = boundary ? 0.075 : 0.045;
+      const highlightWidth = boundary ? 0.022 : 0.014;
+      const verticalGroove = new THREE.Mesh(
+        this.getCachedGeometry(`board-grid-vertical-groove-${boundary ? 'boundary' : 'inner'}`, () => new THREE.BoxGeometry(grooveWidth, 0.012, length + grooveWidth)),
+        boundary ? grooveBoundaryMaterial : grooveMaterial
+      );
+      const horizontalGroove = new THREE.Mesh(
+        this.getCachedGeometry(`board-grid-horizontal-groove-${boundary ? 'boundary' : 'inner'}`, () => new THREE.BoxGeometry(length + grooveWidth, 0.012, grooveWidth)),
+        boundary ? grooveBoundaryMaterial : grooveMaterial
+      );
+      const verticalHighlight = new THREE.Mesh(
+        this.getCachedGeometry(`board-grid-vertical-highlight-${boundary ? 'boundary' : 'inner'}`, () => new THREE.BoxGeometry(highlightWidth, 0.005, length + grooveWidth)),
+        boundary ? highlightBoundaryMaterial : highlightMaterial
+      );
+      const horizontalHighlight = new THREE.Mesh(
+        this.getCachedGeometry(`board-grid-horizontal-highlight-${boundary ? 'boundary' : 'inner'}`, () => new THREE.BoxGeometry(length + grooveWidth, 0.005, highlightWidth)),
+        boundary ? highlightBoundaryMaterial : highlightMaterial
+      );
+      verticalGroove.position.set(offset, 0.026, 0);
+      horizontalGroove.position.set(0, 0.026, offset);
+      verticalHighlight.position.set(offset + grooveWidth * 0.28, 0.035, 0);
+      horizontalHighlight.position.set(0, 0.035, offset + grooveWidth * 0.28);
+      for (const mesh of [verticalGroove, horizontalGroove, verticalHighlight, horizontalHighlight]) {
+        mesh.userData.decorative = true;
+        mesh.userData.gridSeam = true;
+        mesh.renderOrder = 1;
+        this.boardGridGroup.add(mesh);
+      }
+    }
+    this.boardGridGroup.userData.themeId = theme.id;
+    this.boardGridGroup.userData.gridSize = BOARD_SIZE;
+    this.boardGridGroup.userData.visualStyle = 'engraved-theme-grid-v1';
+    this.boardGridGroup.userData.decorative = true;
+  }
+
   createBoardSurfaceDetails(theme) {
     this.clearBoardSurfaceDetails();
     this.boardSurfaceGroup.userData.motif = theme.motif;
@@ -2853,7 +2977,6 @@ class CreatorExam3D extends GameEngine {
       return mesh;
     };
 
-    add('ring', theme.edge, [0, -0.095, 0], [1, 1, 1], [-Math.PI / 2, Math.PI / 8, 0], { transparent: true, opacity: 0.52 });
     if (theme.motif === 'floodplain') {
       const pools = [[-6.6, -2.7, 1.4, 0.55], [6.5, 2.2, 1.7, 0.64], [-6.2, 3.3, 1.0, 0.42], [5.9, -4.3, 1.2, 0.5]];
       pools.forEach(([x, z, sx, sz], index) => {
@@ -2944,11 +3067,13 @@ class CreatorExam3D extends GameEngine {
   applyBoardVisualTheme(levelId) {
     const theme = getBoardVisualTheme(levelId);
     this.activeBoardThemeId = theme.id;
+    this.updatePlanetaryRings(theme);
+    this.updateBoardGrid(theme);
     if (!this.boardMaterialCache.has(theme.id)) {
       const texture = this.createBoardSurfaceTexture(theme);
       this.boardMaterialCache.set(theme.id, [
         new THREE.MeshStandardMaterial({ color: theme.side, roughness: 0.94, metalness: 0.03 }),
-        new THREE.MeshStandardMaterial({ color: 0xffffff, map: texture, roughness: 0.86, metalness: 0.04, emissive: theme.surface, emissiveIntensity: 0.08 }),
+        new THREE.MeshStandardMaterial({ color: 0xffffff, map: texture, roughness: 0.82, metalness: 0.04, emissive: 0xffffff, emissiveMap: texture, emissiveIntensity: theme.boardLift }),
         new THREE.MeshStandardMaterial({ color: theme.side, roughness: 1, metalness: 0 })
       ]);
     }
@@ -3010,7 +3135,7 @@ class CreatorExam3D extends GameEngine {
       ? cachedMaterials
       : [
         new THREE.MeshStandardMaterial({ color: theme.side, roughness: 0.94, metalness: 0.03 }),
-        new THREE.MeshStandardMaterial({ color: 0xffffff, map: texture, roughness: 0.9, metalness: 0.01, emissive: theme.surface, emissiveIntensity: 0.025 }),
+        new THREE.MeshStandardMaterial({ color: 0xffffff, map: texture, roughness: 0.84, metalness: 0.02, emissive: 0xffffff, emissiveMap: texture, emissiveIntensity: theme.boardLift }),
         new THREE.MeshStandardMaterial({ color: theme.side, roughness: 1, metalness: 0 })
       ];
     this.boardMaterialCache.set(theme.id, materials);
@@ -3036,7 +3161,10 @@ class CreatorExam3D extends GameEngine {
     this.ambientLight.intensity = preset.ambient;
     this.sunLight.color.setHex(preset.sun);
     this.sunLight.intensity = preset.sunPower;
+    this.fillLight.intensity = preset.fill;
     this.rimLight.color.setHex(preset.rim);
+    this.rimLight.intensity = preset.rimPower;
+    this.renderer.toneMappingExposure = preset.exposure;
     this.createProceduralEnvironment(levelId);
     this.environmentGroup.userData.levelId = levelId;
     this.pendingLevelPresentation = this.loadLevelPresentationAssets(levelId);
@@ -3264,7 +3392,7 @@ class CreatorExam3D extends GameEngine {
   getTerrainHeight(terrain) {
     if (terrain === TILE.MOUNTAIN) return 0.74;
     if (terrain === TILE.HIGH || terrain === TILE.CITY) return 0.5;
-    if (terrain === TILE.WATER) return 0.08;
+    if (terrain === TILE.WATER) return 0.12;
     if (terrain === TILE.BRIDGE) return 0.16;
     if (terrain === TILE.WALL) return 0.62;
     return 0.2;
@@ -3310,56 +3438,108 @@ class CreatorExam3D extends GameEngine {
 
     const readability = getTerrainReadabilityStyle(terrain);
     if (readability) {
-      const patchGeometry = terrain === TILE.WATER
-        ? this.getCachedGeometry('terrain-readable-water-patch-v1', () => new THREE.PlaneGeometry(1.18, 1.18))
-        : this.getCachedGeometry(`terrain-readable-${terrain}-patch-v1`, () => new THREE.CircleGeometry(0.58, 28));
+      const patchGeometry = this.getCachedGeometry(`terrain-readable-${terrain}-patch-v2`, () => {
+        if (terrain !== TILE.WATER && terrain !== TILE.FOG && terrain !== TILE.DARK) return new THREE.CircleGeometry(0.58, 28);
+        const points = terrain === TILE.WATER
+          ? [[-0.59, -0.42], [-0.28, -0.58], [0.18, -0.54], [0.56, -0.34], [0.59, 0.16], [0.34, 0.56], [-0.12, 0.59], [-0.55, 0.35]]
+          : terrain === TILE.FOG
+            ? [[-0.58, -0.28], [-0.34, -0.55], [0.08, -0.51], [0.48, -0.4], [0.6, -0.06], [0.43, 0.42], [0.06, 0.56], [-0.4, 0.48], [-0.61, 0.14]]
+            : [[-0.54, -0.38], [-0.18, -0.58], [0.24, -0.5], [0.58, -0.23], [0.5, 0.2], [0.22, 0.57], [-0.24, 0.52], [-0.59, 0.2]];
+        const shape = new THREE.Shape();
+        shape.moveTo(points[0][0], points[0][1]);
+        for (const point of points.slice(1)) shape.lineTo(point[0], point[1]);
+        shape.closePath();
+        return new THREE.ShapeGeometry(shape);
+      });
       const patch = new THREE.Mesh(
         patchGeometry,
         this.material(style.color, {
-          transparent: true,
+          transparent: readability.opacity < 1,
           opacity: readability.opacity,
-          depthWrite: false,
+          depthWrite: readability.opacity >= 1,
           roughness: style.roughness ?? 0.8,
           metalness: style.metalness ?? 0,
           emissive: style.emissive || style.secondary,
-          emissiveIntensity: terrain === TILE.DARK || terrain === TILE.POISON ? 0.12 : 0.04,
+          emissiveIntensity: style.emissiveIntensity || (terrain === TILE.DARK || terrain === TILE.POISON ? 0.16 : 0.08),
           side: THREE.DoubleSide
         })
       );
       patch.rotation.x = -Math.PI / 2;
       patch.position.y = surfaceLocalY + 0.012;
 
-      const edge = new THREE.Mesh(
-        this.getCachedGeometry(`terrain-readable-${terrain}-edge-v1`, () => new THREE.TorusGeometry(0.54, 0.018, 6, 32)),
-        this.material(style.accent, {
-          transparent: true,
-          opacity: readability.edgeOpacity,
-          depthWrite: false,
-          emissive: style.secondary,
-          emissiveIntensity: 0.08
-        })
-      );
-      edge.rotation.x = Math.PI / 2;
-      edge.position.y = surfaceLocalY + 0.018;
-      group.add(patch, edge);
+      group.add(patch);
+      if (terrain !== TILE.WATER && terrain !== TILE.FOG && terrain !== TILE.DARK) {
+        const usesBrokenBoundary = false;
+        const edge = new THREE.Mesh(
+          this.getCachedGeometry(`terrain-readable-${terrain}-edge-v2`, () => new THREE.TorusGeometry(0.54, 0.016, 6, 28, usesBrokenBoundary ? Math.PI * 0.78 : Math.PI * 2)),
+          this.material(style.accent, {
+            transparent: true,
+            opacity: readability.edgeOpacity,
+            depthWrite: false,
+            emissive: style.secondary,
+            emissiveIntensity: style.emissiveIntensity || 0.1
+          })
+        );
+        edge.rotation.x = Math.PI / 2;
+        edge.rotation.z = variation * Math.PI * 0.5;
+        edge.position.y = surfaceLocalY + 0.018;
+        group.add(edge);
+        if (usesBrokenBoundary) {
+          const edgeB = edge.clone();
+          edgeB.rotation.z = edge.rotation.z + Math.PI * 1.08;
+          edgeB.scale.setScalar(0.92);
+          edgeB.position.y += 0.004;
+          group.add(edgeB);
+        }
+      }
     }
 
     if (terrain === TILE.WATER) {
-      const water = new THREE.Mesh(
-        this.getCachedGeometry('terrain-water-surface-image2', () => new THREE.PlaneGeometry(1.24, 1.24)),
-        this.material(style.color, { transparent: true, opacity: 0.42, roughness: 0.3, metalness: 0.05, depthWrite: false })
+      const bed = new THREE.Mesh(
+        this.getCachedGeometry('terrain-water-bed-v5', () => {
+          const shape = new THREE.Shape();
+          const points = [[-0.6, -0.42], [-0.3, -0.6], [0.17, -0.56], [0.59, -0.34], [0.62, 0.18], [0.36, 0.58], [-0.14, 0.62], [-0.58, 0.36]];
+          shape.moveTo(points[0][0], points[0][1]);
+          for (const point of points.slice(1)) shape.lineTo(point[0], point[1]);
+          shape.closePath();
+          const geometry = new THREE.ExtrudeGeometry(shape, { depth: 0.08, bevelEnabled: true, bevelSegments: 1, bevelSize: 0.025, bevelThickness: 0.018, curveSegments: 1, steps: 1 });
+          geometry.rotateX(-Math.PI / 2);
+          return geometry;
+        }),
+        this.material(style.secondary, { roughness: 0.74, metalness: 0.04 })
       );
-      water.rotation.x = -Math.PI / 2;
-      water.position.y = 0.045;
-      const rippleA = new THREE.Mesh(this.getCachedGeometry('terrain-water-ripple-a-v3', () => new THREE.TorusGeometry(0.3, 0.009, 5, 22, Math.PI * 1.35)), this.material(style.accent, { transparent: true, opacity: 0.78, emissive: style.secondary, emissiveIntensity: 0.1 }));
-      const rippleB = new THREE.Mesh(this.getCachedGeometry('terrain-water-ripple-b-v3', () => new THREE.TorusGeometry(0.49, 0.008, 5, 24, Math.PI * 0.9)), this.material(style.accent, { transparent: true, opacity: 0.58 }));
+      bed.position.y = -0.035;
+      bed.receiveShadow = true;
+      const water = new THREE.Mesh(
+        this.getCachedGeometry('terrain-water-surface-image2', () => {
+          const shape = new THREE.Shape();
+          const points = [[-0.54, -0.37], [-0.26, -0.53], [0.15, -0.5], [0.52, -0.3], [0.54, 0.15], [0.31, 0.51], [-0.12, 0.54], [-0.52, 0.31]];
+          shape.moveTo(points[0][0], points[0][1]);
+          for (const point of points.slice(1)) shape.lineTo(point[0], point[1]);
+          shape.closePath();
+          const geometry = new THREE.ExtrudeGeometry(shape, { depth: 0.038, bevelEnabled: true, bevelSegments: 1, bevelSize: 0.018, bevelThickness: 0.012, curveSegments: 1, steps: 1 });
+          geometry.rotateX(-Math.PI / 2);
+          return geometry;
+        }),
+        this.material(style.color, { transparent: true, opacity: 0.68, roughness: 0.18, metalness: 0.14, emissive: style.emissive || style.secondary, emissiveIntensity: style.emissiveIntensity || 0.12, depthWrite: false })
+      );
+      water.position.y = 0.022;
+      const sheen = new THREE.Mesh(
+        this.getCachedGeometry('terrain-water-sheen-v4', () => new THREE.PlaneGeometry(0.86, 0.18)),
+        this.material(style.accent, { transparent: true, opacity: 0.24, roughness: 0.08, metalness: 0.18, emissive: style.accent, emissiveIntensity: 0.14, depthWrite: false, side: THREE.DoubleSide })
+      );
+      sheen.rotation.x = -Math.PI / 2;
+      sheen.rotation.z = variation * Math.PI;
+      sheen.position.set((variation - 0.5) * 0.16, surfaceLocalY + 0.012, 0.08 - variation * 0.16);
+      const rippleA = new THREE.Mesh(this.getCachedGeometry('terrain-water-ripple-a-v4', () => new THREE.TorusGeometry(0.27, 0.01, 5, 24, Math.PI * 1.25)), this.material(style.accent, { transparent: true, opacity: 0.84, emissive: style.accent, emissiveIntensity: 0.12, depthWrite: false }));
+      const rippleB = new THREE.Mesh(this.getCachedGeometry('terrain-water-ripple-b-v4', () => new THREE.TorusGeometry(0.46, 0.008, 5, 28, Math.PI * 0.82)), this.material(style.accent, { transparent: true, opacity: 0.62, depthWrite: false }));
       rippleA.rotation.x = Math.PI / 2;
       rippleB.rotation.x = Math.PI / 2;
       rippleA.rotation.z = variation * Math.PI * 2;
       rippleB.rotation.z = (1 - variation) * Math.PI;
-      rippleA.position.y = 0.045;
-      rippleB.position.y = 0.048;
-      group.add(water, rippleA, rippleB);
+      rippleA.position.y = surfaceLocalY + 0.018;
+      rippleB.position.y = surfaceLocalY + 0.02;
+      group.add(bed, water, sheen, rippleA, rippleB);
       if (this.activeBoardThemeId === 'flood-village' && variation > 0.46) {
         const debris = new THREE.Mesh(this.getCachedGeometry('terrain-water-driftwood-v3', () => new THREE.BoxGeometry(0.42, 0.035, 0.055)), this.material(0x66523c, { roughness: 1 }));
         debris.position.set((variation - 0.5) * 0.35, 0.065, 0.1 - variation * 0.2);
@@ -3490,12 +3670,32 @@ class CreatorExam3D extends GameEngine {
     }
 
     if (terrain === TILE.BORDER) {
-      const road = new THREE.Mesh(this.getCachedGeometry('terrain-border-road-v3', () => new THREE.BoxGeometry(1.0, 0.025, 0.23)), this.material(style.secondary, { roughness: 1 }));
-      road.position.y = surfaceLocalY + 0.025;
+      const road = new THREE.Mesh(this.getCachedGeometry('terrain-border-road-v3', () => new THREE.BoxGeometry(1.08, 0.055, 0.38)), this.material(style.color, { roughness: 0.9, metalness: 0.04 }));
+      road.position.y = surfaceLocalY + 0.035;
       road.rotation.y = variation > 0.5 ? 0.08 : -0.08;
-      const post = new THREE.Mesh(this.getCachedGeometry('terrain-border-post-v3', () => new THREE.BoxGeometry(0.07, 0.32, 0.07)), this.material(style.accent));
-      post.position.set(variation > 0.5 ? 0.38 : -0.38, surfaceLocalY + 0.16, 0.18);
-      group.add(road, post);
+      const inlay = new THREE.Mesh(
+        this.getCachedGeometry('terrain-border-inlay-v4', () => new THREE.BoxGeometry(0.98, 0.018, 0.075)),
+        this.material(style.accent, { emissive: style.emissive || style.accent, emissiveIntensity: style.emissiveIntensity || 0.26, roughness: 0.52 })
+      );
+      inlay.position.y = surfaceLocalY + 0.072;
+      inlay.rotation.y = road.rotation.y;
+      const postMaterial = this.material(style.secondary, { roughness: 0.78, metalness: 0.12 });
+      const signalMaterial = this.material(style.accent, { emissive: style.emissive || style.accent, emissiveIntensity: style.emissiveIntensity || 0.3, roughness: 0.48, metalness: 0.1 });
+      const posts = [-0.38, 0.38].map((postX, index) => {
+        const post = new THREE.Mesh(this.getCachedGeometry('terrain-border-post-v4', () => new THREE.CylinderGeometry(0.045, 0.065, 0.46, 8)), postMaterial);
+        post.position.set(postX, surfaceLocalY + 0.25, 0.16);
+        post.rotation.z = (index ? -1 : 1) * 0.035;
+        post.castShadow = true;
+        const cap = new THREE.Mesh(this.getCachedGeometry('terrain-border-cap-v4', () => new THREE.OctahedronGeometry(0.07, 0)), signalMaterial);
+        cap.position.set(postX, surfaceLocalY + 0.5, 0.16);
+        return [post, cap];
+      }).flat();
+      const crossbar = new THREE.Mesh(this.getCachedGeometry('terrain-border-crossbar-v4', () => new THREE.BoxGeometry(0.76, 0.045, 0.055)), signalMaterial);
+      crossbar.position.set(0, surfaceLocalY + 0.4, 0.16);
+      const treatyPlate = new THREE.Mesh(this.getCachedGeometry('terrain-border-treaty-plate-v4', () => new THREE.BoxGeometry(0.26, 0.15, 0.035)), signalMaterial);
+      treatyPlate.position.set(0, surfaceLocalY + 0.31, 0.192);
+      treatyPlate.rotation.z = (variation - 0.5) * 0.12;
+      group.add(road, inlay, ...posts, crossbar, treatyPlate);
     }
 
     if (terrain === TILE.FOREST) {
@@ -3541,11 +3741,57 @@ class CreatorExam3D extends GameEngine {
       }
     }
 
-    if (terrain === TILE.DARK) {
+    if (terrain === TILE.FOG) {
       for (let index = 0; index < 3; index += 1) {
-        const shard = new THREE.Mesh(this.getCachedGeometry(`terrain-dark-shard-v3-${index}`, () => new THREE.TetrahedronGeometry(0.09 + index * 0.02, 0)), this.material(style.accent, { transparent: true, opacity: 0.38, emissive: style.secondary, emissiveIntensity: 0.12 }));
-        shard.position.set((index - 1) * 0.2, surfaceLocalY + 0.12 + index * 0.035, (index % 2 ? 0.13 : -0.09));
-        shard.rotation.set(index * 0.4, variation * Math.PI, 0.2);
+        const wisp = new THREE.Mesh(
+          this.getCachedGeometry(`terrain-fog-wisp-v4-${index}`, () => {
+            const offset = (index - 1) * 0.12;
+            const curve = new THREE.CatmullRomCurve3([
+              new THREE.Vector3(-0.46, 0, -0.18 + offset),
+              new THREE.Vector3(-0.18, 0.02, 0.05 + offset),
+              new THREE.Vector3(0.12, 0, -0.06 + offset),
+              new THREE.Vector3(0.46, 0.015, 0.16 + offset)
+            ]);
+            return new THREE.TubeGeometry(curve, 18, 0.009 - index * 0.0015, 5, false);
+          }),
+          this.material(index === 1 ? style.color : style.accent, { roughness: 0.64, emissive: style.emissive || style.secondary, emissiveIntensity: style.emissiveIntensity || 0.14 })
+        );
+        wisp.rotation.y = variation * Math.PI * 0.6 + index * 0.08;
+        wisp.position.set(0, surfaceLocalY + 0.04 + index * 0.018, (variation - 0.5) * 0.1);
+        group.add(wisp);
+      }
+    }
+
+    if (terrain === TILE.DARK) {
+      const well = new THREE.Mesh(
+        this.getCachedGeometry('terrain-dark-well-v5', () => {
+          const shape = new THREE.Shape();
+          const points = [[-0.5, -0.3], [-0.2, -0.54], [0.22, -0.47], [0.55, -0.18], [0.46, 0.24], [0.16, 0.53], [-0.27, 0.47], [-0.56, 0.14]];
+          shape.moveTo(points[0][0], points[0][1]);
+          for (const point of points.slice(1)) shape.lineTo(point[0], point[1]);
+          shape.closePath();
+          const geometry = new THREE.ExtrudeGeometry(shape, { depth: 0.045, bevelEnabled: true, bevelSegments: 1, bevelSize: 0.018, bevelThickness: 0.01, curveSegments: 1, steps: 1 });
+          geometry.rotateX(-Math.PI / 2);
+          return geometry;
+        }),
+        this.material(style.color, { roughness: 0.72, metalness: 0.08, emissive: style.emissive || style.secondary, emissiveIntensity: style.emissiveIntensity || 0.16 })
+      );
+      well.position.y = surfaceLocalY + 0.015;
+      group.add(well);
+      for (let index = 0; index < 5; index += 1) {
+        const angle = index * Math.PI * 2 / 5 + variation;
+        const crack = new THREE.Mesh(
+          this.getCachedGeometry(`terrain-dark-crack-v4-${index % 2}`, () => new THREE.BoxGeometry(0.28 + (index % 2) * 0.08, 0.018, 0.024)),
+          this.material(style.accent, { emissive: style.emissive || style.accent, emissiveIntensity: style.emissiveIntensity || 0.22 })
+        );
+        crack.position.set(Math.cos(angle) * 0.31, surfaceLocalY + 0.1, Math.sin(angle) * 0.31);
+        crack.rotation.y = -angle;
+        group.add(crack);
+      }
+      for (let index = 0; index < 3; index += 1) {
+        const shard = new THREE.Mesh(this.getCachedGeometry(`terrain-dark-shard-v4-${index}`, () => new THREE.TetrahedronGeometry(0.1 + index * 0.025, 0)), this.material(style.accent, { emissive: style.emissive || style.secondary, emissiveIntensity: style.emissiveIntensity || 0.24 }));
+        shard.position.set((index - 1) * 0.2, surfaceLocalY + 0.18 + index * 0.045, (index % 2 ? 0.13 : -0.09));
+        shard.rotation.set(index * 0.4, variation * Math.PI + index, 0.2);
         group.add(shard);
       }
     }
@@ -3630,10 +3876,29 @@ class CreatorExam3D extends GameEngine {
       return group;
     }
     if (terrain === TILE.EXIT) {
-      const ring = new THREE.Mesh(this.getCachedGeometry('terrain-exit-ring-v3', () => new THREE.TorusGeometry(0.42, 0.035, 8, 24)), this.material(style.accent, { emissive: style.emissive || style.secondary, emissiveIntensity: style.emissiveIntensity || 0.16 }));
-      ring.rotation.x = Math.PI / 2;
-      ring.position.set(pos.x, 0.02, pos.z);
-      return ring;
+      const threshold = new THREE.Group();
+      const stoneMaterial = this.material(style.secondary, { roughness: 0.72, metalness: 0.08 });
+      const lightMaterial = this.material(style.accent, { emissive: style.emissive || style.secondary, emissiveIntensity: Math.max(style.emissiveIntensity || 0.16, 0.28), roughness: 0.44 });
+      const floor = new THREE.Mesh(this.getCachedGeometry('terrain-exit-floor-v4', () => new THREE.BoxGeometry(0.82, 0.035, 0.34)), stoneMaterial);
+      floor.position.y = 0.02;
+      const guide = new THREE.Mesh(this.getCachedGeometry('terrain-exit-guide-v4', () => new THREE.ConeGeometry(0.14, 0.028, 3)), lightMaterial);
+      guide.position.set(0, 0.055, -0.02);
+      guide.rotation.y = Math.PI / 2;
+      const pillars = [-0.32, 0.32].map((pillarX, index) => {
+        const pillar = new THREE.Mesh(this.getCachedGeometry('terrain-exit-pillar-v4', () => new THREE.CylinderGeometry(0.055, 0.075, 0.43, 8)), stoneMaterial);
+        pillar.position.set(pillarX, 0.235, 0.1);
+        pillar.rotation.z = (index ? -1 : 1) * 0.035;
+        pillar.castShadow = true;
+        const cap = new THREE.Mesh(this.getCachedGeometry('terrain-exit-cap-v4', () => new THREE.OctahedronGeometry(0.075, 0)), lightMaterial);
+        cap.position.set(pillarX, 0.48, 0.1);
+        return [pillar, cap];
+      }).flat();
+      const lintel = new THREE.Mesh(this.getCachedGeometry('terrain-exit-lintel-v4', () => new THREE.BoxGeometry(0.72, 0.055, 0.075)), lightMaterial);
+      lintel.position.set(0, 0.4, 0.1);
+      threshold.add(floor, guide, ...pillars, lintel);
+      threshold.position.set(pos.x, 0, pos.z);
+      threshold.userData.decorative = true;
+      return threshold;
     }
     if (terrain === TILE.HIGH) {
       const cairn = new THREE.Group();
@@ -3649,14 +3914,38 @@ class CreatorExam3D extends GameEngine {
       return cairn;
     }
     if (terrain === TILE.DARK || terrain === TILE.FOG) {
-      const radius = terrain === TILE.DARK ? 0.58 : 0.5;
-      const haze = new THREE.Mesh(
-        this.getCachedGeometry(`terrain-haze-v3-${terrain}`, () => new THREE.SphereGeometry(radius, 12, 8)),
-        this.material(style.accent, { transparent: true, opacity: terrain === TILE.DARK ? 0.32 : 0.28, roughness: 1, depthWrite: false })
-      );
-      haze.position.set(pos.x, terrain === TILE.DARK ? 0.42 : 0.18, pos.z);
-      haze.scale.set(terrain === TILE.DARK ? 1.15 : 1.38, terrain === TILE.DARK ? 0.66 : 0.34, terrain === TILE.DARK ? 1.15 : 1.38);
+      const haze = new THREE.Group();
+      const lobeCount = 3;
+      const lobeMaterialA = this.material(style.color, {
+        roughness: 0.68,
+        flatShading: true,
+        emissive: style.emissive || style.secondary,
+        emissiveIntensity: style.emissiveIntensity || 0.14
+      });
+      const lobeOffsets = [[-0.18, -0.015], [0.01, 0.035], [0.19, -0.025]];
+      for (let index = 0; index < lobeCount; index += 1) {
+        const radius = terrain === TILE.DARK
+          ? [0.11, 0.14, 0.115][index]
+          : [0.15, 0.19, 0.16][index];
+        const lobe = new THREE.Mesh(
+          this.getCachedGeometry(`terrain-${terrain}-lobe-v5-${index % 3}`, () => new THREE.SphereGeometry(radius, 10, 7)),
+          lobeMaterialA
+        );
+        const [offsetX, offsetZ] = lobeOffsets[index];
+        lobe.position.set(offsetX, terrain === TILE.DARK ? [0.12, 0.15, 0.115][index] : [0.14, 0.18, 0.135][index], offsetZ);
+        lobe.scale.set(
+          terrain === TILE.DARK ? [1, 1.12, 1.02][index] : [1.05, 1.15, 1.05][index],
+          terrain === TILE.DARK ? [0.75, 0.82, 0.72][index] : [0.75, 0.85, 0.72][index],
+          terrain === TILE.DARK ? [0.9, 1, 0.88][index] : [0.95, 1.05, 0.92][index]
+        );
+        lobe.rotation.set(0, (index - 1) * 0.1, (index - 1) * 0.025);
+        lobe.userData.decorative = true;
+        haze.add(lobe);
+      }
+      haze.position.set(pos.x, 0.01, pos.z);
+      haze.rotation.y = (x * 0.31 + y * 0.19) % 0.48 - 0.24;
       haze.userData.decorative = true;
+      haze.userData.volumeLayers = lobeCount;
       return haze;
     }
     return null;
@@ -7834,9 +8123,9 @@ class CreatorExam3D extends GameEngine {
       options.emissive = style.emissive;
       options.emissiveIntensity = style.emissiveIntensity || 0.1;
     }
-    if (terrain === TILE.WATER) return this.material(style.color, { ...options, transparent: true, opacity: 0.76, depthWrite: false });
-    if (terrain === TILE.DARK) return this.material(style.color, { ...options, emissive: style.secondary, emissiveIntensity: 0.08 });
-    if (terrain === TILE.FOG) return this.material(style.color, { ...options, transparent: true, opacity: style.opacity || 0.62, depthWrite: false });
+    if (terrain === TILE.WATER) return this.material(style.color, { ...options, transparent: true, opacity: 0.78, depthWrite: false });
+    if (terrain === TILE.DARK) return this.material(style.color, { ...options, emissive: style.emissive || style.secondary, emissiveIntensity: style.emissiveIntensity || 0.18 });
+    if (terrain === TILE.FOG) return this.material(style.color, options);
     if (terrain === TILE.FIELD) return this.material(style.color, { ...options, emissive: style.secondary, emissiveIntensity: 0.08 });
     return this.material(style.color, options);
   }

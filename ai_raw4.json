@@ -1,1 +1,0 @@
-{"name":"发光水母","type":"生物","ability":"illuminate","tags":["水母","发光","照明"],"range":1,"duration":3,"cost":1,"stabilityCost":1,"description":"生成一只发光水母，照亮周围1格的区域，驱散黑暗，使劳工可见并安全通行。","side_effect":"只能放置在水域或潮湿地面，否则回合末消散。","source":"ai"}

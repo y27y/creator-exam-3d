@@ -28,6 +28,11 @@ for (const levelId of LEVEL_IDS) {
   const theme = LEVEL_BOARD_THEMES[levelId]
   assert.match(theme.artTexture, /^\/assets\/art\/board-surfaces\/.+-image2\.webp$/, `${levelId} should declare its image-2 board surface`)
   assert.ok(existsSync(new URL(`../public${theme.artTexture}`, import.meta.url)), `${levelId} image-2 board surface should exist`)
+  assert.ok(theme.boardLift >= 0.15 && theme.boardLift <= 0.25, `${levelId} should lift authored board midtones without flattening them`)
+  assert.ok(theme.grid?.opacity >= 0.4 && theme.grid.opacity <= 0.5, `${levelId} should keep engraved grid seams clearly readable`)
+  for (const field of ['groove', 'highlight']) {
+    assert.ok(Number.isInteger(theme.grid[field]) && theme.grid[field] >= 0 && theme.grid[field] <= 0xffffff, `${levelId} grid ${field} should be a valid RGB color`)
+  }
   assert.deepEqual(theme.details, EXPECTED_DETAILS[levelId], `${levelId} should declare every authored environment detail`)
   for (const field of ['surface', 'side', 'edge', 'detailA', 'detailB']) {
     assert.ok(Number.isInteger(theme[field]) && theme[field] >= 0 && theme[field] <= 0xffffff, `${levelId} ${field} should be a valid RGB color`)
@@ -48,10 +53,14 @@ assert.ok(!landColors.includes(0x52634c), 'legacy uniform green ground should no
 
 for (const terrain of [TILE.WATER, TILE.FOG, TILE.DARK, TILE.SWAMP, TILE.POISON]) {
   const readability = getTerrainReadabilityStyle(terrain)
-  assert.ok(readability?.opacity >= 0.3, `${terrain} should remain readable over detailed board art`)
+  const minimumOpacity = terrain === TILE.FOG ? 0.15 : terrain === TILE.DARK ? 0.2 : 0.3
+  assert.ok(readability?.opacity >= minimumOpacity, `${terrain} should remain readable over detailed board art`)
   assert.ok(readability?.edgeOpacity >= 0.5, `${terrain} should have a visible gameplay boundary`)
 }
 assert.equal(getTerrainReadabilityStyle(TILE.LAND), null, 'ordinary land should preserve the authored board texture')
+assert.equal(getTerrainReadabilityStyle(TILE.FOG).opacity, 1, 'fog should use an opaque gameplay surface')
+assert.equal(getTerrainReadabilityStyle(TILE.DARK).opacity, 1, 'darkness should use an opaque gameplay surface')
+assert.ok(getTerrainVisualStyle('wordless-war', TILE.BORDER).emissiveIntensity >= 0.3, 'the messenger border should glow above fog and earth')
 
 const gameSource = readFileSync(new URL('../public/js/game.js', import.meta.url), 'utf8')
 for (const contract of [
@@ -68,14 +77,43 @@ for (const contract of [
   'applyBoardVisualTheme(levelId)',
   'loadBoardArtTexture(theme)',
   'installBoardArtTexture(theme, texture)',
+  'emissiveMap: texture',
+  'this.renderer.toneMappingExposure = preset.exposure',
+  'this.updatePlanetaryRings(theme)',
+  'this.updateBoardGrid(theme)',
+  "this.boardGridGroup.userData.visualStyle = 'engraved-theme-grid-v1'",
+  'board-grid-vertical-groove-',
+  'board-grid-horizontal-highlight-',
+  'planet-ring-asteroid-v1',
   'this.boardSurfaceGroup.userData.artTextureFallback = true',
   "visualStyle: 'sculpted-terrain-v3'",
   'existing.userData.themeId === this.activeBoardThemeId',
   "this.getCachedGeometry('terrain-water-surface-image2'",
+  "this.getCachedGeometry('terrain-water-bed-v5'",
   "this.getCachedGeometry('terrain-forest-trunk-v3'",
-  "this.getCachedGeometry('terrain-border-road-v3'"
+  "this.getCachedGeometry('terrain-border-road-v3'",
+  "this.getCachedGeometry('terrain-border-crossbar-v4'",
+  "this.getCachedGeometry('terrain-exit-lintel-v4'",
+  "this.getCachedGeometry('terrain-dark-well-v5'",
+  'terrain-fog-wisp-v4-',
+  'haze.userData.volumeLayers = lobeCount'
 ]) {
   assert.ok(gameSource.includes(contract), `renderer should include board visual contract: ${contract}`)
 }
+
+assert.ok(!gameSource.includes("add('ring', 0x8f73c8, [0, 0.02, 0]"), 'final exam should not put a decorative purple ring in the playable center')
+assert.ok(!gameSource.includes("this.getCachedGeometry('terrain-exit-ring-v3'"), 'the mine exit should render as a modeled threshold instead of a floating ring')
+assert.ok(gameSource.includes("if (terrain === TILE.FOG) return this.material(style.color, options)"), 'fog terrain material should be opaque')
+
+const terrainVisualStart = gameSource.indexOf('  createTerrainVisual(terrain, height, x, y) {')
+const fogVisualStart = gameSource.indexOf('    if (terrain === TILE.FOG) {', terrainVisualStart)
+const darkVisualStart = gameSource.indexOf('    if (terrain === TILE.DARK) {', fogVisualStart)
+const fogVisualBlock = gameSource.slice(fogVisualStart, darkVisualStart)
+assert.ok(!fogVisualBlock.includes('transparent: true'), 'fog wisps should be opaque')
+
+const hazeMarkerStart = gameSource.indexOf('    if (terrain === TILE.DARK || terrain === TILE.FOG) {')
+const hazeMarkerEnd = gameSource.indexOf('      return haze;', hazeMarkerStart)
+const hazeMarkerBlock = gameSource.slice(hazeMarkerStart, hazeMarkerEnd)
+assert.ok(!hazeMarkerBlock.includes('transparent: true'), 'fog and darkness volume layers should be opaque')
 
 console.log('Board visual theme tests passed (6 image-2 surfaces, procedural fallback, 17 terrain forms).')

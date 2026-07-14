@@ -1,7 +1,7 @@
 {
   "name": "creator-exam-3d",
   "version": "1.0.0",
-  "description": "《创世计划：造物者考核》3D AI造物解谜游戏原型",
+  "description": "《造物者考核3D》AI驱动的完整3D策略解谜游戏",
   "main": "server.js",
   "type": "module",
   "scripts": {

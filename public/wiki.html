@@ -323,6 +323,20 @@
         .two-col,
         .three-col { grid-template-columns: 1fr; }
         table { display: block; overflow-x: auto; }
+        .wide-table {
+          inline-size: 100%;
+          min-inline-size: 0;
+          max-inline-size: 100%;
+          contain: inline-size;
+        }
+        .wide-table > thead,
+        .wide-table > tbody {
+          display: table;
+          width: 680px;
+          table-layout: fixed;
+        }
+        .extra-wide-table > thead,
+        .extra-wide-table > tbody { width: 900px; }
       }
     </style>
   </head>
@@ -333,9 +347,11 @@
         <p>按真实界面讲，不按宣传语讲。</p>
         <a class="primary-link" href="./">返回游戏</a>
         <a href="#first-run">第一局怎么下手</a>
+        <a href="#quick-reference">局面速查</a>
         <a href="#worked-example">三回合实战例</a>
         <a href="#screen">界面每块看什么</a>
         <a href="#loop">一回合流程</a>
+        <a href="#rules-glossary">规则与术语</a>
         <a href="#board-rules">棋盘与地形规则</a>
         <a href="#resources">资源与状态</a>
         <a href="#intent">意图预览怎么读</a>
@@ -349,7 +365,8 @@
         <a href="#levels">六关重点</a>
         <a href="#level-plans">逐关打法</a>
         <a href="#review">日志与复盘</a>
-        <a href="#modes">长夜与空战</a>
+        <a href="#night-watch">长夜守城</a>
+        <a href="#airspace">裂隙空域</a>
         <a href="#save">存档与对话</a>
         <a href="#mistakes">常见误区</a>
       </nav>
@@ -422,10 +439,28 @@
           </div>
         </section>
 
+        <section id="quick-reference">
+          <h2>局面速查：先按症状找答案</h2>
+          <p>不确定该造什么时，先在左侧行动指引里找到症状，再用这一行做最小干预。普通造物能解决，就先保留 AI 干涉和长期稳定。</p>
+          <table class="wide-table extra-wide-table">
+            <thead>
+              <tr><th>看到的症状</th><th>先确认</th><th>普通造物</th><th>高级机制兜底</th><th>结算后检查</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>洪水/灾害将切断路线</td><td>扩散目标格是否在关键单位前方。</td><td>吸水、导流、桥、抬高。</td><td>工坊补件；唯一通路将断时用仪式熔炉。</td><td>目标格是否安全，单位的新意图是否仍朝终点。</td></tr>
+              <tr><td>居民徘徊或在雾中乱走</td><td>缺路，还是缺光、记忆与引导。</td><td>照明、记忆信标、显路。</td><td>单人用言灵誓约，多人用认知深渊或连锁反应。</td><td>意图是否从“混乱/徘徊”变为“前进”。</td></tr>
+              <tr><td>巨兽冲锋或怒气过高</td><td>下一步冲锋线与怒气，哪个更接近失败。</td><td>安抚、迟缓、陷阱、改路。</td><td>必须立刻停住时用仪式熔炉；最后才用验证腐化。</td><td>意图是否变为“受阻/停滞”，怒气有没有继续上涨。</td></tr>
+              <tr><td>使者误判、战争值上升</td><td>两名使者是否正朝同一边境格移动。</td><td>翻译、安抚、边境路标、记忆信标。</td><td>言灵誓约保关键使者，认知深渊处理多人误判。</td><td>使者目标格是否收拢，战争值是否停止增长。</td></tr>
+              <tr><td>最后两回合仍差一步</td><td>哪个单位是胜利条件必需，别平均救人。</td><td>贴着目标路线放显路、加速、临时桥。</td><td>工坊补小工具；必败点用誓约、仪式或腐化。</td><td>剩余步数是否小于等于剩余回合。</td></tr>
+              <tr><td>造物没有生效</td><td>能力类型、放置格、范围和目标是否匹配。</td><td>保留能力词，重写具体单位/格子/方向。</td><td>不要立刻加码；先免费刷新意图并读日志。</td><td>日志是否写明改变了哪格、哪名单位或哪项状态。</td></tr>
+            </tbody>
+          </table>
+        </section>
+
         <section id="worked-example">
           <h2>第 1 关三回合实战例</h2>
           <p>下面不是唯一解，但它展示了游戏真正的思路：每回合只解决下一步最危险的事，不追求一次性清全图。</p>
-          <table>
+          <table class="wide-table extra-wide-table">
             <thead>
               <tr><th>回合</th><th>先看什么</th><th>造物输入示例</th><th>放哪里</th><th>战术室选择</th><th>回合后检查</th></tr>
             </thead>
@@ -531,6 +566,44 @@
               <span>如果没救到人，先看日志和新意图，不要马上重复同一种造物。</span>
             </div>
           </div>
+        </section>
+
+        <section id="rules-glossary">
+          <h2>规则与术语：卡牌到底什么时候生效</h2>
+          <p>把“写句子、拿到卡、放到棋盘、结束回合”分开理解，能避免大多数误操作。</p>
+          <div class="two-col">
+            <div class="step good">
+              <strong>1. 生成会先支付成本</strong>
+              <span>编译完成时会消耗 1 次造物次数，并按卡牌扣除奇迹点、增加裂隙。先读卡再决定是否值得生成，不要把输入框当免费试写区。</span>
+            </div>
+            <div class="step info">
+              <strong>2. 放置决定真实目标</strong>
+              <span>卡牌名字不决定效果，能力类型、范围和落点才决定。桥要覆盖危险地形，照明要覆盖单位下一步，屏障不能直接压在单位身上。</span>
+            </div>
+            <div class="step weird">
+              <strong>3. 有些效果立即落地</strong>
+              <span>桥、墙、力场、地形改造、冻结、抬地等会在放置时改变棋盘；持续型能力还会在后续回合继续尝试影响附近目标。</span>
+            </div>
+            <div class="step danger">
+              <strong>4. 结束回合才推进世界</strong>
+              <span>灾害、事件、持续造物、连锁、单位移动、地形伤害和新意图会依规则结算。结算后先看日志，再看下一回合箭头。</span>
+            </div>
+          </div>
+
+          <h3>卡牌字段速查</h3>
+          <table class="wide-table">
+            <thead>
+              <tr><th>字段</th><th>实际含义</th><th>判断方法</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>能力</td><td>决定卡牌能处理哪类目标，例如吸水、桥、照明、安抚、引导。</td><td>能力与当前症状不匹配时，再诗意的名字也没用。</td></tr>
+              <tr><td>范围</td><td>以落点为中心能影响的附近格或单位，不等于全图。</td><td>范围小就贴着目标放；范围大也优先覆盖路线瓶颈。</td></tr>
+              <tr><td>持续</td><td>造物保持活跃的回合数；临时地形到期后可能恢复。</td><td>远期路线用较长持续，最后一回合只看眼前是否生效。</td></tr>
+              <tr><td>消耗</td><td>生成时扣除的奇迹点。</td><td>保留足够资源给真正的必败点，不为重复功能连续付费。</td></tr>
+              <tr><td>裂隙/副作用</td><td>造物带来的长期不稳定，会进入后续机制与终局。</td><td>连续两回合用高风险牌前，先确认普通解法是否真的不够。</td></tr>
+              <tr><td>特殊行为</td><td>移动、牺牲、环境影响等额外规则。</td><td>读完整卡面与日志，不要只看能力标题。</td></tr>
+            </tbody>
+          </table>
         </section>
 
         <section id="board-rules">
@@ -1073,7 +1146,7 @@
 
           <article class="level-note">
             <h3>第 1 关：洪水村庄</h3>
-            <table>
+            <table class="wide-table">
               <thead>
                 <tr><th>阶段</th><th>具体打法</th><th>不要做</th></tr>
               </thead>
@@ -1097,7 +1170,7 @@
 
           <article class="level-note">
             <h3>第 2 关：永夜矿井</h3>
-            <table>
+            <table class="wide-table">
               <thead>
                 <tr><th>你要读什么</th><th>具体打法</th><th>危险信号</th></tr>
               </thead>
@@ -1126,7 +1199,7 @@
                 <span>只看城墙血量，不看下一回合冲锋线。城没被踩之前就要处理目标格。</span>
               </div>
             </div>
-            <table>
+            <table class="wide-table">
               <thead>
                 <tr><th>局面</th><th>推荐输入</th><th>高级机制</th></tr>
               </thead>
@@ -1140,7 +1213,7 @@
           <article class="level-note">
             <h3>第 4 关：失语战争</h3>
             <p>这一关考的是“误判管理”。你要让两名使者碰头，同时把战争值压下去。</p>
-            <table>
+            <table class="wide-table">
               <thead>
                 <tr><th>优先级</th><th>做法</th><th>解释</th></tr>
               </thead>
@@ -1166,7 +1239,7 @@
                 <span>多人混乱或出现谜题时，用认知深渊解码。解开后看单位是否获得“显路、免混乱”。</span>
               </div>
             </div>
-            <table>
+            <table class="wide-table">
               <thead>
                 <tr><th>症状</th><th>处理</th><th>复盘时看</th></tr>
               </thead>
@@ -1230,16 +1303,132 @@
 
         <section id="modes">
           <h2>长夜守城与裂隙空域</h2>
+          <p>这两段不是脱离主线的小游戏。长夜把前六关的造物和居民经历改写成防线，空域再把守夜结果与旧造物压缩成武器、航线词缀和最终结局。</p>
           <div class="two-col">
             <div class="panel-note good">
               <strong>长夜守城</strong>
-              <span>第 6 到第 7 天之间的塔防过场。它读取你的造物、居民、近期经历、熵值，生成守夜塔和三选一加成。重点是把你之前的选择变成守城资源。</span>
+              <span>守住 30 波裂隙来袭。前序造物决定可用塔与数值偏向，救援和经历决定三选一加成与因果简报。</span>
             </div>
             <div class="panel-note info">
               <strong>第七天裂隙空域</strong>
-              <span>终局 Canvas 空战。造物会武器化，Boss 航线和结局会回写主线。这里不是普通棋盘回合，而是结算你整个旅程的压力。</span>
+              <span>驾驶造物压缩成的载体，依次击败 6 段首领航线。守夜成败、居民与传说会改变生命、护盾、僚机和航线压力。</span>
             </div>
           </div>
+
+          <article id="night-watch" class="level-note">
+            <h3>长夜守城：从选塔到第 30 波</h3>
+            <div class="callout">胜利条件：基地生命大于 0，并清完第 30 波。敌人抵达路线终点会伤害基地；基地在任意波归零即失败，结果仍会写入后续空域。</div>
+
+            <h3>战前准备</h3>
+            <table class="wide-table">
+              <thead>
+                <tr><th>步骤</th><th>要看什么</th><th>决策建议</th></tr>
+              </thead>
+              <tbody>
+                <tr><td>读因果简报</td><td>哪些旧造物变成了哪些守夜塔，当前主题和防线偏向是什么。</td><td>先找单体、群攻、控制、经济是否齐全，不要只按塔名选。</td></tr>
+                <tr><td>选三选一加成</td><td>开局补给、生命、伤害、射程、折扣或每波收入。</td><td>牌组昂贵就选补给/折扣；低伤害选火力；路线弯折多可选射程。</td></tr>
+                <tr><td>组成塔池</td><td>从守夜计划提供的器械中选择 1–7 种。</td><td>推荐至少带一座廉价塔、一座减速/控制、一座范围输出；有余位再带经济塔与终局重火力。</td></tr>
+                <tr><td>确认地图</td><td>路径长度、转角、可建区域和地图倍率。</td><td>长直线适合穿透/追击，密集拐角适合范围伤害与减速叠加。</td></tr>
+              </tbody>
+            </table>
+
+            <h3>实战操作</h3>
+            <div class="three-col">
+              <div class="step good">
+                <strong>建造与选塔</strong>
+                <span>先点右侧塔牌，再点地图空格放置；点击已建塔查看升级、出售、目标优先级与主动技能。</span>
+              </div>
+              <div class="step info">
+                <strong>节奏控制</strong>
+                <span>可切换 0.5×、1×、2×、4×速度并暂停。高倍速只改变观看节奏，不改变防线规则。</span>
+              </div>
+              <div class="step weird">
+                <strong>战术图鉴</strong>
+                <span>守城主页的“图鉴”会列出全部塔的逐级数值、EX 特性、敌人血量成长、波次构成和控制抗性。</span>
+              </div>
+            </div>
+
+            <table class="wide-table">
+              <thead>
+                <tr><th>默认快捷键</th><th>作用</th><th>注意</th></tr>
+              </thead>
+              <tbody>
+                <tr><td><span class="kbd">W</span> / <span class="kbd">S</span></td><td>升级 / 出售当前选中的塔。</td><td>快捷键可在设置中重新绑定。</td></tr>
+                <tr><td><span class="kbd">Q</span> / <span class="kbd">E</span></td><td>切换当前塔的上一个 / 下一个目标优先级。</td><td>首领、快速单位与残血单位需要不同目标策略。</td></tr>
+                <tr><td><span class="kbd">1</span>–<span class="kbd">7</span></td><td>依次释放已经解锁的塔主动技能。</td><td>冷却中的技能不会触发；编号按技能栏顺序排列。</td></tr>
+              </tbody>
+            </table>
+
+            <h3>波次策略</h3>
+            <table class="wide-table">
+              <thead>
+                <tr><th>阶段</th><th>主要目标</th><th>常见失误</th></tr>
+              </thead>
+              <tbody>
+                <tr><td>1–9 波：建立经济</td><td>用廉价塔守住第一处长覆盖区，尽早形成减速 + 输出组合，保留升级资金。</td><td>把钱平均撒在全图，导致每处都打不死第一批敌人。</td></tr>
+                <tr><td>10–20 波：补齐控制</td><td>第 10/15/20 波会出现唤潮者；补范围伤害、破盾和稳定控制，并开始升级核心塔。</td><td>护盾存在时继续堆减速；护盾会免疫 debuff，应先破盾。</td></tr>
+                <tr><td>21–29 波：集中火力</td><td>强壮单位加入，第 25 波仍有唤潮者。优先把主输出升到高等级，再用增益塔覆盖同一火力区。</td><td>为每个新敌人换一套塔，忽略既有塔的 EX 质变与主动技能。</td></tr>
+                <tr><td>30 波：裂隙主核</td><td>主核单独登场，控制抗性更高。提前准备单体伤害、百分比伤害、技能冷却与完整覆盖路线。</td><td>把所有技能浪费在第 29 波，或只靠减速拖延而没有足够伤害。</td></tr>
+              </tbody>
+            </table>
+          </article>
+
+          <article id="airspace" class="level-note">
+            <h3>第七天裂隙空域：6 段首领航线</h3>
+            <p>开战前会依次回顾地面终考、长夜结果、载体成形与第七日航线，并给出 3 套由旧造物映射来的武器方案。选择时要看武器定位与来源原因：高压航线优先续航，守夜顺利且护盾充足时可以偏输出。</p>
+
+            <h3>操作与界面</h3>
+            <table class="wide-table">
+              <thead>
+                <tr><th>操作</th><th>方式</th><th>用途</th></tr>
+              </thead>
+              <tbody>
+                <tr><td>移动载体</td><td>鼠标/触摸拖动；或 <span class="kbd">WASD</span> / 方向键。</td><td>载体会平滑追随目标位置；射击自动进行，把注意力放在躲弹幕和找输出窗口。</td></tr>
+                <tr><td>造物脉冲</td><td><span class="kbd">Space</span>、<span class="kbd">Shift</span>、<span class="kbd">B</span>，或右下按钮。</td><td>清除附近危机并触发当前武器特性；按钮显示冷却秒数，默认基础冷却为 8 秒。</td></tr>
+                <tr><td>暂停</td><td><span class="kbd">Esc</span></td><td>暂停/继续。看不懂新词缀时先停下来读阶段提示。</td></tr>
+                <tr><td>生命与护盾</td><td>画面左下绿色生命条与蓝色护盾条。</td><td>伤害先扣护盾再扣生命；生命归零则空域清算失败。</td></tr>
+              </tbody>
+            </table>
+
+            <div class="three-col">
+              <div class="mechanic good">
+                <strong>护盾型脉冲</strong>
+                <span>清弹幕后补充护盾并恢复少量生命。适合陌生弹幕、守夜受损或航线压力偏高时。</span>
+              </div>
+              <div class="mechanic info">
+                <strong>僚机型脉冲</strong>
+                <span>增加临时僚机火力，最多形成 4 架僚机。适合能稳定躲弹、需要持续输出时。</span>
+              </div>
+              <div class="mechanic weird">
+                <strong>光束/重弹型脉冲</strong>
+                <span>沿载体附近清弹并伤害敌群或首领。等 Boss 与危险弹幕同线时释放，收益最高。</span>
+              </div>
+            </div>
+
+            <h3>航线威胁怎么读</h3>
+            <table class="wide-table">
+              <thead>
+                <tr><th>信号</th><th>代表什么</th><th>处理方式</th></tr>
+              </thead>
+              <tbody>
+                <tr><td>竖直预警带/棱镜线</td><td>短暂预警后整列激光生效。</td><td>预警出现就横向离开，不要等光柱变亮才移动。</td></tr>
+                <tr><td>浮雷与信标准星</td><td>靠近会引爆，或延迟锁定一片位置。</td><td>小幅持续移动，把危险留在边缘；不要在画面中央反复横跳。</td></tr>
+                <tr><td>扰频圈</td><td>进入范围会降低自动武器射速。</td><td>先击毁干扰机，或拉出圆圈后再与 Boss 对线。</td></tr>
+                <tr><td>牵引/重力环</td><td>把载体拉向中心或敌机，破坏原航线。</td><td>提前向外侧移动，保留造物脉冲清掉逼近弹幕。</td></tr>
+                <tr><td>护卫、监押盾幕、维修</td><td>护卫替 Boss 承压，或持续修复首领。</td><td>先拆护卫/维修单位；弱点窗口打开后再集中脉冲与主火力。</td></tr>
+                <tr><td>后方高速残影</td><td>自爆或相位单位从不常见方向逼近。</td><td>不要只盯屏幕上方；通讯出现近身警告时先检查机尾。</td></tr>
+              </tbody>
+            </table>
+
+            <h3>通关节奏</h3>
+            <ol>
+              <li><strong>每段开场先躲小怪。</strong>观察当前词缀和敌机类型，脉冲留给第一片真正封路的弹幕。</li>
+              <li><strong>Boss 出现后先辨认弱点条件。</strong>有护卫先清护卫，有维修先断维修，有干扰先离开干扰圈。</li>
+              <li><strong>脉冲同时做两件事。</strong>最好既清出安全通道，又命中 Boss；单纯按冷却释放会浪费终局资源。</li>
+              <li><strong>捡补给前先看路线。</strong><code>+</code> 恢复生命，<code>S</code> 补护盾，<code>*</code> 增加分数；不要为一个补给穿过密集弹幕。</li>
+              <li><strong>连续击败 6 段首领后写入世界。</strong>分数、受伤、脉冲次数、守夜回声与关键时刻会进入最终时间线档案。</li>
+            </ol>
+          </article>
         </section>
 
         <section id="save">

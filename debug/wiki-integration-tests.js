@@ -15,9 +15,11 @@ assert.ok(styles.includes('.wiki-link'), 'wiki link should be styled in the game
 
 for (const id of [
   'first-run',
+  'quick-reference',
   'worked-example',
   'screen',
   'loop',
+  'rules-glossary',
   'board-rules',
   'resources',
   'intent',
@@ -32,6 +34,8 @@ for (const id of [
   'level-plans',
   'review',
   'modes',
+  'night-watch',
+  'airspace',
   'save',
   'mistakes'
 ]) {
@@ -87,6 +91,20 @@ for (const concretePhrase of [
   '居民对话'
 ]) {
   assert.ok(wiki.includes(concretePhrase), `wiki should include concrete tutorial phrase: ${concretePhrase}`)
+}
+
+for (const endgamePhrase of [
+  '局面速查：先按症状找答案',
+  '规则与术语：卡牌到底什么时候生效',
+  '长夜守城：从选塔到第 30 波',
+  '从守夜计划提供的器械中选择 1–7 种',
+  '第七天裂隙空域：6 段首领航线',
+  'WASD',
+  '造物脉冲',
+  'Space',
+  '连续击败 6 段首领后写入世界'
+]) {
+  assert.ok(wiki.includes(endgamePhrase), `wiki should cover endgame guidance: ${endgamePhrase}`)
 }
 
 console.log('Wiki integration tests passed.')

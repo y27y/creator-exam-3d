@@ -1,1 +1,0 @@
-{"name":"冰光水母","type":"生物","ability":"illuminate","tags":["水母","发光","寒冰","驱暗"],"range":1,"duration":3,"cost":2,"stabilityCost":1,"description":"召唤一只发光冰水母，照亮周围1格范围，驱散黑暗让矿工在夜幕中正常移动。","side_effect":"冰水母每回合损失1点耐久，3回合后消失。","source":"ai"}

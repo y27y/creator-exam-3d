@@ -3,5 +3,19 @@ node_modules/
 dist/
 .DS_Store
 
+# 本地工具与缓存
+/.agents/
+/.codex/
+/.codebuddy/
+/.npm-cache/
+/.superpowers/
+
 .worktrees/
 worktrees/
+
+# 一次性调试与运行产物
+/.pr-url.txt
+/ai_*.json
+/server.*.log
+/debug/board-surface-qa/
+/debug/topbar-after.png

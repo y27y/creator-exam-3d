@@ -1,1 +1,0 @@
-{"name":"辉光水母","type":"生物","ability":"illuminate","tags":["水母","照明","生物"],"range":1,"duration":2,"cost":1,"stabilityCost":0,"description":"召唤一只会发光的水母，驱散周围1格内的黑暗，持续2回合。","side_effect":"水母无法移动，受到攻击时会立即消散。","source":"ai"}

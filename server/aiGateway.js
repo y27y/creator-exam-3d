@@ -2,7 +2,7 @@ export class AIGateway {
   constructor(options = {}) {
     this.budget = options.budget || { maxCalls: 20, remainingCalls: 20 };
     this.retries = options.retries || 1;
-    this.timeoutMs = options.timeoutMs || 12000;
+    this.timeoutMs = options.timeoutMs || 45000;
     this.provider = options.provider || null;
     this.cache = new Map();
     this.stats = {

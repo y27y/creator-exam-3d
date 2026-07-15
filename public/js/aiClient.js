@@ -10,7 +10,7 @@ import {
 
 export { ABILITY_SET };
 
-const COMPILE_TIMEOUT_MS = 20000;
+const COMPILE_TIMEOUT_MS = 60000;
 const FALLBACK_MESSAGES = {
   timeout: '云端编译超时，已改用本地规则。',
   network_error: '云端连接失败，已改用本地规则。',

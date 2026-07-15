@@ -1,0 +1,4 @@
+{
+  "$schema": "https://schema.edgeone.io/edgeone.json",
+  "outputDirectory": "public"
+}

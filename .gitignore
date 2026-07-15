@@ -19,3 +19,9 @@ worktrees/
 /server.*.log
 /debug/board-surface-qa/
 /debug/topbar-after.png
+
+# Tencent Cloud EdgeOne
+.env
+.edgeone/*
+.tef_dist/*
+  

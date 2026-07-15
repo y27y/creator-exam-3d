@@ -1077,7 +1077,7 @@ class CreatorExam3D extends GameEngine {
     });
 
     this.ui.modalPrimary.addEventListener('click', () => {
-      if (this.gameState === 'won' && this.isFinalExam() && !this.lastNightWatchResult) {
+      if (this.gameState === 'won' && this.isFinalExam()) {
         this.ui.modal.classList.add('hidden');
         this.openNightWatch();
         return;
@@ -1125,13 +1125,14 @@ class CreatorExam3D extends GameEngine {
     });
   }
 
-  showCinematic({ variant, kicker, title, text, primary = '继续', artUrl = null, progress = null, onPrimary = null, onClose = null }) {
+  showCinematic({ variant, kicker, title, text, primary = '继续', artUrl = null, progress = null, onPrimary = null, onClose = null, showSkip = true }) {
     if (this.chapterTransitionTimer) {
       window.clearTimeout(this.chapterTransitionTimer);
       this.chapterTransitionTimer = null;
     }
     this.ui.cinematic.classList.remove('chapter-transition');
     this.ui.cinematicSkip.disabled = false;
+    this.ui.cinematicSkip.hidden = !showSkip;
     this.ui.cinematicPrimary.disabled = false;
     if (this.ui.cinematic.hidden) this.cinematicWasResolving = this.isResolvingTurn;
     this.cinematicCloseAction = onClose;
@@ -1914,15 +1915,15 @@ class CreatorExam3D extends GameEngine {
       window.location.href = url.toString();
       return;
     }
+
     this.rememberFinaleReturn();
+    this.addLog(`【第七天裂隙空域】已压缩 ${context.recentCreations.length || 1} 件造物为空域载体。`, true);
 
     try {
       const response = await fetch(url.toString(), { method: 'HEAD' });
       if (response.ok) {
-        const tab = window.open(url.toString(), 'creator_exam_air_combat');
-        this.addLog(`【第七天裂隙空域】已压缩 ${context.recentCreations.length || 1} 件造物为空域载体。`, true);
-        this.showToast(tab ? '第七天裂隙空域已打开。' : '浏览器拦截了新窗口，正在当前页打开。');
-        if (!tab) window.location.href = url.toString();
+        this.showToast('正在进入第七天裂隙空域。');
+        window.location.href = url.toString();
         return;
       }
     } catch (_error) {}
@@ -1995,10 +1996,9 @@ class CreatorExam3D extends GameEngine {
     const url = new URL('./modes/tower-defense/index.html', window.location.href);
     url.searchParams.set('from', 'creator-exam');
     this.rememberFinaleReturn();
-    const tab = window.open(url.toString(), 'creator_exam_night_watch');
     this.addLog(`【长夜守城】已开启 ${context.regionTitle} 的守夜防线。`, true);
-    this.showToast(tab ? '长夜守城已打开。' : '浏览器拦截了新窗口，正在当前页打开。');
-    if (!tab) window.location.href = url.toString();
+    this.showToast('正在进入长夜守城。');
+    window.location.href = url.toString();
   }
 
   openNightWatchTestMode() {
@@ -2080,6 +2080,7 @@ class CreatorExam3D extends GameEngine {
       ].filter(Boolean).join('\n\n'),
       primary: '迎接第七日',
       artUrl: './assets/art/cg-airspace-bridge.webp',
+      showSkip: false,
       onPrimary: () => {
         this.closeCinematic();
         this.openAirCombatMode();
@@ -3915,33 +3916,32 @@ class CreatorExam3D extends GameEngine {
     }
     if (terrain === TILE.DARK || terrain === TILE.FOG) {
       const haze = new THREE.Group();
-      const lobeCount = 3;
-      const lobeMaterialA = this.material(style.color, {
-        roughness: 0.68,
-        flatShading: true,
-        emissive: style.emissive || style.secondary,
-        emissiveIntensity: style.emissiveIntensity || 0.14
-      });
-      const lobeOffsets = [[-0.18, -0.015], [0.01, 0.035], [0.19, -0.025]];
-      for (let index = 0; index < lobeCount; index += 1) {
-        const radius = terrain === TILE.DARK
-          ? [0.11, 0.14, 0.115][index]
-          : [0.15, 0.19, 0.16][index];
-        const lobe = new THREE.Mesh(
-          this.getCachedGeometry(`terrain-${terrain}-lobe-v5-${index % 3}`, () => new THREE.SphereGeometry(radius, 10, 7)),
-          lobeMaterialA
-        );
-        const [offsetX, offsetZ] = lobeOffsets[index];
-        lobe.position.set(offsetX, terrain === TILE.DARK ? [0.12, 0.15, 0.115][index] : [0.14, 0.18, 0.135][index], offsetZ);
-        lobe.scale.set(
-          terrain === TILE.DARK ? [1, 1.12, 1.02][index] : [1.05, 1.15, 1.05][index],
-          terrain === TILE.DARK ? [0.75, 0.82, 0.72][index] : [0.75, 0.85, 0.72][index],
-          terrain === TILE.DARK ? [0.9, 1, 0.88][index] : [0.95, 1.05, 0.92][index]
-        );
-        lobe.rotation.set(0, (index - 1) * 0.1, (index - 1) * 0.025);
-        lobe.userData.decorative = true;
-        haze.add(lobe);
-      }
+      const lobeCount = 1;
+      // FOG 使用体积雾 shader（Fresnel 边缘衰减 + 3D 噪声团簇 + 时间动画），
+      // DARK 保留原有 PBR 半透明球（黑暗块视觉强调实体压迫感，不需要雾感）。
+      const isFog = terrain === TILE.FOG;
+      const lobeMaterialA = isFog
+        ? this.createFogVolumeMaterial(style.color, style.emissive || style.secondary)
+        : this.material(style.color, {
+          roughness: 0.68,
+          flatShading: false,
+          emissive: style.emissive || style.secondary,
+          emissiveIntensity: style.emissiveIntensity || 0.14,
+          transparent: true,
+          opacity: 0.85,
+          depthWrite: false
+        });
+      const radius = 0.65;
+      const lobe = new THREE.Mesh(
+        this.getCachedGeometry(`terrain-${terrain}-lobe-v10-center-smooth`, () => new THREE.SphereGeometry(radius, 64, 40)),
+        lobeMaterialA
+      );
+      lobe.position.set(0, 0.29, 0);
+      lobe.scale.set(1, 0.82, 0.95);
+      lobe.userData.decorative = true;
+      // 标记雾球以便 animate 循环驱动 uTime
+      if (isFog) lobe.userData.fogVolume = true;
+      haze.add(lobe);
       haze.position.set(pos.x, 0.01, pos.z);
       haze.rotation.y = (x * 0.31 + y * 0.19) % 0.48 - 0.24;
       haze.userData.decorative = true;
@@ -8113,6 +8113,150 @@ class CreatorExam3D extends GameEngine {
     return material;
   }
 
+  // 体积雾材质：基于 MeshStandardMaterial 通过 onBeforeCompile 注入
+  // 1) Fresnel 边缘衰减 — 中心浓、边缘自然消散
+  // 2) 3D 噪声密度场 — 团块翻滚不均匀，非塑料感
+  // 3) 时间动画 — 缓慢漂移
+  // 注入完成后通过 userData.fogUniforms 暴露时间 uniform，供 animate() 更新
+  createFogVolumeMaterial(baseColor, emissiveColor) {
+    const cacheKey = `fog-volume-mat-${baseColor}-${emissiveColor}`;
+    if (this.materials.has(cacheKey)) return this.materials.get(cacheKey);
+
+    const mat = new THREE.MeshStandardMaterial({
+      color: baseColor,
+      transparent: true,
+      opacity: 1.0,
+      depthWrite: false,
+      roughness: 1.0,
+      metalness: 0.0,
+      emissive: emissiveColor,
+      emissiveIntensity: 0.18,
+      side: THREE.DoubleSide
+    });
+
+    const uniforms = {
+      uTime: { value: 0.0 },
+      uDensity: { value: 1.6 },
+      uEdgeSoft: { value: 3.5 }
+    };
+
+    mat.onBeforeCompile = (shader) => {
+      shader.uniforms.uTime = uniforms.uTime;
+      shader.uniforms.uDensity = uniforms.uDensity;
+      shader.uniforms.uEdgeSoft = uniforms.uEdgeSoft;
+
+      // 顶点着色器：传递世界位置与法线给片元做 3D 噪声与 Fresnel
+      shader.vertexShader = shader.vertexShader
+        .replace('#include <common>', `
+          #include <common>
+          varying vec3 vWorldPos;
+          varying vec3 vWorldNormal;
+        `)
+        .replace('#include <begin_vertex>', `
+          #include <begin_vertex>
+          vWorldPos = (modelMatrix * vec4(position, 1.0)).xyz;
+          vWorldNormal = normalize(mat3(modelMatrix) * normal);
+        `);
+
+      // 片元着色器：注入 3D 噪声 + Fresnel 边缘衰减
+      shader.fragmentShader = shader.fragmentShader
+        .replace('#include <common>', `
+          #include <common>
+          uniform float uTime;
+          uniform float uDensity;
+          uniform float uEdgeSoft;
+          varying vec3 vWorldPos;
+          varying vec3 vWorldNormal;
+
+          // 经典 3D Simplex 噪声 — Ashima Arts / Stefan Gustavson
+          vec3 mod289(vec3 x){return x-floor(x*(1.0/289.0))*289.0;}
+          vec4 mod289(vec4 x){return x-floor(x*(1.0/289.0))*289.0;}
+          vec4 permute(vec4 x){return mod289(((x*34.0)+1.0)*x);}
+          vec4 taylorInvSqrt(vec4 r){return 1.79284291400159-0.85373472095314*r;}
+          float snoise(vec3 v){
+            const vec2 C=vec2(1.0/6.0,1.0/3.0);
+            const vec4 D=vec4(0.0,0.5,1.0,2.0);
+            vec3 i=floor(v+dot(v,C.yyy));
+            vec3 x0=v-i+dot(i,C.xxx);
+            vec3 g=step(x0.yzx,x0.xyz);
+            vec3 l=1.0-g;
+            vec3 i1=min(g.xyz,l.zxy);
+            vec3 i2=max(g.xyz,l.zxy);
+            vec3 x1=x0-i1+C.xxx;
+            vec3 x2=x0-i2+C.yyy;
+            vec3 x3=x0-D.yyy;
+            i=mod289(i);
+            vec4 p=permute(permute(permute(
+              i.z+vec4(0.0,i1.z,i2.z,1.0))
+              +i.y+vec4(0.0,i1.y,i2.y,1.0))
+              +i.x+vec4(0.0,i1.x,i2.x,1.0));
+            float n_=0.142857142857;
+            vec3 ns=n_*D.wyz-D.xzx;
+            vec4 j=p-49.0*floor(p*ns.z*ns.z);
+            vec4 x_=floor(j*ns.z);
+            vec4 y_=floor(j-7.0*x_);
+            vec4 x=x_*ns.x+ns.yyyy;
+            vec4 y=y_*ns.x+ns.yyyy;
+            vec4 h=1.0-abs(x)-abs(y);
+            vec4 b0=vec4(x.xy,y.xy);
+            vec4 b1=vec4(x.zw,y.zw);
+            vec4 s0=floor(b0)*2.0+1.0;
+            vec4 s1=floor(b1)*2.0+1.0;
+            vec4 sh=-step(h,vec4(0.0));
+            vec4 a0=b0.xzyw+s0.xzyw*sh.xxyy;
+            vec4 a1=b1.xzyw+s1.xzyw*sh.zzww;
+            vec3 p0=vec3(a0.xy,h.x);
+            vec3 p1=vec3(a0.zw,h.y);
+            vec3 p2=vec3(a1.xy,h.z);
+            vec3 p3=vec3(a1.zw,h.w);
+            vec4 norm=taylorInvSqrt(vec4(dot(p0,p0),dot(p1,p1),dot(p2,p2),dot(p3,p3)));
+            p0*=norm.x;p1*=norm.y;p2*=norm.z;p3*=norm.w;
+            vec4 m=max(0.6-vec4(dot(x0,x0),dot(x1,x1),dot(x2,x2),dot(x3,x3)),0.0);
+            m=m*m;
+            return 42.0*dot(m*m,vec4(dot(p0,x0),dot(p1,x1),dot(p2,x2),dot(p3,x3)));
+          }
+
+          // 分形布朗运动 — 多层噪声叠加形成团簇感
+          float fbm(vec3 p) {
+            float v = 0.0;
+            float a = 0.5;
+            for (int i = 0; i < 4; i++) {
+              v += a * snoise(p);
+              p *= 2.0;
+              a *= 0.5;
+            }
+            return v;
+          }
+        `)
+        .replace('#include <alphamap_fragment>', `
+          #include <alphamap_fragment>
+
+          // Fresnel 边缘保留：用较高指数让边缘只做轻微软化，
+          // 保留清晰的球形轮廓，只在极边缘处略淡，不消散。
+          vec3 viewDir = normalize(cameraPosition - vWorldPos);
+          float fresnel = 1.0 - max(dot(normalize(vWorldNormal), viewDir), 0.0);
+          float edgeFade = 1.0 - pow(fresnel, uEdgeSoft) * 0.35;
+
+          // 3D 噪声密度场：以世界坐标 × 低频采样 + 时间偏移做翻滚
+          vec3 noiseCoord = vWorldPos * 2.6 + vec3(0.0, uTime * 0.06, uTime * 0.04);
+          float density = fbm(noiseCoord);
+          // 将噪声 [-1,1] 映射为 [0,1]，密度强化保留团簇感但不压低整体浓度
+          float densityMask = smoothstep(-0.35, 0.55, density);
+
+          // 最终 alpha：基础透明度 × 边缘保留 × 噪声团簇（最低 0.55 保证不漏空）× 密度
+          float fogAlpha = diffuseColor.a * edgeFade * mix(0.55, 1.0, densityMask) * uDensity;
+          diffuseColor.a = clamp(fogAlpha, 0.0, 1.0);
+
+          // 中心浓密处略增发光，团块有微光感
+          diffuseColor.rgb += emissive * densityMask * 0.15;
+        `);
+    };
+
+    mat.userData.fogUniforms = uniforms;
+    this.materials.set(cacheKey, mat);
+    return mat;
+  }
+
   getTerrainMaterial(terrain) {
     const style = getTerrainVisualStyle(this.activeBoardThemeId, terrain);
     const options = {
@@ -8546,6 +8690,14 @@ class CreatorExam3D extends GameEngine {
       if (child.type === 'Group' && child.children.length > 0) {
         const hasCore = child.children.some((item) => item.geometry?.type === 'IcosahedronGeometry');
         if (hasCore) child.rotation.y = Math.sin(t * 0.8) * 0.08;
+      }
+      // 驱动体积雾球：递归遍历寻找带 fogVolume 标记的 mesh，更新 shader 的 uTime
+      if (child.userData?.fogVolume !== true) {
+        child.traverse((node) => {
+          if (node.userData?.fogVolume && node.material?.userData?.fogUniforms) {
+            node.material.userData.fogUniforms.uTime.value = t;
+          }
+        });
       }
     }
 

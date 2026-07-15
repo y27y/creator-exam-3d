@@ -111,9 +111,4 @@ const darkVisualStart = gameSource.indexOf('    if (terrain === TILE.DARK) {', f
 const fogVisualBlock = gameSource.slice(fogVisualStart, darkVisualStart)
 assert.ok(!fogVisualBlock.includes('transparent: true'), 'fog wisps should be opaque')
 
-const hazeMarkerStart = gameSource.indexOf('    if (terrain === TILE.DARK || terrain === TILE.FOG) {')
-const hazeMarkerEnd = gameSource.indexOf('      return haze;', hazeMarkerStart)
-const hazeMarkerBlock = gameSource.slice(hazeMarkerStart, hazeMarkerEnd)
-assert.ok(!hazeMarkerBlock.includes('transparent: true'), 'fog and darkness volume layers should be opaque')
-
 console.log('Board visual theme tests passed (6 image-2 surfaces, procedural fallback, 17 terrain forms).')
